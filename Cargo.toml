@@ -1,0 +1,10 @@
+[package]
+name = "turn-craft"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[lib]
+name = "platform_core"
+path = "platform_core/lib.rs"
