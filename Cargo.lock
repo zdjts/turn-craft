@@ -3,5 +3,9 @@
 version = 4
 
 [[package]]
-name = "turn-craft"
+name = "backend"
+version = "0.1.0"
+
+[[package]]
+name = "platform_core"
 version = "0.1.0"
