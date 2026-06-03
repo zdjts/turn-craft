@@ -1,3 +1,5 @@
+use crate::games::lincoln::DebatRole;
+
 #[derive(Debug, Clone)]
 pub enum ActionKind {
     Ai,
@@ -34,13 +36,10 @@ impl<R: GameRole, A: GameAction> RoomState<R, A> {
         self.actors.iter().find(|&x| x.id == *actor_id)
     }
 }
-pub enum NextStep {
-    Continue,
-    Over,
-}
 
 pub trait Playable<R: GameRole, A: GameAction> {
     fn validata_action(&self, state: &RoomState<R, A>, action: &A) -> bool;
     fn apply_action(&mut self, state: &mut RoomState<R, A>, action: A);
-    fn check_next_step(&self) -> NextStep;
+    fn get_next_role(&self) -> R;
+    fn set_next_role(&mut self);
 }
