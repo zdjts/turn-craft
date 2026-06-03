@@ -25,10 +25,10 @@ impl Debug for Peer {
 }
 pub struct RoomHandle {
     pub room_id: String,
-    pub tx: mpsc::Sender<RoomCommand>,
+    pub tx: mpsc::Sender<String>,
 }
 pub struct RoomManager {
-    rooms: Arc<RwLock<HashMap<String, RoomManager>>>,
+    rooms: Arc<RwLock<HashMap<String, RoomHandle>>>,
 }
 
 impl RoomManager {
@@ -37,11 +37,7 @@ impl RoomManager {
             rooms: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    pub async fn register(
-        &self,
-        room_id: String,
-        tx: mpsc::Sender<RoomCommand>,
-    ) -> Result<(), String> {
+    pub async fn register(&self, room_id: String, tx: mpsc::Sender<String>) -> Result<(), String> {
         let mut rooms = self.rooms.write().await;
         if rooms.contains_key(&room_id) {
             return Err(format!("房间 {room_id} 已经存在"));
