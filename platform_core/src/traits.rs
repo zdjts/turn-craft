@@ -1,13 +1,38 @@
-use crate::games::lincoln::DebatRole;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum ActionKind {
     Ai,
     Human,
 }
+pub trait Payload: Send + 'static {}
 
-pub trait GameRole: Clone + Send + Sync {}
-pub trait GameAction: Send + Sync {}
+/// # 游戏状态机副作用事件
+///
+/// 引擎 `step` 计算完毕后向外吐出的“待办事项清单”。
+/// 通用房间容器（Container）通过消费此队列，来代为执行网络 IO 或线程隔离。
+pub enum GameEvent<R: GameRole, P: Payload> {
+    /// 全场纯文本广播（如玩家发言、公共牌翻开）
+    Broadcast(String),
+
+    /// 触发 AI 决策。容器拦截后会把快照打包扔给后台 AI 线程池，避免大模型请求卡死房间循环
+    TriggerAi(String),
+
+    /// 游戏达到结束条件。容器收到后会通知全场并退出 Actor 循环，平稳回收房间内存
+    GameOver,
+
+    /// 游戏特化高级业务载荷。通用外壳看不懂（如德州筹码变更），但会自动将其转为 JSON 广播给特定前端
+    Custom(P),
+
+    /// 战争迷雾定向单播。容器会根据 `role` 找到对应的 `actor_id` 进行精准网络单播（如发底牌）
+    NotifyRole {
+        /// 接收数据的目标游戏角色
+        role: R,
+        /// 针对该角色特化序列化后的字符串载荷
+        payload: String,
+    },
+}
+
+pub trait GameRole: serde::Serialize + Clone + Send + Sync + Eq + PartialEq {}
+pub trait GameAction: serde::Serialize + Send + Sync + std::fmt::Debug {}
 
 // pub #[derive(Debug)]
 pub struct Actor<R: GameRole> {
@@ -37,9 +62,11 @@ impl<R: GameRole, A: GameAction> RoomState<R, A> {
     }
 }
 
-pub trait Playable<R: GameRole, A: GameAction> {
-    fn validata_action(&self, state: &RoomState<R, A>, action: &A) -> bool;
-    fn apply_action(&mut self, state: &mut RoomState<R, A>, action: A);
-    fn get_next_role(&self) -> R;
-    fn set_next_role(&mut self);
+pub trait Playable<R: GameRole, A: GameAction, P: Payload, E: std::fmt::Debug>:
+    Send + Sync + 'static
+{
+    fn parse_action(&self, raw_content: &str) -> Result<A, E>;
+    fn step(&mut self, state: &mut RoomState<R, A>, action: A) -> Result<Vec<GameEvent<R, P>>, E>;
+    // type Snapshot: serde::Serialize + std::fmt::Debug;
+    fn get_snapshot(&self, state: &RoomState<R, A>, role: &R) -> String;
 }

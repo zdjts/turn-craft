@@ -1,5 +1,9 @@
-use crate::traits::{GameAction, GameRole, Playable, RoomState};
-#[derive(Clone, PartialEq, Eq, Debug, Copy)]
+use std::fmt::Debug;
+
+use serde::{Deserialize, Serialize};
+
+use crate::traits::{ActionKind, GameAction, GameEvent, GameRole, Payload, Playable, RoomState};
+#[derive(Clone, PartialEq, Eq, Debug, Copy, Serialize)]
 pub enum DebatRole {
     Pro,
     Con,
@@ -8,7 +12,7 @@ pub enum DebatRole {
 }
 impl GameRole for DebatRole {}
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DebatAction {
     Speech { action_id: String, content: String },
 }
@@ -21,57 +25,91 @@ pub struct LincolnGame {
     pub round: usize,
     pub cur_role: DebatRole,
 }
-impl Playable<DebatRole, DebatAction> for LincolnGame {
-    fn set_next_role(&mut self) {
-        if (self.cur_role == DebatRole::Pro || self.cur_role == DebatRole::Con)
-            && self.round >= self.max_round
-        {
-            self.cur_role = DebatRole::Judge;
-            return;
-        }
-        self.cur_role = match self.cur_role {
-            DebatRole::Pro => DebatRole::Con,
-            DebatRole::Con => DebatRole::Pro,
-            _ => DebatRole::Over,
-        }
-    }
-    fn validata_action(&self, state: &DebatRoomState, action: &DebatAction) -> bool {
-        let DebatAction::Speech { action_id, .. } = action;
-        if let Some(actor) = state.find_actor(action_id) {
-            if actor.role == self.cur_role {
-                return true;
-            }
-        }
-        false
+pub enum LincolnPayload {}
+impl Payload for LincolnPayload {}
+#[derive(Debug)]
+pub enum LincolnErr {
+    NotYourTurn,
+    EmptyContent,
+    NotActor,
+    InvalidProtocol,
+    SpeechTooLong { max: usize, current: usize },
+}
+
+#[derive(serde::Serialize, Debug)]
+pub struct LincolnSnapshot {
+    pub cur_role: DebatRole,
+    pub round: usize,
+    pub max_round: usize,
+    pub history_logs: Vec<String>,
+}
+
+impl Playable<DebatRole, DebatAction, LincolnPayload, LincolnErr> for LincolnGame {
+    fn parse_action(&self, raw_content: &str) -> Result<DebatAction, LincolnErr> {
+        serde_json::from_str(raw_content).map_err(|_| LincolnErr::InvalidProtocol)
     }
 
-    fn apply_action(&mut self, state: &mut DebatRoomState, action: DebatAction) {
-        if state.history.len() >= self.max_round {
-            self.cur_role = DebatRole::Judge;
-            return;
-        }
-        match self.cur_role {
-            DebatRole::Pro => self.cur_role = DebatRole::Con,
-            DebatRole::Con => self.cur_role = DebatRole::Pro,
-            _ => {}
+    fn step(
+        &mut self,
+        state: &mut RoomState<DebatRole, DebatAction>,
+        action: DebatAction,
+    ) -> Result<Vec<crate::traits::GameEvent<DebatRole, LincolnPayload>>, LincolnErr> {
+        let DebatAction::Speech { action_id, content } = action.clone();
+        let Some(actor) = state.find_actor(&action_id) else {
+            return Err(LincolnErr::NotActor);
+        };
+        if actor.role != self.cur_role {
+            return Err(LincolnErr::NotYourTurn);
         }
         state.history.push(action);
         self.round += 1;
+        if self.round >= self.max_round {
+            self.cur_role = DebatRole::Judge;
+        } else {
+            self.cur_role = match self.cur_role {
+                DebatRole::Pro => DebatRole::Con,
+                DebatRole::Con => DebatRole::Pro,
+                _ => DebatRole::Over,
+            };
+        }
+        let mut events = Vec::new();
 
-        todo!()
+        events.push(GameEvent::Broadcast(format!("{}: {}", action_id, content)));
+
+        if let Some(next_actor) = state.actors.iter().find(|a| a.role == self.cur_role) {
+            if matches!(next_actor.kind, ActionKind::Ai) {
+                events.push(GameEvent::TriggerAi(next_actor.id.clone()));
+            }
+        }
+
+        if self.cur_role == DebatRole::Over {
+            events.push(GameEvent::GameOver);
+        }
+
+        Ok(events)
     }
 
-    fn get_next_role(&self) -> DebatRole {
-        if (self.cur_role == DebatRole::Pro || self.cur_role == DebatRole::Con)
-            && self.round >= self.max_round
-        {
-            return DebatRole::Judge;
-        }
+    fn get_snapshot(
+        &self,
+        state: &RoomState<DebatRole, DebatAction>,
+        _role: &DebatRole, // 林肯辩论全公开，所以当前视角 role 暂时用不上，用下划线忽略警告
+    ) -> String {
+        let history_logs: Vec<String> = state
+            .history
+            .iter()
+            .map(|action| {
+                let DebatAction::Speech { action_id, content } = action;
+                format!("{}: {}", action_id, content)
+            })
+            .collect();
 
-        match self.cur_role {
-            DebatRole::Pro => DebatRole::Con,
-            DebatRole::Con => DebatRole::Pro,
-            _ => DebatRole::Over,
-        }
+        let snapshot = LincolnSnapshot {
+            cur_role: self.cur_role,
+            round: self.round,
+            max_round: self.max_round,
+            history_logs,
+        };
+
+        serde_json::to_string(&snapshot).unwrap()
     }
 }
