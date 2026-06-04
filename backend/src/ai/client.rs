@@ -1,0 +1,79 @@
+use std::time::Instant;
+
+use reqwest::Client;
+use tracing::{debug, error, info};
+
+use crate::ai::env::build_messages;
+
+use super::env::AiConfig;
+pub enum AiClientError {
+    Http(reqwest::Error),
+    Parse(String),
+}
+impl From<reqwest::Error> for AiClientError {
+    fn from(e: reqwest::Error) -> Self {
+        AiClientError::Http(e)
+    }
+}
+pub async fn request_speech(
+    http: &Client,
+    config: &AiConfig,
+    messages: String,
+) -> Result<String, AiClientError> {
+    let message_count = messages.len();
+    let body = serde_json::json!({
+        "model": config.model,
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": config.max_tokens,
+    });
+    let start = Instant::now();
+
+    let raw_response = http
+        .post(format!("{}/chat/completions", config.base_url))
+        .bearer_auth(&config.api_key)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| {
+            error!(error=%e, "AI Http请求失败");
+            e
+        })?;
+    let status = raw_response.status();
+    let elapsed_ms = start.elapsed().as_micros();
+
+    debug!(status=%status,elapsed_ms = %elapsed_ms, "收到 Ai 相应");
+    if !status.is_success() {
+        let body_text = raw_response.text().await.unwrap_or_default();
+        error!(
+            status = %status,
+            body = %body_text,
+            elapsed_ms = elapsed_ms,
+            "AI 接口返回非 2xx 状态码"
+        );
+        return Err(AiClientError::Parse(format!("HTTP {status}: {body_text}")));
+    }
+    // 在声明时指定类型
+    let response: serde_json::Value = raw_response.json().await.map_err(|e| {
+        error!(error = %e, "AI 响应 JSON 解析失败");
+        e
+    })?;
+    let content = response
+        .get("choices")
+        .and_then(|c| c.get(0))
+        .and_then(|c| c.get("message"))
+        .and_then(|m| m.get("content"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .ok_or_else(|| {
+            let raw = response.to_string();
+            error!(body = %raw, "响应格式异常，无法提取 content");
+            AiClientError::Parse(format!("响应格式异常: {raw}"))
+        })?;
+    info!(
+        elapsed_ms = %elapsed_ms,
+        content_len = content.len(),
+        "AI 响应解析成功"
+    );
+    Ok(content)
+}
