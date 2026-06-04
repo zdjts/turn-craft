@@ -1,9 +1,11 @@
 use std::env;
+#[derive(Clone)]
 pub struct AiConfig {
     pub api_key: String,
     pub base_url: String,
     pub model: String,
     pub max_tokens: u32,
+    pub prompt: String,
 }
 impl AiConfig {
     pub fn from_env(path: Option<&str>) -> Result<Self, String> {
@@ -45,27 +47,24 @@ impl AiConfig {
             base_url,
             model,
             max_tokens,
+            prompt: "".to_string(),
         })
     }
     pub fn get_env(&self, key: &str) -> Result<String, String> {
         env::var(key).map_err(|e| format!("缺少环境变量: {}", e))
     }
 }
-pub fn build_messages(
-    config: &AiConfig,
-    env_name: &str,
-    snapshot_json: String,
-) -> Result<String, String> {
-    let promat = config.get_env(env_name)?;
+pub fn build_messages(config: &AiConfig, snapshot_json: String) -> String {
+    let prompt = config.prompt.clone();
     let messages = serde_json::json!([
         {
             "role": "system",
-            "content": promat,
+            "content": prompt,
         },
         {
             "role": "user",
             "content": snapshot_json,
         }
     ]);
-    Ok(messages.to_string())
+    messages.to_string()
 }

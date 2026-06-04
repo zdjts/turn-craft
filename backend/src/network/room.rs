@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
 use platform_core::{
     // games::lincoln::{self, DebatAction, DebatRole, DebatRoomState, LincolnPayload},
@@ -6,6 +6,8 @@ use platform_core::{
 };
 use tokio::sync::mpsc::{self};
 use tracing::{error, info, warn};
+
+use crate::ai::env::AiConfig;
 
 use super::manager::Peer;
 
@@ -21,6 +23,7 @@ pub struct AiTask {
     pub actor_id: String,
     pub snapshot: String,
     pub reply_tx: mpsc::Sender<RoomCommand>,
+    pub ai_config: AiConfig,
 }
 
 pub struct Room<R: GameRole, A: GameAction, P: Payload, E: Debug> {
@@ -28,6 +31,7 @@ pub struct Room<R: GameRole, A: GameAction, P: Payload, E: Debug> {
     pub engine: Box<dyn Playable<R, A, P, E>>,
     pub state: RoomState<R, A>,
     pub peers: Vec<Peer>,
+    pub ai_configs: HashMap<String, AiConfig>,
     pub _marker: PhantomData<E>,
 }
 
@@ -54,6 +58,7 @@ where
             engine,
             state,
             peers: Vec::new(),
+            ai_configs: HashMap::new(),
             _marker: PhantomData,
         };
 
@@ -135,12 +140,18 @@ where
                                     let snapshot = room.engine.get_snapshot(&room.state, &role);
 
                                     info!(room_id = %room_id, ai_actor_id = %next_actor_id, "自动触发：开始向 AI 总线派发任务");
+                                    let ai_config = match room.ai_configs.get(&actor_id) {
+                                        Some(c) => c.clone(),
+                                        None => AiConfig::from_env(None).unwrap(),
+                                    };
+                                    room.ai_configs.insert(actor_id.clone(), ai_config.clone());
 
                                     let task = AiTask {
                                         room_id: room_id.clone(),
                                         actor_id: next_actor_id,
                                         snapshot,
                                         reply_tx: room_tx.clone(),
+                                        ai_config,
                                     };
 
                                     if let Err(e) = ai_sender.send(task).await {

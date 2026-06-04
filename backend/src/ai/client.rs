@@ -6,6 +6,7 @@ use tracing::{debug, error, info};
 use crate::ai::env::build_messages;
 
 use super::env::AiConfig;
+#[derive(Debug)]
 pub enum AiClientError {
     Http(reqwest::Error),
     Parse(String),
