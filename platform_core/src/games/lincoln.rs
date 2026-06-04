@@ -25,6 +25,7 @@ pub struct LincolnGame {
     pub round: usize,
     pub cur_role: DebatRole,
 }
+#[derive(Serialize)]
 pub enum LincolnPayload {}
 impl Payload for LincolnPayload {}
 #[derive(Debug)]
@@ -62,15 +63,22 @@ impl Playable<DebatRole, DebatAction, LincolnPayload, LincolnErr> for LincolnGam
             return Err(LincolnErr::NotYourTurn);
         }
         state.history.push(action);
-        self.round += 1;
-        if self.round >= self.max_round {
-            self.cur_role = DebatRole::Judge;
-        } else {
-            self.cur_role = match self.cur_role {
-                DebatRole::Pro => DebatRole::Con,
-                DebatRole::Con => DebatRole::Pro,
-                _ => DebatRole::Over,
-            };
+        match self.cur_role {
+            DebatRole::Pro | DebatRole::Con => {
+                self.round += 1;
+                if self.round >= self.max_round {
+                    self.cur_role = DebatRole::Judge;
+                } else {
+                    self.cur_role = match self.cur_role {
+                        DebatRole::Pro => DebatRole::Con,
+                        _ => DebatRole::Pro,
+                    };
+                }
+            }
+            DebatRole::Judge => {
+                self.cur_role = DebatRole::Over;
+            }
+            _ => {}
         }
         let mut events = Vec::new();
 

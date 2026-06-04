@@ -1,10 +1,10 @@
+use serde::Serialize;
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum ActionKind {
     Ai,
     Human,
 }
-pub trait Payload: Send + 'static {}
-
+pub trait Payload: Serialize + Send + 'static {}
 /// # 游戏状态机副作用事件
 ///
 /// 引擎 `step` 计算完毕后向外吐出的“待办事项清单”。

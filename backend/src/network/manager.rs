@@ -1,13 +1,6 @@
-use std::{
-    collections::HashMap,
-    fmt::{Debug, format},
-    sync::Arc,
-};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
-use tokio::{
-    runtime::Handle,
-    sync::{self, RwLock, mpsc},
-};
+use tokio::sync::{self, RwLock, mpsc};
 
 use super::room::RoomCommand;
 
@@ -25,7 +18,7 @@ impl Debug for Peer {
 }
 pub struct RoomHandle {
     pub room_id: String,
-    pub tx: mpsc::Sender<String>,
+    pub tx: mpsc::Sender<RoomCommand>,
 }
 pub struct RoomManager {
     rooms: Arc<RwLock<HashMap<String, RoomHandle>>>,
@@ -37,7 +30,11 @@ impl RoomManager {
             rooms: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    pub async fn register(&self, room_id: String, tx: mpsc::Sender<String>) -> Result<(), String> {
+    pub async fn register(
+        &self,
+        room_id: String,
+        tx: mpsc::Sender<RoomCommand>,
+    ) -> Result<(), String> {
         let mut rooms = self.rooms.write().await;
         if rooms.contains_key(&room_id) {
             return Err(format!("房间 {room_id} 已经存在"));

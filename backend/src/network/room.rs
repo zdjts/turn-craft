@@ -154,7 +154,20 @@ where
                                     let _ = p.tx.send("game_over".to_string());
                                 }
                             }
-                            GameEvent::Custom(_) => {}
+                            GameEvent::Custom(custom_payload) => {
+                                match serde_json::to_string(&custom_payload) {
+                                    Ok(payload_json) => {
+                                        tracing::debug!(target: "room::custom", json = %payload_json, "分发具体游戏的高洁操作");
+                                        let ws_package = format!("custom_event:{}", payload_json);
+                                        for p in &room.peers {
+                                            let _ = p.tx.send(ws_package.clone());
+                                        }
+                                    }
+                                    Err(e) => {
+                                        error!(error = ?e, "自定义 Payload 序列化失败！");
+                                    }
+                                }
+                            }
                             GameEvent::NotifyRole { role, payload } => {
                                 // 通知特定角色
                                 for p in &room.peers {
