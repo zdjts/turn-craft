@@ -1,6 +1,7 @@
 [workspace]
-resolver = "2"
 members = [
-    "platform_core",
     "backend",
+    "front",
+    "platform_core", "front",
 ]
+resolver = "2"
