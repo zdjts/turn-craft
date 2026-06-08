@@ -42,8 +42,8 @@ pub struct Actor<R: GameRole> {
 }
 
 pub struct RoomState<R: GameRole, A: GameAction> {
-    room_id: String,
-    game_type: String,
+    pub room_id: String,
+    pub game_type: String,
     pub actors: Vec<Actor<R>>,
     pub history: Vec<A>,
 }
@@ -65,7 +65,7 @@ impl<R: GameRole, A: GameAction> RoomState<R, A> {
 pub trait Playable<R: GameRole, A: GameAction, P: Payload, E: std::fmt::Debug>:
     Send + Sync + 'static
 {
-    fn parse_action(&self, raw_content: &str) -> Result<A, E>;
+    fn parse_action(&self, actor_id: &str, raw_content: &str) -> Result<A, E>;
     fn step(&mut self, state: &mut RoomState<R, A>, action: A) -> Result<Vec<GameEvent<R, P>>, E>;
     // type Snapshot: serde::Serialize + std::fmt::Debug;
     fn get_snapshot(&self, state: &RoomState<R, A>, role: &R) -> String;

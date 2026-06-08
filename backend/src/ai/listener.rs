@@ -1,4 +1,3 @@
-use std::sync::mpsc;
 
 use reqwest::Client;
 use tracing::error;
@@ -8,10 +7,7 @@ use crate::{
     network::room::{AiTask, RoomCommand},
 };
 
-use super::{
-    client::AiClientError,
-    env::{AiConfig, build_messages},
-};
+use super::env::build_messages;
 pub struct AiWorker {
     http_client: Client,
 }

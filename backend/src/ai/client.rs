@@ -1,9 +1,9 @@
 use std::time::Instant;
 
 use reqwest::Client;
+use serde_json::Value;
 use tracing::{debug, error, info};
 
-use crate::ai::env::build_messages;
 
 use super::env::AiConfig;
 #[derive(Debug)]
@@ -21,13 +21,23 @@ pub async fn request_speech(
     config: &AiConfig,
     messages: String,
 ) -> Result<String, AiClientError> {
-    let message_count = messages.len();
+    let messages_json: Value = serde_json::from_str(&messages).map_err(|e| {
+        error!(error = %e, "入参 messages 字符串解析为 JSON 失败");
+        AiClientError::Parse(format!("入参格式错误: {e}"))
+    })?;
+
     let body = serde_json::json!({
         "model": config.model,
-        "messages": messages,
+        "messages": messages_json, // ✨ 【核心修复】：传入解析后的 JSON 对象，不再是带有转义的 String
         "temperature": 0.7,
         "max_tokens": config.max_tokens,
     });
+    // let body = serde_json::json!({
+    //     "model": config.model,
+    //     "messages": messages,
+    //     "temperature": 0.7,
+    //     "max_tokens": config.max_tokens,
+    // });
     let start = Instant::now();
 
     let raw_response = http

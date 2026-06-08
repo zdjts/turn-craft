@@ -1,6 +1,7 @@
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 
-use tokio::sync::{self, RwLock, mpsc};
+use dashmap::DashMap;
+use tokio::sync::{self, mpsc};
 
 use super::room::RoomCommand;
 
@@ -21,13 +22,13 @@ pub struct RoomHandle {
     pub tx: mpsc::Sender<RoomCommand>,
 }
 pub struct RoomManager {
-    rooms: Arc<RwLock<HashMap<String, RoomHandle>>>,
+    pub rooms: Arc<DashMap<String, RoomHandle>>,
 }
 
 impl RoomManager {
     pub fn new() -> Self {
         Self {
-            rooms: Arc::new(RwLock::new(HashMap::new())),
+            rooms: Arc::new(DashMap::new()),
         }
     }
     pub async fn register(
@@ -35,11 +36,12 @@ impl RoomManager {
         room_id: String,
         tx: mpsc::Sender<RoomCommand>,
     ) -> Result<(), String> {
-        let mut rooms = self.rooms.write().await;
-        if rooms.contains_key(&room_id) {
-            return Err(format!("房间 {room_id} 已经存在"));
+        match self.rooms.entry(room_id.clone()) {
+            dashmap::Entry::Occupied(_) => Err(format!("房间{room_id}已经存在")),
+            dashmap::Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(RoomHandle { room_id, tx });
+                Ok(())
+            }
         }
-        rooms.insert(room_id.clone(), RoomHandle { room_id, tx });
-        Ok(())
     }
 }

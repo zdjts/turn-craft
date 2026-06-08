@@ -1,5 +1,5 @@
 use std::env;
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct AiConfig {
     pub api_key: String,
     pub base_url: String,
@@ -8,6 +8,12 @@ pub struct AiConfig {
     pub prompt: String,
 }
 impl AiConfig {
+    pub fn new() -> Self {
+        Self {
+            max_tokens: 200,
+            ..Self::default()
+        }
+    }
     pub fn from_env(path: Option<&str>) -> Result<Self, String> {
         match path {
             Some(p) => {

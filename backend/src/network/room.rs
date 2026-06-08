@@ -40,6 +40,7 @@ pub fn spawn_game_room<R, A, P, E>(
     engine: Box<dyn Playable<R, A, P, E>>,
     state: RoomState<R, A>,
     ai_tx: Option<mpsc::Sender<AiTask>>,
+    ai_configs: HashMap<String, AiConfig>,
 ) -> mpsc::Sender<RoomCommand>
 where
     R: GameRole + 'static,
@@ -58,7 +59,7 @@ where
             engine,
             state,
             peers: Vec::new(),
-            ai_configs: HashMap::new(),
+            ai_configs: ai_configs,
             _marker: PhantomData,
         };
 
@@ -87,12 +88,12 @@ where
                     }
 
                     // 解析动作
-                    let parsed_action = match room.engine.parse_action(&action) {
+                    let parsed_action = match room.engine.parse_action(&actor_id, &action) {
                         Ok(a) => a,
                         Err(e) => {
                             warn!(room_id = %room_id, actor_id = %actor_id, error = ?e, "动作解析失败");
                             if let Some(p) = room.peers.iter().find(|p| p.actor_id == actor_id) {
-                                let _ = p.tx.send("invalid_action".to_string());
+                                let _ = p.tx.send("invalid_action".to_string()).await;
                             }
                             continue;
                         }
@@ -104,7 +105,7 @@ where
                         Err(e) => {
                             warn!(room_id = %room_id, actor_id = %actor_id, error = ?e, "动作执行失败");
                             if let Some(p) = room.peers.iter().find(|p| p.actor_id == actor_id) {
-                                let _ = p.tx.send("action_failed".to_string());
+                                let _ = p.tx.send("action_failed".to_string()).await;
                             }
                             continue;
                         }
@@ -118,7 +119,8 @@ where
                         match event {
                             GameEvent::Broadcast(msg) => {
                                 for p in &room.peers {
-                                    let _ = p.tx.send(msg.clone());
+                                    println!("发送消息给{}", p.actor_id);
+                                    let _ = p.tx.send(msg.clone()).await;
                                 }
                             }
                             GameEvent::TriggerAi(next_actor_id) => {
@@ -140,11 +142,12 @@ where
                                     let snapshot = room.engine.get_snapshot(&room.state, &role);
 
                                     info!(room_id = %room_id, ai_actor_id = %next_actor_id, "自动触发：开始向 AI 总线派发任务");
-                                    let ai_config = match room.ai_configs.get(&actor_id) {
+                                    let ai_config = match room.ai_configs.get(&next_actor_id) {
                                         Some(c) => c.clone(),
-                                        None => AiConfig::from_env(None).unwrap(),
+                                        None => AiConfig::new(),
                                     };
-                                    room.ai_configs.insert(actor_id.clone(), ai_config.clone());
+                                    room.ai_configs
+                                        .insert(next_actor_id.clone(), ai_config.clone());
 
                                     let task = AiTask {
                                         room_id: room_id.clone(),
@@ -162,7 +165,7 @@ where
                             GameEvent::GameOver => {
                                 info!(room_id = %room_id, "游戏结束");
                                 for p in &room.peers {
-                                    let _ = p.tx.send("game_over".to_string());
+                                    let _ = p.tx.send("game_over".to_string()).await;
                                 }
                             }
                             GameEvent::Custom(custom_payload) => {
@@ -171,7 +174,7 @@ where
                                         tracing::debug!(target: "room::custom", json = %payload_json, "分发具体游戏的高洁操作");
                                         let ws_package = format!("custom_event:{}", payload_json);
                                         for p in &room.peers {
-                                            let _ = p.tx.send(ws_package.clone());
+                                            let _ = p.tx.send(ws_package.clone()).await;
                                         }
                                     }
                                     Err(e) => {
@@ -186,7 +189,7 @@ where
                                         room.state.actors.iter().find(|a| a.id == p.actor_id)
                                     {
                                         if actor.role == role {
-                                            let _ = p.tx.send(payload.clone());
+                                            let _ = p.tx.send(payload.clone()).await;
                                         }
                                     }
                                 }
@@ -200,7 +203,7 @@ where
                     // 拒绝 AI actor 通过 Join 方式加入
                     if ai_actor_ids.contains(&actor_id) {
                         warn!(room_id = %room_id, actor_id = %actor_id, "拒绝加入：AI 角色不能通过此方式加入");
-                        let _ = peer.tx.send("not_a_player_in_this_room".to_string());
+                        let _ = peer.tx.send("not_a_player_in_this_room".to_string()).await;
                         continue;
                     }
 
@@ -208,7 +211,7 @@ where
                     let is_legal_actor = room.state.actors.iter().any(|a| a.id == actor_id);
                     if !is_legal_actor {
                         warn!(room_id = %room_id, actor_id = %actor_id, "拒绝加入：不是本场比赛的选手");
-                        let _ = peer.tx.send("not_a_player_in_this_room".to_string());
+                        let _ = peer.tx.send("not_a_player_in_this_room".to_string()).await;
                         continue;
                     }
 
@@ -219,7 +222,7 @@ where
                     info!(room_id = %room_id, actor_id = %actor_id, "选手网络连接已就绪");
 
                     for p in &room.peers {
-                        let _ = p.tx.send(format!("joined:{actor_id}"));
+                        let _ = p.tx.send(format!("joined:{actor_id}")).await;
                     }
                 }
                 RoomCommand::Leave(actor_id) => {
@@ -229,7 +232,7 @@ where
                     info!(room_id = %room_id, actor_id = %actor_id, "选手离开房间");
 
                     for p in &room.peers {
-                        let _ = p.tx.send(format!("left:{actor_id}"));
+                        let _ = p.tx.send(format!("left:{actor_id}")).await;
                     }
 
                     if room.peers.is_empty() {
@@ -240,7 +243,7 @@ where
                 RoomCommand::Shutdown => {
                     info!(room_id = %room_id, "收到 Shutdown 命令，正在清理");
                     for p in &room.peers {
-                        let _ = p.tx.send("room_closed".to_string());
+                        let _ = p.tx.send("room_closed".to_string()).await;
                     }
                     break;
                 }

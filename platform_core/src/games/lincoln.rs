@@ -4,26 +4,26 @@ use serde::{Deserialize, Serialize};
 
 use crate::traits::{ActionKind, GameAction, GameEvent, GameRole, Payload, Playable, RoomState};
 #[derive(Clone, PartialEq, Eq, Debug, Copy, Serialize)]
-pub enum DebatRole {
+pub enum DebateRole {
     Pro,
     Con,
     Judge,
     Over,
 }
-impl GameRole for DebatRole {}
+impl GameRole for DebateRole {}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DebatAction {
+pub enum DebateAction {
     Speech { action_id: String, content: String },
 }
-impl GameAction for DebatAction {}
-pub type DebatRoomState = RoomState<DebatRole, DebatAction>;
+impl GameAction for DebateAction {}
+pub type DebateRoomState = RoomState<DebateRole, DebateAction>;
 
 pub struct LincolnGame {
     pub max_round: usize,
-    // pub first_role: DebatRole,
+    // pub first_role: DebateRole,
     pub round: usize,
-    pub cur_role: DebatRole,
+    pub cur_role: DebateRole,
 }
 #[derive(Serialize)]
 pub enum LincolnPayload {}
@@ -39,23 +39,26 @@ pub enum LincolnErr {
 
 #[derive(serde::Serialize, Debug)]
 pub struct LincolnSnapshot {
-    pub cur_role: DebatRole,
+    pub cur_role: DebateRole,
     pub round: usize,
     pub max_round: usize,
     pub history_logs: Vec<String>,
 }
 
-impl Playable<DebatRole, DebatAction, LincolnPayload, LincolnErr> for LincolnGame {
-    fn parse_action(&self, raw_content: &str) -> Result<DebatAction, LincolnErr> {
-        serde_json::from_str(raw_content).map_err(|_| LincolnErr::InvalidProtocol)
+impl Playable<DebateRole, DebateAction, LincolnPayload, LincolnErr> for LincolnGame {
+    fn parse_action(&self, actor_id: &str, raw_content: &str) -> Result<DebateAction, LincolnErr> {
+        Ok(DebateAction::Speech {
+            action_id: actor_id.to_string(),
+            content: raw_content.to_string(),
+        })
     }
 
     fn step(
         &mut self,
-        state: &mut RoomState<DebatRole, DebatAction>,
-        action: DebatAction,
-    ) -> Result<Vec<crate::traits::GameEvent<DebatRole, LincolnPayload>>, LincolnErr> {
-        let DebatAction::Speech { action_id, content } = action.clone();
+        state: &mut RoomState<DebateRole, DebateAction>,
+        action: DebateAction,
+    ) -> Result<Vec<crate::traits::GameEvent<DebateRole, LincolnPayload>>, LincolnErr> {
+        let DebateAction::Speech { action_id, content } = action.clone();
         let Some(actor) = state.find_actor(&action_id) else {
             return Err(LincolnErr::NotActor);
         };
@@ -64,19 +67,23 @@ impl Playable<DebatRole, DebatAction, LincolnPayload, LincolnErr> for LincolnGam
         }
         state.history.push(action);
         match self.cur_role {
-            DebatRole::Pro | DebatRole::Con => {
+            DebateRole::Pro | DebateRole::Con => {
                 self.round += 1;
                 if self.round >= self.max_round {
-                    self.cur_role = DebatRole::Judge;
+                    self.cur_role = DebateRole::Judge;
                 } else {
                     self.cur_role = match self.cur_role {
-                        DebatRole::Pro => DebatRole::Con,
-                        _ => DebatRole::Pro,
+                        DebateRole::Pro => DebateRole::Con,
+                        _ => DebateRole::Pro,
                     };
                 }
             }
-            DebatRole::Judge => {
-                self.cur_role = DebatRole::Over;
+            DebateRole::Judge => {
+                if self.round >= self.max_round {
+                    self.cur_role = DebateRole::Over;
+                } else {
+                    self.cur_role = DebateRole::Pro;
+                }
             }
             _ => {}
         }
@@ -90,7 +97,7 @@ impl Playable<DebatRole, DebatAction, LincolnPayload, LincolnErr> for LincolnGam
             }
         }
 
-        if self.cur_role == DebatRole::Over {
+        if self.cur_role == DebateRole::Over {
             events.push(GameEvent::GameOver);
         }
 
@@ -99,14 +106,14 @@ impl Playable<DebatRole, DebatAction, LincolnPayload, LincolnErr> for LincolnGam
 
     fn get_snapshot(
         &self,
-        state: &RoomState<DebatRole, DebatAction>,
-        _role: &DebatRole, // 林肯辩论全公开，所以当前视角 role 暂时用不上，用下划线忽略警告
+        state: &RoomState<DebateRole, DebateAction>,
+        _role: &DebateRole, // 林肯辩论全公开，所以当前视角 role 暂时用不上，用下划线忽略警告
     ) -> String {
         let history_logs: Vec<String> = state
             .history
             .iter()
             .map(|action| {
-                let DebatAction::Speech { action_id, content } = action;
+                let DebateAction::Speech { action_id, content } = action;
                 format!("{}: {}", action_id, content)
             })
             .collect();
