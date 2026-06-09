@@ -1,5 +1,5 @@
 use std::env;
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct AiConfig {
     pub api_key: String,
     pub base_url: String,
@@ -10,7 +10,7 @@ pub struct AiConfig {
 impl AiConfig {
     pub fn new() -> Self {
         Self {
-            max_tokens: 200,
+            max_tokens: 2048,
             ..Self::default()
         }
     }
@@ -27,11 +27,11 @@ impl AiConfig {
             Ok(s) => match s.parse::<u32>() {
                 Ok(n) => n,
                 Err(_) => {
-                    tracing::error!("max_tokens 解析失败，使用默认200");
-                    200
+                    tracing::error!("max_tokens 解析失败，使用默认2048");
+                    2048
                 }
             },
-            Err(_) => 200 as u32,
+            Err(_) => 2048 as u32,
         };
         let api_key =
             env::var("DEBAT_API_KEY").map_err(|_| "缺少环境变量 OPENAI_API_KEY".to_string())?;

@@ -1,9 +1,10 @@
-use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
-use platform_core::{
-    // games::lincoln::{self, DebatAction, DebatRole, DebatRoomState, LincolnPayload},
-    traits::{GameAction, GameEvent, GameRole, Payload, Playable, RoomState},
-};
+use dashmap::DashMap;
+use platform_core::traits::{EngineEvent, GameEngine};
+use serde_json::Value;
 use tokio::sync::mpsc::{self};
 use tracing::{error, info, warn};
 
@@ -11,8 +12,11 @@ use crate::ai::env::AiConfig;
 
 use super::manager::Peer;
 
+/// 断线保活时长：最后一个玩家离开后，房间保留 10 分钟等待重连
+const RECONNECT_TIMEOUT: Duration = Duration::from_secs(600);
+
 pub enum RoomCommand {
-    PlayerAction { actor_id: String, action: String },
+    PlayerAction { actor_id: String, action: Value },
     Join(Peer),
     Leave(String),
     Shutdown,
@@ -26,133 +30,118 @@ pub struct AiTask {
     pub ai_config: AiConfig,
 }
 
-pub struct Room<R: GameRole, A: GameAction, P: Payload, E: Debug> {
-    pub room_id: String,
-    pub engine: Box<dyn Playable<R, A, P, E>>,
-    pub state: RoomState<R, A>,
-    pub peers: Vec<Peer>,
-    pub ai_configs: HashMap<String, AiConfig>,
-    pub _marker: PhantomData<E>,
-}
-
-pub fn spawn_game_room<R, A, P, E>(
+pub fn spawn_game_room(
     room_id: String,
-    engine: Box<dyn Playable<R, A, P, E>>,
-    state: RoomState<R, A>,
+    engine: Box<dyn GameEngine>,
     ai_tx: Option<mpsc::Sender<AiTask>>,
     ai_configs: HashMap<String, AiConfig>,
-) -> mpsc::Sender<RoomCommand>
-where
-    R: GameRole + 'static,
-    A: GameAction + 'static,
-    P: Payload + 'static,
-    E: Debug + 'static + Send,
-{
+    global_ai_configs: Option<Arc<DashMap<String, AiConfig>>>,
+    rooms_map: Arc<DashMap<String, super::manager::RoomHandle>>,
+) -> mpsc::Sender<RoomCommand> {
     let (tx, mut rx) = mpsc::channel::<RoomCommand>(32);
     let room_tx = tx.clone();
 
-    info!(room_id = %room_id, "创建房间成功");
+    info!(room_id = %room_id, game_type = %engine.game_type(), "创建房间成功");
 
     tokio::spawn(async move {
-        let mut room = Room {
-            room_id: room_id.clone(),
-            engine,
-            state,
-            peers: Vec::new(),
-            ai_configs: ai_configs,
-            _marker: PhantomData,
-        };
+        let mut engine = engine;
+        let mut peers: Vec<Peer> = Vec::new();
+        let mut local_ai_configs = ai_configs;
+        // None = 有玩家在线，Some = 所有人断开的时间点
+        let mut empty_since: Option<Instant> = None;
 
-        // 预先收集 AI actor IDs，用于 Join 时验证
-        let ai_actor_ids: Vec<_> = room
-            .state
-            .actors
-            .iter()
-            .filter(|a| matches!(a.kind, platform_core::traits::ActionKind::Ai))
-            .map(|a| a.id.clone())
-            .collect();
+        info!(room_id = %room_id, "房间 task 启动，引擎就绪");
 
-        info!(
-            room_id = %room_id,
-            actors = ?room.state.actors.iter().map(|a| &a.id).collect::<Vec<_>>(),
-            "房间 task 启动，演员已就绪"
-        );
+        loop {
+            // 计算超时等待时间
+            let recv_timeout = if let Some(since) = empty_since {
+                let elapsed = since.elapsed();
+                if elapsed >= RECONNECT_TIMEOUT {
+                    info!(room_id = %room_id, "房间空闲超时（{}秒），自动销毁", elapsed.as_secs());
+                    break;
+                }
+                // 保活期间每 60 秒输出一次心跳日志
+                let remaining = RECONNECT_TIMEOUT - elapsed;
+                let check_interval = Duration::from_secs(60).min(remaining);
+                check_interval
+            } else {
+                // 有玩家在线，无限等待
+                Duration::from_secs(3600) // 1小时兜底，防止 recv 永远阻塞
+            };
 
-        while let Some(cmd) = rx.recv().await {
+            let cmd = tokio::select! {
+                cmd = rx.recv() => {
+                    match cmd {
+                        Some(c) => c,
+                        None => {
+                            info!(room_id = %room_id, "所有发送端已关闭，房间退出");
+                            break;
+                        }
+                    }
+                }
+                _ = tokio::time::sleep(recv_timeout) => {
+                    // 超时检查
+                    if let Some(since) = empty_since {
+                        let elapsed = since.elapsed();
+                        if elapsed >= RECONNECT_TIMEOUT {
+                            info!(room_id = %room_id, "房间空闲超时，自动销毁");
+                            break;
+                        }
+                        let remaining = RECONNECT_TIMEOUT - elapsed;
+                        info!(room_id = %room_id, remaining_secs = remaining.as_secs(), "房间保活中，等待重连...");
+                    }
+                    continue;
+                }
+            };
+
             match cmd {
                 RoomCommand::PlayerAction { actor_id, action } => {
-                    // 拒绝未注册用户
-                    if !room.state.actors.iter().any(|a| a.id == actor_id) {
-                        warn!(room_id = %room_id, actor_id = %actor_id, "拒绝动作：未注册的身份");
-                        continue;
-                    }
-
-                    // 解析动作
-                    let parsed_action = match room.engine.parse_action(&actor_id, &action) {
-                        Ok(a) => a,
-                        Err(e) => {
-                            warn!(room_id = %room_id, actor_id = %actor_id, error = ?e, "动作解析失败");
-                            if let Some(p) = room.peers.iter().find(|p| p.actor_id == actor_id) {
-                                let _ = p.tx.send("invalid_action".to_string()).await;
-                            }
-                            continue;
-                        }
-                    };
-
-                    // 执行动作并获取事件
-                    let events = match room.engine.step(&mut room.state, parsed_action) {
+                    let events = match engine.step(&actor_id, action) {
                         Ok(events) => events,
                         Err(e) => {
-                            warn!(room_id = %room_id, actor_id = %actor_id, error = ?e, "动作执行失败");
-                            if let Some(p) = room.peers.iter().find(|p| p.actor_id == actor_id) {
-                                let _ = p.tx.send("action_failed".to_string()).await;
+                            warn!(room_id = %room_id, actor_id = %actor_id, error = %e, "动作执行失败");
+                            if let Some(p) = peers.iter().find(|p| p.actor_id == actor_id) {
+                                let err_msg = serde_json::json!({"error": e}).to_string();
+                                let _ = p.tx.send(err_msg).await;
                             }
                             continue;
                         }
                     };
 
-                    let round = room.state.history.len();
-                    info!(room_id = %room_id, actor_id = %actor_id, round = round, "发言被写入历史");
+                    info!(room_id = %room_id, actor_id = %actor_id, round = engine.to_json().get("round").and_then(|v| v.as_u64()).unwrap_or(0), "动作已处理");
 
-                    // 处理所有事件
+                    let snapshot = engine.to_json().to_string();
+                    for p in &peers {
+                        let _ = p.tx.send(snapshot.clone()).await;
+                    }
+
                     for event in events {
                         match event {
-                            GameEvent::Broadcast(msg) => {
-                                for p in &room.peers {
-                                    println!("发送消息给{}", p.actor_id);
-                                    let _ = p.tx.send(msg.clone()).await;
-                                }
-                            }
-                            GameEvent::TriggerAi(next_actor_id) => {
+                            EngineEvent::TriggerAi(next_actor_id) => {
                                 if let Some(ref ai_sender) = ai_tx {
-                                    // 获取当前状态的快照
-                                    let next_role = room
-                                        .state
-                                        .actors
-                                        .iter()
-                                        .find(|a| a.id == next_actor_id)
-                                        .map(|a| a.role.clone());
-
-                                    let role = next_role.unwrap_or_else(|| {
-                                        // 如果找不到角色，使用默认值（需要 R: Default 或者其他方式）
-                                        // 这里暂时用 panic 或者处理不了的情况
-                                        panic!("Cannot determine role for AI actor");
-                                    });
-
-                                    let snapshot = room.engine.get_snapshot(&room.state, &role);
-
-                                    info!(room_id = %room_id, ai_actor_id = %next_actor_id, "自动触发：开始向 AI 总线派发任务");
-                                    let ai_config = match room.ai_configs.get(&next_actor_id) {
-                                        Some(c) => c.clone(),
-                                        None => AiConfig::new(),
+                                    let global_key = format!("{}/{}", room_id, next_actor_id);
+                                    let ai_config = if let Some(ref g) = global_ai_configs {
+                                        if let Some(cfg) = g.get(&global_key) {
+                                            cfg.clone()
+                                        } else {
+                                            local_ai_configs
+                                                .get(&next_actor_id)
+                                                .cloned()
+                                                .unwrap_or_else(|| AiConfig::new())
+                                        }
+                                    } else {
+                                        local_ai_configs
+                                            .get(&next_actor_id)
+                                            .cloned()
+                                            .unwrap_or_else(|| AiConfig::new())
                                     };
-                                    room.ai_configs
+                                    local_ai_configs
                                         .insert(next_actor_id.clone(), ai_config.clone());
 
                                     let task = AiTask {
                                         room_id: room_id.clone(),
                                         actor_id: next_actor_id,
-                                        snapshot,
+                                        snapshot: engine.to_json().to_string(),
                                         reply_tx: room_tx.clone(),
                                         ai_config,
                                     };
@@ -162,37 +151,8 @@ where
                                     }
                                 }
                             }
-                            GameEvent::GameOver => {
+                            EngineEvent::GameOver => {
                                 info!(room_id = %room_id, "游戏结束");
-                                for p in &room.peers {
-                                    let _ = p.tx.send("game_over".to_string()).await;
-                                }
-                            }
-                            GameEvent::Custom(custom_payload) => {
-                                match serde_json::to_string(&custom_payload) {
-                                    Ok(payload_json) => {
-                                        tracing::debug!(target: "room::custom", json = %payload_json, "分发具体游戏的高洁操作");
-                                        let ws_package = format!("custom_event:{}", payload_json);
-                                        for p in &room.peers {
-                                            let _ = p.tx.send(ws_package.clone()).await;
-                                        }
-                                    }
-                                    Err(e) => {
-                                        error!(error = ?e, "自定义 Payload 序列化失败！");
-                                    }
-                                }
-                            }
-                            GameEvent::NotifyRole { role, payload } => {
-                                // 通知特定角色
-                                for p in &room.peers {
-                                    if let Some(actor) =
-                                        room.state.actors.iter().find(|a| a.id == p.actor_id)
-                                    {
-                                        if actor.role == role {
-                                            let _ = p.tx.send(payload.clone()).await;
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
@@ -200,55 +160,52 @@ where
                 RoomCommand::Join(peer) => {
                     let actor_id = peer.actor_id.clone();
 
-                    // 拒绝 AI actor 通过 Join 方式加入
-                    if ai_actor_ids.contains(&actor_id) {
-                        warn!(room_id = %room_id, actor_id = %actor_id, "拒绝加入：AI 角色不能通过此方式加入");
-                        let _ = peer.tx.send("not_a_player_in_this_room".to_string()).await;
-                        continue;
+                    // 有人重连，取消空闲计时
+                    if empty_since.take().is_some() {
+                        info!(room_id = %room_id, actor_id = %actor_id, "玩家重连，取消房间销毁计时");
                     }
 
-                    // 拒绝不是本场比赛的选手
-                    let is_legal_actor = room.state.actors.iter().any(|a| a.id == actor_id);
-                    if !is_legal_actor {
-                        warn!(room_id = %room_id, actor_id = %actor_id, "拒绝加入：不是本场比赛的选手");
-                        let _ = peer.tx.send("not_a_player_in_this_room".to_string()).await;
-                        continue;
-                    }
+                    peers.retain(|p| p.actor_id != actor_id);
+                    peers.push(peer);
 
-                    // 清除当前连接的用户，防止断线重连失败
-                    room.peers.retain(|p| p.actor_id != actor_id);
-                    room.peers.push(peer);
+                    info!(room_id = %room_id, actor_id = %actor_id, "选手已连接");
 
-                    info!(room_id = %room_id, actor_id = %actor_id, "选手网络连接已就绪");
-
-                    for p in &room.peers {
-                        let _ = p.tx.send(format!("joined:{actor_id}")).await;
+                    if let Some(p) = peers.iter().find(|p| p.actor_id == actor_id) {
+                        let snapshot = engine.to_json().to_string();
+                        let _ = p.tx.send(snapshot).await;
                     }
                 }
                 RoomCommand::Leave(actor_id) => {
-                    room.peers.retain(|p| p.actor_id != actor_id);
-                    room.state.actors.retain(|a| a.id != actor_id);
-
+                    peers.retain(|p| p.actor_id != actor_id);
                     info!(room_id = %room_id, actor_id = %actor_id, "选手离开房间");
 
-                    for p in &room.peers {
-                        let _ = p.tx.send(format!("left:{actor_id}")).await;
-                    }
-
-                    if room.peers.is_empty() {
-                        info!(room_id = %room_id, "所有玩家断开，房间自动销毁");
-                        break;
+                    if peers.is_empty() {
+                        let now = Instant::now();
+                        empty_since = Some(now);
+                        info!(
+                            room_id = %room_id,
+                            timeout_secs = RECONNECT_TIMEOUT.as_secs(),
+                            "所有玩家断开，房间进入保活等待（{}秒后自动销毁）",
+                            RECONNECT_TIMEOUT.as_secs()
+                        );
                     }
                 }
                 RoomCommand::Shutdown => {
                     info!(room_id = %room_id, "收到 Shutdown 命令，正在清理");
-                    for p in &room.peers {
-                        let _ = p.tx.send("room_closed".to_string()).await;
+                    for p in &peers {
+                        let _ = p
+                            .tx
+                            .send(r#"{"event":"room_closed"}"#.to_string())
+                            .await;
                     }
                     break;
                 }
             }
         }
+
+        // 从 RoomManager 中移除自身，避免残留句柄
+        rooms_map.remove(&room_id);
+        info!(room_id = %room_id, "房间 task 已退出，已从 RoomManager 清除");
     });
 
     tx

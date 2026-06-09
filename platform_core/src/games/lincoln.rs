@@ -2,70 +2,105 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
-use crate::traits::{ActionKind, GameAction, GameEvent, GameRole, Payload, Playable, RoomState};
-#[derive(Clone, PartialEq, Eq, Debug, Copy, Serialize)]
+use crate::traits::{ActionKind, EngineEvent, GameEngine};
+
+#[derive(Clone, PartialEq, Eq, Debug, Copy, Serialize, Deserialize)]
 pub enum DebateRole {
     Pro,
     Con,
     Judge,
     Over,
 }
-impl GameRole for DebateRole {}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DebateAction {
-    Speech { action_id: String, content: String },
+pub struct LincolnActor {
+    pub id: String,
+    pub kind: String, // "Human" | "Ai"
+    pub role: DebateRole,
 }
-impl GameAction for DebateAction {}
-pub type DebateRoomState = RoomState<DebateRole, DebateAction>;
 
-pub struct LincolnGame {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HistoryEntry {
+    pub actor_id: String,
+    pub role: DebateRole,
+    pub content: String,
+}
+
+pub struct LincolnEngine {
+    pub room_id: String,
     pub max_round: usize,
-    // pub first_role: DebateRole,
     pub round: usize,
     pub cur_role: DebateRole,
-}
-#[derive(Serialize)]
-pub enum LincolnPayload {}
-impl Payload for LincolnPayload {}
-#[derive(Debug)]
-pub enum LincolnErr {
-    NotYourTurn,
-    EmptyContent,
-    NotActor,
-    InvalidProtocol,
-    SpeechTooLong { max: usize, current: usize },
+    pub actors: Vec<LincolnActor>,
+    pub history: Vec<HistoryEntry>,
+    pub finished: bool,
+    pub opening_done: bool,
 }
 
-#[derive(serde::Serialize, Debug)]
-pub struct LincolnSnapshot {
-    pub cur_role: DebateRole,
-    pub round: usize,
-    pub max_round: usize,
-    pub history_logs: Vec<String>,
-}
-
-impl Playable<DebateRole, DebateAction, LincolnPayload, LincolnErr> for LincolnGame {
-    fn parse_action(&self, actor_id: &str, raw_content: &str) -> Result<DebateAction, LincolnErr> {
-        Ok(DebateAction::Speech {
-            action_id: actor_id.to_string(),
-            content: raw_content.to_string(),
-        })
+impl LincolnEngine {
+    pub fn new(room_id: String, max_round: usize) -> Self {
+        Self {
+            room_id,
+            max_round,
+            round: 0,
+            cur_role: DebateRole::Judge,
+            actors: Vec::new(),
+            history: Vec::new(),
+            finished: false,
+            opening_done: false,
+        }
     }
 
-    fn step(
-        &mut self,
-        state: &mut RoomState<DebateRole, DebateAction>,
-        action: DebateAction,
-    ) -> Result<Vec<crate::traits::GameEvent<DebateRole, LincolnPayload>>, LincolnErr> {
-        let DebateAction::Speech { action_id, content } = action.clone();
-        let Some(actor) = state.find_actor(&action_id) else {
-            return Err(LincolnErr::NotActor);
-        };
-        if actor.role != self.cur_role {
-            return Err(LincolnErr::NotYourTurn);
+    pub fn add_actor(&mut self, id: String, kind: ActionKind, role: DebateRole) {
+        self.actors.push(LincolnActor {
+            id,
+            kind: match kind {
+                ActionKind::Ai => "Ai".to_string(),
+                ActionKind::Human => "Human".to_string(),
+            },
+            role,
+        });
+    }
+}
+
+impl GameEngine for LincolnEngine {
+    fn game_type(&self) -> &str {
+        "lincoln"
+    }
+
+    fn step(&mut self, actor_id: &str, action: serde_json::Value) -> Result<Vec<EngineEvent>, String> {
+        let content = action
+            .get("content")
+            .and_then(|v| v.as_str())
+            .ok_or("动作缺少 content 字段")?
+            .to_string();
+
+        if content.is_empty() {
+            return Err("发言内容不能为空".to_string());
         }
-        state.history.push(action);
+
+        // 验证是否轮到该 actor
+        let actor = self
+            .actors
+            .iter()
+            .find(|a| a.id == actor_id)
+            .ok_or(format!("未注册的 actor: {actor_id}"))?;
+
+        if actor.role != self.cur_role {
+            return Err(format!(
+                "还没轮到 {:?} 发言，当前轮次: {:?}",
+                actor.role, self.cur_role
+            ));
+        }
+
+        // 写入历史
+        self.history.push(HistoryEntry {
+            actor_id: actor_id.to_string(),
+            role: self.cur_role,
+            content,
+        });
+
+        // 推进状态机
         match self.cur_role {
             DebateRole::Pro | DebateRole::Con => {
                 self.round += 1;
@@ -79,52 +114,60 @@ impl Playable<DebateRole, DebateAction, LincolnPayload, LincolnErr> for LincolnG
                 }
             }
             DebateRole::Judge => {
-                if self.round >= self.max_round {
+                if self.opening_done {
+                    // 裁判总结陈词 → 游戏结束
                     self.cur_role = DebateRole::Over;
                 } else {
+                    // 裁判开题 → 正方先发言
+                    self.opening_done = true;
                     self.cur_role = DebateRole::Pro;
                 }
             }
-            _ => {}
+            DebateRole::Over => {}
         }
+
         let mut events = Vec::new();
 
-        events.push(GameEvent::Broadcast(format!("{}: {}", action_id, content)));
-
-        if let Some(next_actor) = state.actors.iter().find(|a| a.role == self.cur_role) {
-            if matches!(next_actor.kind, ActionKind::Ai) {
-                events.push(GameEvent::TriggerAi(next_actor.id.clone()));
-            }
+        // 检查是否结束
+        if self.cur_role == DebateRole::Over {
+            self.finished = true;
+            events.push(EngineEvent::GameOver);
+            return Ok(events);
         }
 
-        if self.cur_role == DebateRole::Over {
-            events.push(GameEvent::GameOver);
+        // 检查下一个 actor 是否是 AI
+        if let Some(next_id) = self.current_actor() {
+            if let Some(next_actor) = self.actors.iter().find(|a| a.id == next_id) {
+                if next_actor.kind == "Ai" {
+                    events.push(EngineEvent::TriggerAi(next_id));
+                }
+            }
         }
 
         Ok(events)
     }
 
-    fn get_snapshot(
-        &self,
-        state: &RoomState<DebateRole, DebateAction>,
-        _role: &DebateRole, // 林肯辩论全公开，所以当前视角 role 暂时用不上，用下划线忽略警告
-    ) -> String {
-        let history_logs: Vec<String> = state
-            .history
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "game_type": self.game_type(),
+            "room_id": self.room_id,
+            "actors": self.actors,
+            "active_actor": self.current_actor(),
+            "round": self.round,
+            "max_round": self.max_round,
+            "finished": self.finished,
+            "history": self.history,
+        })
+    }
+
+    fn current_actor(&self) -> Option<String> {
+        self.actors
             .iter()
-            .map(|action| {
-                let DebateAction::Speech { action_id, content } = action;
-                format!("{}: {}", action_id, content)
-            })
-            .collect();
+            .find(|a| a.role == self.cur_role)
+            .map(|a| a.id.clone())
+    }
 
-        let snapshot = LincolnSnapshot {
-            cur_role: self.cur_role,
-            round: self.round,
-            max_round: self.max_round,
-            history_logs,
-        };
-
-        serde_json::to_string(&snapshot).unwrap()
+    fn is_finished(&self) -> bool {
+        self.finished
     }
 }

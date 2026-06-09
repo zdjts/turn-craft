@@ -1,79 +1,96 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use dashmap::DashMap;
 use platform_core::{
-    games::lincoln::{
-        DebateAction, DebateRole, LincolnErr, LincolnGame, LincolnPayload,
-    },
-    traits::{ActionKind, Actor, Playable, RoomState},
+    games::lincoln::{DebateRole, LincolnEngine},
+    traits::{ActionKind, GameEngine},
 };
 
 use crate::ai::env::AiConfig;
 
 pub fn create_lincoln(
     room_id: &str,
-    player_id: &str,
+    my_role: &str,
+    role_config: &HashMap<String, String>,
     max_round: usize,
-) -> (
-    Box<dyn Playable<DebateRole, DebateAction, LincolnPayload, LincolnErr>>,
-    RoomState<DebateRole, DebateAction>,
-    HashMap<String, AiConfig>,
-) {
-    let engine = LincolnGame {
-        max_round,
-        round: 0,
-        cur_role: DebateRole::Judge, // 🌟 默认一上来是裁判发言（开场白）
-    };
+    global_ai_configs: Option<&Arc<DashMap<String, AiConfig>>>,
+) -> (Box<dyn GameEngine>, HashMap<String, AiConfig>) {
+    let mut engine = LincolnEngine::new(room_id.to_string(), max_round);
 
-    let actors = vec![
-        Actor {
-            id: player_id.to_string(),
-            kind: ActionKind::Human,
-            role: DebateRole::Judge, // 🌟 真人担任裁判
-        },
-        Actor {
-            id: "ai_pro_debater".to_string(),
-            kind: ActionKind::Ai,
-            role: DebateRole::Pro, // 🌟 AI 1 担任正方
-        },
-        Actor {
-            id: "ai_con_debater".to_string(),
-            kind: ActionKind::Ai,
-            role: DebateRole::Con, // 🌟 AI 2 担任反方
-        },
-    ];
+    let role_map: HashMap<&str, DebateRole> = HashMap::from([
+        ("Judge", DebateRole::Judge),
+        ("Pro", DebateRole::Pro),
+        ("Con", DebateRole::Con),
+    ]);
 
-    let room_state = RoomState {
-        room_id: room_id.to_string(),
-        game_type: "lincoln_debate".to_string(),
-        actors,
-        history: Vec::new(), // 剥离了错误的 peers 字段，回归纯净状态
-    };
+    let default_prompts: HashMap<&str, &str> = HashMap::from([
+        ("Judge", "你是一位公正的辩论裁判。请给出辩题，听取双方论点后做出最终裁决。字数控制在300字以内。"),
+        ("Pro", "你现在是激进的立论家。请作为正方，针对裁判给出的辩题，发表具有说服力的论点。字数控制在200字以内。"),
+        ("Con", "你现在是沉稳的驳论家。请作为反方，严密审视正方的发言，并进行针锋相对的反驳。字数控制在200字以内。"),
+    ]);
+
+    // 上一次保存的全局默认配置 key
+    let global_defaults_key = "__defaults__";
 
     let mut ai_configs = HashMap::new();
 
-    // 配置正方 AI
-    ai_configs.insert(
-        "ai_pro_debater".to_string(),
-        AiConfig {
-            api_key: std::env::var("DEEPSEEK_API_KEY").unwrap_or_default(),
-            base_url: "https://api.deepseek.com/v1".to_string(),
-            model: "deepseek-chat".to_string(),
-            prompt: "你现在是激进的立论家。请作为正方，针对裁判给出的辩题，发表具有说服力的论点。字数控制在200字以内。".to_string(),
-            max_tokens: 200,
-        },
-    );
+    for (role_name, role_type) in role_config {
+        let debate_role = match role_map.get(role_name.as_str()) {
+            Some(r) => *r,
+            None => continue,
+        };
 
-    // 配置反方 AI
-    ai_configs.insert(
-        "ai_con_debater".to_string(),
-        AiConfig {
-            api_key: std::env::var("DEEPSEEK_API_KEY").unwrap_or_default(),
-            base_url: "https://api.deepseek.com/v1".to_string(),
-            model: "deepseek-chat".to_string(),
-            prompt: "你现在是沉稳的驳论家。请作为反方，严密审视正方的发言，并进行针锋相对的反驳。字数控制在200字以内。".to_string(),
-            max_tokens: 200,
-        },
-    );
-    (Box::new(engine), room_state, ai_configs)
+        match role_type.as_str() {
+            "human" => {
+                let actor_id = if role_name == my_role {
+                    my_role.to_string()
+                } else {
+                    format!("human_{}", role_name.to_lowercase())
+                };
+                engine.add_actor(actor_id, ActionKind::Human, debate_role);
+            }
+            "ai" => {
+                let actor_id = format!("ai_{}", role_name.to_lowercase());
+                engine.add_actor(actor_id.clone(), ActionKind::Ai, debate_role);
+
+                // 优先从全局默认配置读取（用户上次在 Settings 保存的值）
+                let saved = global_ai_configs.and_then(|gc| {
+                    gc.get(&format!("{}/{}", global_defaults_key, role_name))
+                        .map(|r| r.clone())
+                });
+
+                let default_prompt = default_prompts
+                    .get(role_name.as_str())
+                    .unwrap_or(&"")
+                    .to_string();
+
+                let config = match saved {
+                    Some(s) => AiConfig {
+                        api_key: s.api_key,
+                        base_url: s.base_url,
+                        model: s.model,
+                        max_tokens: s.max_tokens,
+                        prompt: if s.prompt.is_empty() {
+                            default_prompt
+                        } else {
+                            s.prompt
+                        },
+                    },
+                    None => AiConfig {
+                        api_key: std::env::var("DEEPSEEK_API_KEY").unwrap_or_default(),
+                        base_url: "https://api.deepseek.com/v1".to_string(),
+                        model: "deepseek-chat".to_string(),
+                        prompt: default_prompt,
+                        max_tokens: 2048,
+                    },
+                };
+
+                ai_configs.insert(actor_id, config);
+            }
+            _ => {}
+        }
+    }
+
+    (Box::new(engine), ai_configs)
 }
-// pub fn create_lincoln_debate

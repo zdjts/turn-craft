@@ -38,7 +38,7 @@ impl AiWorker {
                 tracing::error!(error = ?e, "请求 AI 接口发生错误");
                 let command = RoomCommand::PlayerAction {
                     actor_id: task.actor_id,
-                    action: "[思考超时，未能发言]".to_string(),
+                    action: serde_json::json!({"content": "[思考超时，未能发言]"}),
                 };
                 let _ = task.reply_tx.send(command).await;
                 return Err(format!("{:?}", e));
@@ -47,7 +47,7 @@ impl AiWorker {
 
         let command = RoomCommand::PlayerAction {
             actor_id: task.actor_id,
-            action: ai_reply,
+            action: serde_json::json!({"content": ai_reply}),
         };
 
         if let Err(e) = task.reply_tx.send(command).await {

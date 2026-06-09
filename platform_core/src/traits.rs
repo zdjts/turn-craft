@@ -7,7 +7,7 @@ pub enum ActionKind {
 pub trait Payload: Serialize + Send + 'static {}
 /// # 游戏状态机副作用事件
 ///
-/// 引擎 `step` 计算完毕后向外吐出的“待办事项清单”。
+/// 引擎 `step` 计算完毕后向外吐出的"待办事项清单"。
 /// 通用房间容器（Container）通过消费此队列，来代为执行网络 IO 或线程隔离。
 pub enum GameEvent<R: GameRole, P: Payload> {
     /// 全场纯文本广播（如玩家发言、公共牌翻开）
@@ -69,4 +69,37 @@ pub trait Playable<R: GameRole, A: GameAction, P: Payload, E: std::fmt::Debug>:
     fn step(&mut self, state: &mut RoomState<R, A>, action: A) -> Result<Vec<GameEvent<R, P>>, E>;
     // type Snapshot: serde::Serialize + std::fmt::Debug;
     fn get_snapshot(&self, state: &RoomState<R, A>, role: &R) -> String;
+}
+
+// ═══════════════════════════════════════════════════════
+//  GameEngine — 类型擦除后的泛型游戏引擎合约
+// ═══════════════════════════════════════════════════════
+
+/// 引擎侧事件：房间循环消费这些副作用来代为执行网络 IO
+pub enum EngineEvent {
+    /// 触发 AI 决策，值为目标 actor_id
+    TriggerAi(String),
+    /// 游戏结束
+    GameOver,
+}
+
+/// 通用游戏引擎接口
+///
+/// 所有游戏实现此 trait，房间循环完全通过此 trait 与游戏交互。
+/// 房间循环成为纯粹的"收取 Action → 喂给引擎 step → 广播引擎 to_json 快照"的失忆中转站。
+pub trait GameEngine: Send + 'static {
+    /// 游戏类型标识（如 "lincoln"、"werewolf"）
+    fn game_type(&self) -> &str;
+
+    /// 执行一步动作，返回副作用事件列表
+    fn step(&mut self, actor_id: &str, action: serde_json::Value) -> Result<Vec<EngineEvent>, String>;
+
+    /// 导出当前全量状态快照为 JSON
+    fn to_json(&self) -> serde_json::Value;
+
+    /// 当前应该行动的 actor_id
+    fn current_actor(&self) -> Option<String>;
+
+    /// 游戏是否已结束
+    fn is_finished(&self) -> bool;
 }

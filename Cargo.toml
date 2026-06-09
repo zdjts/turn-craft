@@ -2,6 +2,6 @@
 members = [
     "backend",
     "front",
-    "platform_core", "front",
+    "platform_core",
 ]
 resolver = "2"

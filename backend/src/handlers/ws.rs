@@ -70,9 +70,12 @@ async fn handle_socket(
         while let Some(meg_res) = ws_receiver.next().await {
             match meg_res {
                 Ok(Message::Text(text)) => {
+                    // 将前端发来的文本解析为 JSON Value
+                    let action = serde_json::from_str(&text)
+                        .unwrap_or(serde_json::Value::String(text.to_string()));
                     let cmd = RoomCommand::PlayerAction {
                         actor_id: actor_id_ingress.clone(),
-                        action: text.to_string(),
+                        action,
                     };
                     if let Err(e) = room_tx_ingress.send(cmd).await {
                         tracing::error!(room_id = %room_id_ingress, actor_id = %actor_id_ingress, error = ?e, "上行数据转发失败，房间已销毁");

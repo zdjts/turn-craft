@@ -73,13 +73,21 @@ pub async fn request_speech(
         .get("choices")
         .and_then(|c| c.get(0))
         .and_then(|c| c.get("message"))
-        .and_then(|m| m.get("content"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.trim().to_string())
+        .and_then(|m| {
+            // 优先取 content，为空则回退到 reasoning_content（推理模型）
+            let c = m.get("content").and_then(|v| v.as_str()).unwrap_or("").trim();
+            if !c.is_empty() {
+                return Some(c.to_string());
+            }
+            m.get("reasoning_content")
+                .and_then(|v| v.as_str())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        })
         .ok_or_else(|| {
             let raw = response.to_string();
-            error!(body = %raw, "响应格式异常，无法提取 content");
-            AiClientError::Parse(format!("响应格式异常: {raw}"))
+            error!(body = %raw, "响应格式异常或 content 为空");
+            AiClientError::Parse(format!("响应格式异常或 content 为空: {raw}"))
         })?;
     info!(
         elapsed_ms = %elapsed_ms,
