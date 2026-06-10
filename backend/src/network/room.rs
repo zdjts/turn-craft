@@ -9,6 +9,7 @@ use tokio::sync::mpsc::{self};
 use tracing::{error, info, warn};
 
 use crate::ai::env::AiConfig;
+use crate::persistence::{self, RoomSnapshot};
 
 use super::manager::Peer;
 
@@ -37,18 +38,26 @@ pub fn spawn_game_room(
     ai_configs: HashMap<String, AiConfig>,
     global_ai_configs: Option<Arc<DashMap<String, AiConfig>>>,
     rooms_map: Arc<DashMap<String, super::manager::RoomHandle>>,
+    snapshots: Arc<DashMap<String, RoomSnapshot>>,
+    role_config: HashMap<String, String>,
+    restored: bool,
 ) -> mpsc::Sender<RoomCommand> {
     let (tx, mut rx) = mpsc::channel::<RoomCommand>(32);
     let room_tx = tx.clone();
 
-    info!(room_id = %room_id, game_type = %engine.game_type(), "创建房间成功");
+    info!(room_id = %room_id, game_type = %engine.game_type(), restored = restored, "创建房间成功");
 
     tokio::spawn(async move {
         let mut engine = engine;
         let mut peers: Vec<Peer> = Vec::new();
         let mut local_ai_configs = ai_configs;
         // None = 有玩家在线，Some = 所有人断开的时间点
-        let mut empty_since: Option<Instant> = None;
+        // 恢复的房间直接进入保活模式
+        let mut empty_since: Option<Instant> = if restored {
+            Some(Instant::now())
+        } else {
+            None
+        };
 
         info!(room_id = %room_id, "房间 task 启动，引擎就绪");
 
@@ -110,7 +119,18 @@ pub fn spawn_game_room(
 
                     info!(room_id = %room_id, actor_id = %actor_id, round = engine.to_json().get("round").and_then(|v| v.as_u64()).unwrap_or(0), "动作已处理");
 
-                    let snapshot = engine.to_json().to_string();
+                    // 持久化房间快照
+                    let engine_json = engine.to_json();
+                    persistence::save_room_snapshot(&snapshots, &room_id, RoomSnapshot {
+                        room_id: room_id.clone(),
+                        game_type: engine.game_type().to_string(),
+                        engine_state: engine_json.clone(),
+                        role_config: role_config.clone(),
+                        ai_configs: local_ai_configs.clone(),
+                        max_round: engine.to_json().get("max_round").and_then(|v| v.as_u64()).unwrap_or(16) as usize,
+                    });
+
+                    let snapshot = engine_json.to_string();
                     for p in &peers {
                         let _ = p.tx.send(snapshot.clone()).await;
                     }
@@ -205,7 +225,9 @@ pub fn spawn_game_room(
 
         // 从 RoomManager 中移除自身，避免残留句柄
         rooms_map.remove(&room_id);
-        info!(room_id = %room_id, "房间 task 已退出，已从 RoomManager 清除");
+        // 从持久化存储中移除
+        persistence::remove_room_snapshot(&snapshots, &room_id);
+        info!(room_id = %room_id, "房间 task 已退出，已从 RoomManager 和持久化存储中清除");
     });
 
     tx

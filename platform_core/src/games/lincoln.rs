@@ -153,9 +153,11 @@ impl GameEngine for LincolnEngine {
             "room_id": self.room_id,
             "actors": self.actors,
             "active_actor": self.current_actor(),
+            "cur_role": self.cur_role,
             "round": self.round,
             "max_round": self.max_round,
             "finished": self.finished,
+            "opening_done": self.opening_done,
             "history": self.history,
         })
     }

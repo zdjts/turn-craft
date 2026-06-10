@@ -11,6 +11,7 @@ use crate::{
     ai::env::AiConfig,
     handlers,
     network::{manager::RoomManager, room::AiTask},
+    persistence::RoomSnapshot,
 };
 
 #[derive(Clone)]
@@ -19,6 +20,8 @@ pub struct AppState {
     pub ai_tx: tokio::sync::mpsc::Sender<AiTask>,
     /// 全局 AI 配置存储：key = "{room_id}/{actor_id}"，DashMap 自身并发安全
     pub ai_configs: Arc<DashMap<String, AiConfig>>,
+    /// 房间快照存储：用于持久化到磁盘
+    pub snapshots: Arc<DashMap<String, RoomSnapshot>>,
 }
 
 pub fn build_router(state: AppState) -> Router {

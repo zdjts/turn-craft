@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::network::manager::RoomHandle;
 use crate::network::room::{RoomCommand, spawn_game_room};
+use crate::persistence::{self, RoomSnapshot};
 use crate::{AppState, games::lincoln::create_lincoln};
 use axum::extract::Path;
 use axum::{Json, extract::State};
@@ -62,6 +63,17 @@ pub async fn create_room(
     // 持久化到文件（新房间的 AI 配置也会保存）
     crate::save_configs_to_file(&state.ai_configs);
 
+    // 保存初始房间快照
+    let initial_snapshot = RoomSnapshot {
+        room_id: room_id.clone(),
+        game_type: engine_box.game_type().to_string(),
+        engine_state: engine_box.to_json(),
+        role_config: input.role_config.clone(),
+        ai_configs: ai_configs.clone(),
+        max_round: input.max_round,
+    };
+    persistence::save_room_snapshot(&state.snapshots, &room_id, initial_snapshot);
+
     let room_tx = spawn_game_room(
         room_id.clone(),
         engine_box,
@@ -69,6 +81,9 @@ pub async fn create_room(
         ai_configs,
         Some(state.ai_configs.clone()),
         state.room_manager.rooms.clone(),
+        state.snapshots.clone(),
+        input.role_config.clone(),
+        false,
     );
 
     state.room_manager.rooms.insert(

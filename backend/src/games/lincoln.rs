@@ -3,9 +3,10 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use platform_core::{
-    games::lincoln::{DebateRole, LincolnEngine},
+    games::lincoln::{DebateRole, HistoryEntry, LincolnActor, LincolnEngine},
     traits::{ActionKind, GameEngine},
 };
+use serde_json::Value;
 
 use crate::ai::env::AiConfig;
 
@@ -93,4 +94,65 @@ pub fn create_lincoln(
     }
 
     (Box::new(engine), ai_configs)
+}
+
+/// 从 JSON 快照恢复 LincolnEngine
+///
+/// engine_state 来自 to_json() 输出，需包含 cur_role / opening_done / actors / history 等字段。
+pub fn restore_lincoln(engine_state: &Value) -> Result<Box<dyn GameEngine>, String> {
+    let room_id = engine_state
+        .get("room_id")
+        .and_then(|v| v.as_str())
+        .ok_or("engine_state 缺少 room_id".to_string())?
+        .to_string();
+
+    let max_round = engine_state
+        .get("max_round")
+        .and_then(|v| v.as_u64())
+        .ok_or("engine_state 缺少 max_round".to_string())? as usize;
+
+    let round = engine_state
+        .get("round")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as usize;
+
+    let finished = engine_state
+        .get("finished")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let opening_done = engine_state
+        .get("opening_done")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let cur_role: DebateRole = match engine_state.get("cur_role") {
+        Some(v) => serde_json::from_value(v.clone())
+            .map_err(|e| format!("解析 cur_role 失败: {e}"))?,
+        None => return Err("engine_state 缺少 cur_role".to_string()),
+    };
+
+    let actors: Vec<LincolnActor> = match engine_state.get("actors") {
+        Some(v) => serde_json::from_value(v.clone())
+            .map_err(|e| format!("解析 actors 失败: {e}"))?,
+        None => return Err("engine_state 缺少 actors".to_string()),
+    };
+
+    let history: Vec<HistoryEntry> = engine_state
+        .get("history")
+        .map(|v| serde_json::from_value(v.clone()).unwrap_or_default())
+        .unwrap_or_default();
+
+    let engine = LincolnEngine {
+        room_id,
+        max_round,
+        round,
+        cur_role,
+        actors,
+        history,
+        finished,
+        opening_done,
+    };
+
+    Ok(Box::new(engine))
 }
