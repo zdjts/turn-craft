@@ -19,12 +19,14 @@ use crate::{
     },
 };
 
+/// WebSocket 连接参数
 #[derive(Deserialize)]
 pub struct ConnectParams {
     pub room_id: String,
     pub actor_id: String,
 }
 
+/// WebSocket 升级处理器
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(app): State<AppState>,
@@ -35,6 +37,7 @@ pub async fn ws_handler(
     })
 }
 
+/// 处理 WebSocket 连接：双向数据转发
 async fn handle_socket(
     socket: WebSocket,
     room_manager: Arc<RoomManager>,

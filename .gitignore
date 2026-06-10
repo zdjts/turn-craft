@@ -3,3 +3,4 @@
 .env
 ai_configs.json
 rooms.json
+ARCHITECTURE.md

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{error, info, warn};
 
+/// 创建房间请求
 #[derive(Debug, Clone, Serialize)]
 pub struct CreateRoomRequest {
     pub game_type: String,
@@ -12,6 +13,7 @@ pub struct CreateRoomRequest {
     pub role_config: HashMap<String, String>,
 }
 
+/// 创建房间响应
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateRoomResponse {
     pub status: String,
@@ -88,6 +90,7 @@ pub async fn create_room(req: &CreateRoomRequest) -> Result<CreateRoomResponse, 
 //  AI 配置 API
 // ═══════════════════════════════════════════════════════
 
+/// AI 配置数据
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct AiConfigData {
     pub api_key: String,

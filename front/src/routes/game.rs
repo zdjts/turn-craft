@@ -5,6 +5,7 @@ use tracing::{debug, info};
 use crate::games::GamePluginManager;
 use crate::services::websocket::{use_ws_bridge, WsBridge};
 
+/// 游戏页面组件：管理 WebSocket 连接和游戏渲染
 #[component]
 pub fn Game(room_id: String, actor_id: String) -> Element {
     info!(target: "game", room_id = %room_id, actor_id = %actor_id, "进入游戏外壳，正在建立 WebSocket 连接...");
@@ -46,6 +47,7 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
     }
 }
 
+/// 房间信息卡片：显示房间 ID、连接状态
 #[component]
 fn RoomCard(room_id: String, actor_id: String) -> Element {
     let bridge = use_context::<WsBridge>();
@@ -102,6 +104,7 @@ fn RoomCard(room_id: String, actor_id: String) -> Element {
     }
 }
 
+/// 选手花名册：显示所有参与者
 #[component]
 fn PlayerRoster() -> Element {
     let bridge = use_context::<WsBridge>();
@@ -147,12 +150,14 @@ fn PlayerRoster() -> Element {
     }
 }
 
+/// 选手卡片属性
 #[derive(Props, Clone, PartialEq)]
 struct PlayerCardProps {
     actor: Value,
     is_active: bool,
 }
 
+/// 选手卡片组件：显示单个参与者信息
 #[component]
 fn PlayerCard(props: PlayerCardProps) -> Element {
     let id = props.actor.get("id").and_then(|v| v.as_str()).unwrap_or("?");

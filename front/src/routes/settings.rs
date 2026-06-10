@@ -4,6 +4,7 @@ use tracing::{error, info};
 
 use crate::api::{AiConfigData, get_ai_configs, update_ai_config};
 
+/// AI 配置页面组件：管理房间内 AI 角色的配置
 #[component]
 pub fn Settings(room_id: String, actor_id: String) -> Element {
     let mut configs = use_signal(|| HashMap::<String, AiConfigData>::new());
@@ -87,6 +88,7 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
     }
 }
 
+/// AI 配置卡片属性
 #[derive(Props, Clone, PartialEq)]
 struct AiConfigCardProps {
     actor_id: String,
@@ -95,6 +97,7 @@ struct AiConfigCardProps {
     on_saved: Callback<String>,
 }
 
+/// AI 配置卡片组件：编辑单个 AI 角色的配置
 #[component]
 fn AiConfigCard(props: AiConfigCardProps) -> Element {
     let mut api_key = use_signal(|| props.initial.api_key.clone());

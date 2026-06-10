@@ -4,8 +4,9 @@ use reqwest::Client;
 use serde_json::Value;
 use tracing::{debug, error, info};
 
-
 use super::env::AiConfig;
+
+/// AI 客户端错误类型
 #[derive(Debug)]
 pub enum AiClientError {
     Http(reqwest::Error),
@@ -16,6 +17,8 @@ impl From<reqwest::Error> for AiClientError {
         AiClientError::Http(e)
     }
 }
+
+/// 请求 AI 发言：发送消息到 LLM API 并返回响应
 pub async fn request_speech(
     http: &Client,
     config: &AiConfig,
@@ -75,7 +78,11 @@ pub async fn request_speech(
         .and_then(|c| c.get("message"))
         .and_then(|m| {
             // 优先取 content，为空则回退到 reasoning_content（推理模型）
-            let c = m.get("content").and_then(|v| v.as_str()).unwrap_or("").trim();
+            let c = m
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim();
             if !c.is_empty() {
                 return Some(c.to_string());
             }

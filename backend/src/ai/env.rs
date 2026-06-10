@@ -1,4 +1,6 @@
 use std::env;
+
+/// AI 配置：存储 API 密钥、端点、模型等信息
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct AiConfig {
     pub api_key: String,
@@ -8,12 +10,14 @@ pub struct AiConfig {
     pub prompt: String,
 }
 impl AiConfig {
+    /// 创建默认配置（max_tokens=2048）
     pub fn new() -> Self {
         Self {
             max_tokens: 2048,
             ..Self::default()
         }
     }
+    /// 从环境变量加载配置
     pub fn from_env(path: Option<&str>) -> Result<Self, String> {
         match path {
             Some(p) => {
@@ -60,6 +64,8 @@ impl AiConfig {
         env::var(key).map_err(|e| format!("缺少环境变量: {}", e))
     }
 }
+
+/// 构建 AI 请求消息：系统提示 + 游戏快照
 pub fn build_messages(config: &AiConfig, snapshot_json: String) -> String {
     let prompt = config.prompt.clone();
     let messages = serde_json::json!([

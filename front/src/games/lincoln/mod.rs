@@ -9,6 +9,7 @@ use super::GamePluginProps;
 //  强类型结构 — 从不透明 Value 解冻
 // ═══════════════════════════════════════════════════════
 
+/// 林肯辩论状态
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LincolnState {
     pub game_type: String,
@@ -21,6 +22,7 @@ pub struct LincolnState {
     pub history: Vec<HistoryEntry>,
 }
 
+/// 参与者信息
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ActorInfo {
     pub id: String,
@@ -28,6 +30,7 @@ pub struct ActorInfo {
     pub role: String,
 }
 
+/// 历史条目
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct HistoryEntry {
     pub actor_id: String,
@@ -39,6 +42,7 @@ pub struct HistoryEntry {
 //  组件
 // ═══════════════════════════════════════════════════════
 
+/// 林肯辩论游戏组件
 #[component]
 pub fn LincolnGame(props: GamePluginProps) -> Element {
     let state = props.state;
@@ -166,11 +170,13 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
 //  气泡子组件
 // ═══════════════════════════════════════════════════════
 
+/// 历史气泡属性
 #[derive(Props, Clone, PartialEq)]
 struct HistoryBubbleProps {
     entry: HistoryEntry,
 }
 
+/// 历史气泡组件：显示单条发言
 #[component]
 fn HistoryBubble(props: HistoryBubbleProps) -> Element {
     let e = &props.entry;

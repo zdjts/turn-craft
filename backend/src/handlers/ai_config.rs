@@ -34,6 +34,7 @@ pub async fn get_ai_config(
     }))
 }
 
+/// 更新 AI 配置请求体（所有字段可选）
 #[derive(Deserialize)]
 pub struct UpdateAiConfigInput {
     pub api_key: Option<String>,

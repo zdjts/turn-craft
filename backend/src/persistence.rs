@@ -10,6 +10,7 @@ use crate::ai::env::AiConfig;
 
 const ROOMS_FILE: &str = "rooms.json";
 
+/// 房间快照：用于持久化存储房间状态
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoomSnapshot {
     pub room_id: String,

@@ -16,6 +16,7 @@ use super::manager::Peer;
 /// 断线保活时长：最后一个玩家离开后，房间保留 10 分钟等待重连
 const RECONNECT_TIMEOUT: Duration = Duration::from_secs(600);
 
+/// 房间命令：玩家动作、加入、离开、关闭
 pub enum RoomCommand {
     PlayerAction { actor_id: String, action: Value },
     Join(Peer),
@@ -23,6 +24,7 @@ pub enum RoomCommand {
     Shutdown,
 }
 
+/// AI 任务：包含房间信息、快照和回复通道
 pub struct AiTask {
     pub room_id: String,
     pub actor_id: String,

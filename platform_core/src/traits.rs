@@ -1,9 +1,13 @@
 use serde::Serialize;
+
+/// 动作来源类型：AI 或人类玩家
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum ActionKind {
     Ai,
     Human,
 }
+
+/// 游戏自定义载荷约束：可序列化 + 线程安全
 pub trait Payload: Serialize + Send + 'static {}
 /// # 游戏状态机副作用事件
 ///
@@ -31,16 +35,20 @@ pub enum GameEvent<R: GameRole, P: Payload> {
     },
 }
 
+/// 游戏角色约束：可序列化 + 可比较 + 线程安全
 pub trait GameRole: serde::Serialize + Clone + Send + Sync + Eq + PartialEq {}
+
+/// 游戏动作约束：可序列化 + 可调试 + 线程安全
 pub trait GameAction: serde::Serialize + Send + Sync + std::fmt::Debug {}
 
-// pub #[derive(Debug)]
+/// 参与者：包含唯一标识、来源类型和角色
 pub struct Actor<R: GameRole> {
     pub id: String,
     pub kind: ActionKind,
     pub role: R,
 }
 
+/// 房间状态：管理参与者列表和动作历史
 pub struct RoomState<R: GameRole, A: GameAction> {
     pub room_id: String,
     pub game_type: String,
@@ -62,12 +70,15 @@ impl<R: GameRole, A: GameAction> RoomState<R, A> {
     }
 }
 
+/// 可玩游戏接口：解析动作、执行步进、获取快照
 pub trait Playable<R: GameRole, A: GameAction, P: Payload, E: std::fmt::Debug>:
     Send + Sync + 'static
 {
+    /// 将原始内容解析为游戏动作
     fn parse_action(&self, actor_id: &str, raw_content: &str) -> Result<A, E>;
+    /// 执行一步动作，返回副作用事件列表
     fn step(&mut self, state: &mut RoomState<R, A>, action: A) -> Result<Vec<GameEvent<R, P>>, E>;
-    // type Snapshot: serde::Serialize + std::fmt::Debug;
+    /// 获取指定角色视角的状态快照（支持战争迷雾）
     fn get_snapshot(&self, state: &RoomState<R, A>, role: &R) -> String;
 }
 

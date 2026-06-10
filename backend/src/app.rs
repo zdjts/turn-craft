@@ -14,6 +14,7 @@ use crate::{
     persistence::RoomSnapshot,
 };
 
+/// 应用全局状态：房间管理器、AI 通道、配置存储
 #[derive(Clone)]
 pub struct AppState {
     pub room_manager: Arc<RoomManager>,

@@ -8,6 +8,8 @@ use crate::{
 };
 
 use super::env::build_messages;
+
+/// AI 后台工作者：消费任务队列，调用 LLM API
 pub struct AiWorker {
     http_client: Client,
 }
@@ -17,6 +19,7 @@ impl AiWorker {
             http_client: Client::new(),
         }
     }
+    /// 启动消费循环，持续处理 AI 任务
     pub async fn start_consuming(self, mut ai_rx: tokio::sync::mpsc::Receiver<AiTask>) {
         while let Some(task) = ai_rx.recv().await {
             let client_clone = self.http_client.clone();
@@ -27,6 +30,7 @@ impl AiWorker {
             });
         }
     }
+    /// 处理单个 AI 任务：调用 LLM 并回传结果
     async fn process_task(http: Client, task: AiTask) -> Result<(), String> {
         let config = task.ai_config;
 

@@ -8,6 +8,7 @@ use axum::extract::Path;
 use axum::{Json, extract::State};
 use serde::Deserialize;
 
+/// 创建房间请求体
 #[derive(Deserialize)]
 pub struct CreateRoomInput {
     pub game_type: String,
@@ -16,6 +17,7 @@ pub struct CreateRoomInput {
     pub role_config: HashMap<String, String>,
 }
 
+/// 创建房间处理器
 pub async fn create_room(
     State(state): State<AppState>,
     Json(input): Json<CreateRoomInput>,
@@ -105,6 +107,7 @@ pub async fn create_room(
     }))
 }
 
+/// 确定创建者的 actor_id
 fn determine_actor_id(my_role: &str, role_config: &HashMap<String, String>) -> String {
     match role_config.get(my_role).map(|s| s.as_str()) {
         Some("human") => my_role.to_string(),
@@ -112,6 +115,7 @@ fn determine_actor_id(my_role: &str, role_config: &HashMap<String, String>) -> S
     }
 }
 
+/// 删除房间处理器
 pub async fn delete_room(
     State(state): State<AppState>,
     Path(room_id): Path<String>,

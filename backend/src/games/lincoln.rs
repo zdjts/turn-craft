@@ -10,6 +10,7 @@ use serde_json::Value;
 
 use crate::ai::env::AiConfig;
 
+/// 创建林肯辩论引擎：初始化角色和 AI 配置
 pub fn create_lincoln(
     room_id: &str,
     my_role: &str,

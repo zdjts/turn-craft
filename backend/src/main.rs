@@ -69,6 +69,7 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
+/// 从文件加载 AI 配置
 fn load_configs_from_file() -> DashMap<String, AiConfig> {
     let map = DashMap::new();
     if !Path::new(CONFIG_FILE).exists() {

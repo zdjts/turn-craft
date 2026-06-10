@@ -5,12 +5,14 @@ use tracing::{error, info, warn};
 
 use crate::api::{CreateRoomRequest, create_room};
 
+/// 林肯辩论可用角色列表
 const LINCOLN_ROLES: &[(&str, &str)] = &[
     ("Judge", "裁判 — 开题与总结"),
     ("Pro", "正方 — 立论"),
     ("Con", "反方 — 驳论"),
 ];
 
+/// 大厅页面组件：创建房间入口
 #[component]
 pub fn Lobby() -> Element {
     let navigator = use_navigator();

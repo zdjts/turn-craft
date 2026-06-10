@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::traits::{ActionKind, EngineEvent, GameEngine};
 
+/// 林肯辩论角色：正方、反方、裁判、结束
 #[derive(Clone, PartialEq, Eq, Debug, Copy, Serialize, Deserialize)]
 pub enum DebateRole {
     Pro,
@@ -12,6 +13,7 @@ pub enum DebateRole {
     Over,
 }
 
+/// 林肯辩论参与者
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LincolnActor {
     pub id: String,
@@ -19,6 +21,7 @@ pub struct LincolnActor {
     pub role: DebateRole,
 }
 
+/// 辩论历史条目：记录每次发言
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HistoryEntry {
     pub actor_id: String,
@@ -26,6 +29,7 @@ pub struct HistoryEntry {
     pub content: String,
 }
 
+/// 林肯辩论引擎：管理辩论状态机
 pub struct LincolnEngine {
     pub room_id: String,
     pub max_round: usize,
@@ -38,6 +42,7 @@ pub struct LincolnEngine {
 }
 
 impl LincolnEngine {
+    /// 创建新的林肯辩论引擎
     pub fn new(room_id: String, max_round: usize) -> Self {
         Self {
             room_id,
@@ -51,6 +56,7 @@ impl LincolnEngine {
         }
     }
 
+    /// 添加参与者到辩论
     pub fn add_actor(&mut self, id: String, kind: ActionKind, role: DebateRole) {
         self.actors.push(LincolnActor {
             id,

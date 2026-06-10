@@ -5,6 +5,7 @@ use tokio::sync::{self, mpsc};
 
 use super::room::RoomCommand;
 
+/// 网络对端：WebSocket 连接的玩家
 pub struct Peer {
     pub actor_id: String,
     pub tx: sync::mpsc::Sender<String>,
@@ -17,10 +18,14 @@ impl Debug for Peer {
             .finish()
     }
 }
+
+/// 房间句柄：持有房间 ID 和命令发送通道
 pub struct RoomHandle {
     pub room_id: String,
     pub tx: mpsc::Sender<RoomCommand>,
 }
+
+/// 房间管理器：并发安全的房间注册表
 pub struct RoomManager {
     pub rooms: Arc<DashMap<String, RoomHandle>>,
 }
@@ -31,6 +36,7 @@ impl RoomManager {
             rooms: Arc::new(DashMap::new()),
         }
     }
+    /// 注册新房间，若已存在则返回错误
     pub async fn register(
         &self,
         room_id: String,
