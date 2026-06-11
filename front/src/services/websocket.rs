@@ -115,10 +115,29 @@ pub fn use_ws_bridge(room_id: &str, actor_id: &str) -> WsBridge {
                             Some(Ok(Message::Text(text))) => {
                                 match serde_json::from_str::<Value>(&text) {
                                     Ok(v) => {
+                                        // 检查是否是私密消息（如手牌）
+                                        if let Some(msg_type) = v.get("type").and_then(|t| t.as_str()) {
+                                            if msg_type == "your_hand" {
+                                                // 将手牌信息合并到当前状态
+                                                if let Some(hand) = v.get("hand") {
+                                                    let mut current = opaque_state.read().clone();
+                                                    if current.is_object() {
+                                                        current["your_hand"] = hand.clone();
+                                                        let _ = opaque_state.set(current);
+                                                        info!(target: "ws::downstream", "收到手牌私密消息，已合并到状态");
+                                                    }
+                                                }
+                                                continue;
+                                            }
+                                        }
+                                        
                                         let game_type = v.get("game_type").and_then(|g| g.as_str()).unwrap_or("?");
-                                        let round = v.get("round").and_then(|r| r.as_u64()).unwrap_or(0);
-                                        let active = v.get("active_actor").and_then(|a| a.as_str()).unwrap_or("?");
-                                        info!(target: "ws::downstream", game_type, round, active, "收到状态快照");
+                                        let players_count = v.get("players").and_then(|p| p.as_array()).map(|a| a.len()).unwrap_or(0);
+                                        let active = v.get("active_player")
+                                            .or_else(|| v.get("active_actor"))
+                                            .and_then(|a| a.as_str())
+                                            .unwrap_or("?");
+                                        info!(target: "ws::downstream", game_type, players_count, active, "收到状态快照");
                                         opaque_state.set(v);
                                     }
                                     Err(e) => {

@@ -1,4 +1,5 @@
 pub mod lincoln;
+pub mod texas_holdem;
 pub mod werewolf;
 
 use dioxus::prelude::*;
@@ -20,6 +21,13 @@ pub fn GamePluginManager(game_type: String, props: GamePluginProps) -> Element {
     match game_type.as_str() {
         "lincoln" => rsx! {
             lincoln::LincolnGame {
+                state: props.state,
+                on_action: props.on_action,
+                actor_id: props.actor_id,
+            }
+        },
+        "texas_holdem" => rsx! {
+            texas_holdem::TexasHoldemGame {
                 state: props.state,
                 on_action: props.on_action,
                 actor_id: props.actor_id,

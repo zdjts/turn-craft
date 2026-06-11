@@ -11,6 +11,8 @@ pub struct CreateRoomRequest {
     pub max_round: usize,
     pub my_role: String,
     pub role_config: HashMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub game_config: Option<Value>,
 }
 
 /// 创建房间响应

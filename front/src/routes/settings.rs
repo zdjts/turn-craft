@@ -3,10 +3,12 @@ use std::collections::HashMap;
 use tracing::{error, info};
 
 use crate::api::{AiConfigData, get_ai_configs, update_ai_config};
+use crate::routes::settings_actions::go_back;
 
 /// AI 配置页面组件：管理房间内 AI 角色的配置
 #[component]
 pub fn Settings(room_id: String, actor_id: String) -> Element {
+    let navigator = use_navigator();
     let mut configs = use_signal(|| HashMap::<String, AiConfigData>::new());
     let mut loading = use_signal(|| true);
     let mut save_msg = use_signal(|| Option::<String>::None);
@@ -40,9 +42,7 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                         rsx! {
                             button {
                                 class: "back-btn",
-                                onclick: move |_| {
-                                    use_navigator().push(format!("/game/{}/{}", rid, aid));
-                                },
+                                onclick: move |_| go_back(navigator.clone(), rid.clone(), aid.clone()),
                                 "← 返回对局"
                             }
                         }

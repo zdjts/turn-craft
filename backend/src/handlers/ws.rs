@@ -73,9 +73,11 @@ async fn handle_socket(
         while let Some(meg_res) = ws_receiver.next().await {
             match meg_res {
                 Ok(Message::Text(text)) => {
-                    // 将前端发来的文本解析为 JSON Value
-                    let action = serde_json::from_str(&text)
-                        .unwrap_or(serde_json::Value::String(text.to_string()));
+                    // 尝试解析为 JSON；如果不是合法 JSON，则包装为 {"content": text}
+                    let action = match serde_json::from_str::<serde_json::Value>(&text) {
+                        Ok(val) => val,
+                        Err(_) => serde_json::json!({ "content": text.to_string() }),
+                    };
                     let cmd = RoomCommand::PlayerAction {
                         actor_id: actor_id_ingress.clone(),
                         action,

@@ -36,10 +36,24 @@ impl AiWorker {
 
         let messages_json = build_messages(&config, task.snapshot);
 
-        let ai_reply = match request_speech(&http, &config, messages_json).await {
-            Ok(reply) => reply,
+        tracing::info!(
+            actor_id = %task.actor_id,
+            retries = task.retries,
+            messages = %messages_json,
+            ">>> 发送给 AI 的完整内容"
+        );
+
+        let ai_response = match request_speech(&http, &config, messages_json, task.tools.as_ref()).await {
+            Ok(response) => {
+                tracing::info!(
+                    actor_id = %task.actor_id,
+                    response = %response,
+                    "<<< AI 返回的完整回复"
+                );
+                response
+            }
             Err(e) => {
-                tracing::error!(error = ?e, "请求 AI 接口发生错误");
+                tracing::error!(actor_id = %task.actor_id, error = ?e, "请求 AI 接口发生错误");
                 let command = RoomCommand::PlayerAction {
                     actor_id: task.actor_id,
                     action: serde_json::json!({"content": "[思考超时，未能发言]"}),
@@ -49,9 +63,10 @@ impl AiWorker {
             }
         };
 
+        // 完整响应直接传给游戏引擎解析
         let command = RoomCommand::PlayerAction {
             actor_id: task.actor_id,
-            action: serde_json::json!({"content": ai_reply}),
+            action: ai_response,
         };
 
         if let Err(e) = task.reply_tx.send(command).await {

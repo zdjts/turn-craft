@@ -3,18 +3,23 @@ use std::collections::HashMap;
 use crate::network::manager::RoomHandle;
 use crate::network::room::{RoomCommand, spawn_game_room};
 use crate::persistence::{self, RoomSnapshot};
-use crate::{AppState, games::lincoln::create_lincoln};
+use crate::app::AppState;
+use crate::games::lincoln::create_lincoln;
+use crate::games::texas_holdem::create_texas_holdem;
 use axum::extract::Path;
 use axum::{Json, extract::State};
 use serde::Deserialize;
 
-/// 创建房间请求体
+/// 创建房间请求体（通用字段）
 #[derive(Deserialize)]
 pub struct CreateRoomInput {
     pub game_type: String,
     pub max_round: usize,
     pub my_role: String,
     pub role_config: HashMap<String, String>,
+    /// 游戏特定配置（JSON 对象），如德州扑克的小盲注、大盲注等
+    #[serde(default)]
+    pub game_config: Option<serde_json::Value>,
 }
 
 /// 创建房间处理器
@@ -35,6 +40,7 @@ pub async fn create_room(
         game_type = %input.game_type,
         my_role = %input.my_role,
         role_config = ?input.role_config,
+        game_config = ?input.game_config,
         "接收到创建房间请求，开始路由工厂..."
     );
 
@@ -46,6 +52,30 @@ pub async fn create_room(
             input.max_round,
             Some(&state.ai_configs),
         ),
+        "texas_holdem" => {
+            // 从 game_config 中解析德州扑克专用参数
+            let gc = input.game_config.unwrap_or_default();
+            let small_blind = gc.get("small_blind").and_then(|v| v.as_u64()).unwrap_or(10) as u32;
+            let big_blind = gc.get("big_blind").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
+            let starting_chips = gc.get("starting_chips").and_then(|v| v.as_u64()).unwrap_or(1000) as u32;
+
+            tracing::info!(
+                room_id = %room_id,
+                small_blind = small_blind,
+                big_blind = big_blind,
+                starting_chips = starting_chips,
+                "创建德州扑克房间"
+            );
+            create_texas_holdem(
+                &room_id,
+                &input.my_role,
+                &input.role_config,
+                small_blind,
+                big_blind,
+                starting_chips,
+                Some(&state.ai_configs),
+            )
+        }
         _ => {
             tracing::error!(game_type = %input.game_type, "创建房间失败：未知的游戏类型");
             return Json(serde_json::json!({
@@ -63,7 +93,7 @@ pub async fn create_room(
     }
 
     // 持久化到文件（新房间的 AI 配置也会保存）
-    crate::save_configs_to_file(&state.ai_configs);
+    crate::persistence::save_configs_to_file(&state.ai_configs);
 
     // 保存初始房间快照
     let initial_snapshot = RoomSnapshot {
@@ -126,7 +156,7 @@ pub async fn delete_room(
     let prefix = format!("{}/", room_id);
     state
         .ai_configs
-        .retain(|key, _| !key.starts_with(&prefix));
+        .retain(|key: &String, _| !key.starts_with(&prefix));
 
     if let Some((_, handle)) = state.room_manager.rooms.remove(&room_id) {
         if let Err(e) = handle.tx.send(RoomCommand::Shutdown).await {

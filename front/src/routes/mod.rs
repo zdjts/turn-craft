@@ -1,6 +1,9 @@
 pub mod game;
+pub mod game_actions;
 pub mod lobby;
+pub mod lobby_actions;
 pub mod settings;
+pub mod settings_actions;
 
 use dioxus::prelude::*;
 use game::Game;

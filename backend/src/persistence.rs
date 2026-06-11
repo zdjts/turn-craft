@@ -9,6 +9,7 @@ use tracing::{error, info};
 use crate::ai::env::AiConfig;
 
 const ROOMS_FILE: &str = "rooms.json";
+const CONFIG_FILE: &str = "ai_configs.json";
 
 /// 房间快照：用于持久化存储房间状态
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,4 +82,49 @@ pub fn save_room_snapshot(
 pub fn remove_room_snapshot(snapshots: &DashMap<String, RoomSnapshot>, room_id: &str) {
     snapshots.remove(room_id);
     save_rooms(snapshots);
+}
+
+/// 从文件加载 AI 配置
+pub fn load_configs_from_file() -> DashMap<String, AiConfig> {
+    let map = DashMap::new();
+    if !Path::new(CONFIG_FILE).exists() {
+        info!(file = CONFIG_FILE, "AI 配置文件不存在，使用空配置");
+        return map;
+    }
+    match std::fs::read_to_string(CONFIG_FILE) {
+        Ok(json) => match serde_json::from_str::<HashMap<String, AiConfig>>(&json) {
+            Ok(parsed) => {
+                let count = parsed.len();
+                for (k, v) in parsed {
+                    map.insert(k, v);
+                }
+                info!(file = CONFIG_FILE, count, "AI 配置已从文件加载");
+            }
+            Err(e) => {
+                error!(file = CONFIG_FILE, error = %e, "AI 配置文件解析失败，忽略");
+            }
+        },
+        Err(e) => {
+            error!(file = CONFIG_FILE, error = %e, "读取 AI 配置文件失败");
+        }
+    }
+    map
+}
+
+/// 将当前 AI 配置持久化到文件（在 handler 中调用）
+pub fn save_configs_to_file(configs: &DashMap<String, AiConfig>) {
+    let map: HashMap<String, AiConfig> = configs
+        .iter()
+        .map(|entry| (entry.key().clone(), entry.value().clone()))
+        .collect();
+    match serde_json::to_string_pretty(&map) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(CONFIG_FILE, json) {
+                error!(file = CONFIG_FILE, error = %e, "写入 AI 配置文件失败");
+            }
+        }
+        Err(e) => {
+            error!(error = %e, "序列化 AI 配置失败");
+        }
+    }
 }

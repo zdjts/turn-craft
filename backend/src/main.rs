@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -14,6 +13,7 @@ mod persistence;
 
 use crate::ai::env::AiConfig;
 use crate::games::lincoln::restore_lincoln;
+use crate::games::texas_holdem::restore_texas_holdem;
 use crate::network::manager::{RoomHandle, RoomManager};
 use crate::network::room::AiTask;
 use crate::persistence::RoomSnapshot;
@@ -22,8 +22,6 @@ use self::{
     ai::listener::AiWorker,
     app::{AppState, build_router},
 };
-
-const CONFIG_FILE: &str = "ai_configs.json";
 
 #[tokio::main]
 async fn main() {
@@ -47,7 +45,7 @@ async fn main() {
     let room_manager = Arc::new(RoomManager::new());
 
     // 从文件加载持久化的 AI 配置
-    let ai_configs = Arc::new(load_configs_from_file());
+    let ai_configs = Arc::new(persistence::load_configs_from_file());
 
     // 从文件加载房间快照并恢复
     let snapshots = Arc::new(persistence::load_rooms());
@@ -67,52 +65,6 @@ async fn main() {
     tracing::info!("🔥 服务器成功起航！正在高效监听：http://{}", addr);
 
     axum::serve(listener, app).await.unwrap();
-}
-
-/// 从文件加载 AI 配置
-fn load_configs_from_file() -> DashMap<String, AiConfig> {
-    let map = DashMap::new();
-    if !Path::new(CONFIG_FILE).exists() {
-        tracing::info!(file = CONFIG_FILE, "AI 配置文件不存在，使用空配置");
-        return map;
-    }
-    match std::fs::read_to_string(CONFIG_FILE) {
-        Ok(json) => match serde_json::from_str::<std::collections::HashMap<String, AiConfig>>(&json)
-        {
-            Ok(parsed) => {
-                let count = parsed.len();
-                for (k, v) in parsed {
-                    map.insert(k, v);
-                }
-                tracing::info!(file = CONFIG_FILE, count, "AI 配置已从文件加载");
-            }
-            Err(e) => {
-                tracing::error!(file = CONFIG_FILE, error = %e, "AI 配置文件解析失败，忽略");
-            }
-        },
-        Err(e) => {
-            tracing::error!(file = CONFIG_FILE, error = %e, "读取 AI 配置文件失败");
-        }
-    }
-    map
-}
-
-/// 将当前 AI 配置持久化到文件（在 handler 中调用）
-pub fn save_configs_to_file(configs: &DashMap<String, AiConfig>) {
-    let map: std::collections::HashMap<String, AiConfig> = configs
-        .iter()
-        .map(|entry| (entry.key().clone(), entry.value().clone()))
-        .collect();
-    match serde_json::to_string_pretty(&map) {
-        Ok(json) => {
-            if let Err(e) = std::fs::write(CONFIG_FILE, json) {
-                tracing::error!(file = CONFIG_FILE, error = %e, "写入 AI 配置文件失败");
-            }
-        }
-        Err(e) => {
-            tracing::error!(error = %e, "序列化 AI 配置失败");
-        }
-    }
 }
 
 /// 从快照恢复所有房间
@@ -137,6 +89,13 @@ fn restore_rooms(
                 Ok(engine) => engine,
                 Err(e) => {
                     tracing::error!(room_id = %room_id, error = %e, "恢复 Lincoln 引擎失败，跳过");
+                    continue;
+                }
+            },
+            "texas_holdem" => match restore_texas_holdem(&snap.engine_state) {
+                Ok(engine) => engine,
+                Err(e) => {
+                    tracing::error!(room_id = %room_id, error = %e, "恢复 TexasHoldem 引擎失败，跳过");
                     continue;
                 }
             },

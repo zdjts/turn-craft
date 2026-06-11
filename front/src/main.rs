@@ -6,6 +6,9 @@ const BACKEND_ORIGIN: &str = "http://127.0.0.1:8080";
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
+const LOBBY_CSS: Asset = asset!("/assets/lobby.css");
+const SETTINGS_CSS: Asset = asset!("/assets/settings.css");
+const POKER_CSS: Asset = asset!("/assets/poker.css");
 const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 
 mod api;
@@ -25,6 +28,9 @@ fn App() -> Element {
     rsx! {
         document::Link { rel: "icon", href: FAVICON }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
+        document::Link { rel: "stylesheet", href: LOBBY_CSS }
+        document::Link { rel: "stylesheet", href: SETTINGS_CSS }
+        document::Link { rel: "stylesheet", href: POKER_CSS }
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }
 
         Router::<routes::Route> {}

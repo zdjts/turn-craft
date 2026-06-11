@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{debug, info, warn};
 
+pub mod actions;
+use actions::submit_litigation;
 use super::GamePluginProps;
 
 // ═══════════════════════════════════════════════════════
@@ -145,16 +147,7 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
                     button {
                         class: "console-submit",
                         disabled: !is_my_turn(),
-                        onclick: move |_| {
-                            let content = draft.read().trim().to_string();
-                            if content.is_empty() {
-                                warn!(target: "lincoln::action", "用户尝试发送空发言，已忽略");
-                                return;
-                            }
-                            info!(target: "lincoln::action", content_len = content.len(), "裁判通过按钮发射发言");
-                            on_action.call(serde_json::json!({"content": content}));
-                            draft.write().clear();
-                        },
+                        onclick: move |_| submit_litigation(draft, on_action, "button"),
                         "发射"
                     }
                 }

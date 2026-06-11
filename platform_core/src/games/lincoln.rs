@@ -75,15 +75,15 @@ impl GameEngine for LincolnEngine {
     }
 
     fn step(&mut self, actor_id: &str, action: serde_json::Value) -> Result<Vec<EngineEvent>, String> {
+        // 支持两种格式：
+        // 1. 直接内容: {"content": "text"}
+        // 2. 完整消息: {"role": "assistant", "content": "text"}
         let content = action
             .get("content")
             .and_then(|v| v.as_str())
-            .ok_or("动作缺少 content 字段")?
+            .filter(|s| !s.is_empty())
+            .ok_or("动作缺少 content 字段（可能是 tool_calls 响应）")?
             .to_string();
-
-        if content.is_empty() {
-            return Err("发言内容不能为空".to_string());
-        }
 
         // 验证是否轮到该 actor
         let actor = self

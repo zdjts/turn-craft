@@ -1,8 +1,8 @@
-use axum::extract::{Path, State};
 use axum::Json;
+use axum::extract::{Path, State};
 use serde::Deserialize;
 
-use crate::AppState;
+use crate::app::AppState;
 
 /// GET /rooms/{room_id}/ai-config
 pub async fn get_ai_config(
@@ -94,7 +94,7 @@ pub async fn update_ai_config(
     state.ai_configs.insert(defaults_key, updated.clone());
 
     // 3) 持久化到文件（此时无写锁，iter() 安全）
-    crate::save_configs_to_file(&state.ai_configs);
+    crate::persistence::save_configs_to_file(&state.ai_configs);
 
     tracing::info!(room_id = %room_id, actor_id = %actor_id, "AI 配置已更新（含全局默认）");
 

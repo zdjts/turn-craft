@@ -1,8 +1,10 @@
+use dioxus::html::h1;
 use dioxus::prelude::*;
 use serde_json::Value;
 use tracing::{debug, info};
 
 use crate::games::GamePluginManager;
+use crate::routes::game_actions::{copy_room_id, open_settings};
 use crate::services::websocket::{use_ws_bridge, WsBridge};
 
 /// 游戏页面组件：管理 WebSocket 连接和游戏渲染
@@ -55,23 +57,25 @@ fn RoomCard(room_id: String, actor_id: String) -> Element {
     let navigator = use_navigator();
 
     rsx! {
+    button {
+        class: "back-to-lobby-btn",
+        onclick: move |_| {
+            navigator.push("/");
+        },
+        "返回大厅"
+    }
         div { class: "room-card",
             div { class: "room-header",
                 span { class: "room-id", "🏠 {room_id}" }
                 {
                     let rid_copy = room_id.clone();
                     rsx! {
-                        button {
-                            class: "copy-btn",
-                            title: "复制房间号",
-                            onclick: move |_| {
-                                if let Some(win) = web_sys::window() {
-                                    let _ = win.navigator().clipboard().write_text(&rid_copy);
-                                    debug!(target: "game", room_id = %rid_copy, "房间号已复制到剪贴板");
-                                }
-                            },
-                            "📋"
-                        }
+                            button {
+                                class: "copy-btn",
+                                title: "复制房间号",
+                                onclick: move |_| copy_room_id(rid_copy.clone()),
+                                "📋"
+                            }
                     }
                 }
             }
@@ -93,9 +97,7 @@ fn RoomCard(room_id: String, actor_id: String) -> Element {
                 rsx! {
                     button {
                         class: "settings-link",
-                        onclick: move |_| {
-                            navigator.push(format!("/settings/{}/{}", rid, aid));
-                        },
+                        onclick: move |_| open_settings(navigator, rid.clone(), aid.clone()),
                         "⚙️ AI 配置"
                     }
                 }
@@ -111,8 +113,12 @@ fn PlayerRoster() -> Element {
     let state = bridge.opaque_state;
 
     let actors = use_memo(move || {
-        let arr = state()
+        let s = state();
+        debug!(target: "game::roster", state = %s, "收到状态");
+        // 支持 actors（林肯辩论）和 players（德州扑克）两种字段名
+        let arr = s
             .get("actors")
+            .or_else(|| s.get("players"))
             .and_then(|v| v.as_array())
             .cloned()
             .unwrap_or_default();
@@ -121,8 +127,10 @@ fn PlayerRoster() -> Element {
     });
 
     let active_actor = use_memo(move || {
-        state()
-            .get("active_actor")
+        let s = state();
+        // 支持 active_actor 和 active_player 两种字段名
+        s.get("active_actor")
+            .or_else(|| s.get("active_player"))
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string()
@@ -160,12 +168,28 @@ struct PlayerCardProps {
 /// 选手卡片组件：显示单个参与者信息
 #[component]
 fn PlayerCard(props: PlayerCardProps) -> Element {
-    let id = props.actor.get("id").and_then(|v| v.as_str()).unwrap_or("?");
-    let kind = props.actor.get("kind").and_then(|v| v.as_str()).unwrap_or("");
-    let role = props.actor.get("role").and_then(|v| v.as_str()).unwrap_or("");
+    let id = props
+        .actor
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("?");
+    let kind = props
+        .actor
+        .get("kind")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let role = props
+        .actor
+        .get("role")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
     let icon = if kind == "Ai" { "🤖" } else { "👑" };
-    let card_class = if props.is_active { "player-card active" } else { "player-card inactive" };
+    let card_class = if props.is_active {
+        "player-card active"
+    } else {
+        "player-card inactive"
+    };
 
     rsx! {
         div { class: "{card_class}",

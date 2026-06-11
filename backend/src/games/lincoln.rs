@@ -10,6 +10,15 @@ use serde_json::Value;
 
 use crate::ai::env::AiConfig;
 
+/// 首字母大写：将 "judge" 转换为 "Judge"
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) => format!("{}{}", c.to_uppercase(), chars.as_str()),
+        None => String::new(),
+    }
+}
+
 /// 创建林肯辩论引擎：初始化角色和 AI 配置
 pub fn create_lincoln(
     room_id: &str,
@@ -38,7 +47,9 @@ pub fn create_lincoln(
     let mut ai_configs = HashMap::new();
 
     for (role_name, role_type) in role_config {
-        let debate_role = match role_map.get(role_name.as_str()) {
+        // 统一转为首字母大写再查找，兼容 "judge" 和 "Judge" 两种写法
+        let capitalized = capitalize(role_name);
+        let debate_role = match role_map.get(capitalized.as_str()) {
             Some(r) => *r,
             None => continue,
         };
@@ -58,12 +69,12 @@ pub fn create_lincoln(
 
                 // 优先从全局默认配置读取（用户上次在 Settings 保存的值）
                 let saved = global_ai_configs.and_then(|gc| {
-                    gc.get(&format!("{}/{}", global_defaults_key, role_name))
+                    gc.get(&format!("{}/{}", global_defaults_key, capitalized))
                         .map(|r| r.clone())
                 });
 
                 let default_prompt = default_prompts
-                    .get(role_name.as_str())
+                    .get(capitalized.as_str())
                     .unwrap_or(&"")
                     .to_string();
 
