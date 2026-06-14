@@ -4,25 +4,16 @@ use axum::{
     Router,
     routing::{delete, get, post, put},
 };
-use dashmap::DashMap;
 use tower_http::cors::CorsLayer;
 
-use crate::{
-    ai::env::AiConfig,
-    handlers,
-    network::{manager::RoomManager, room::AiTask},
-    persistence::RoomSnapshot,
-};
+use crate::handlers;
 
-/// 应用全局状态：房间管理器、AI 通道、配置存储
+/// 应用全局状态：包含重构后的核心服务
 #[derive(Clone)]
 pub struct AppState {
-    pub room_manager: Arc<RoomManager>,
-    pub ai_tx: tokio::sync::mpsc::Sender<AiTask>,
-    /// 全局 AI 配置存储：key = "{room_id}/{actor_id}"，DashMap 自身并发安全
-    pub ai_configs: Arc<DashMap<String, AiConfig>>,
-    /// 房间快照存储：用于持久化到磁盘
-    pub snapshots: Arc<DashMap<String, RoomSnapshot>>,
+    pub auth_service: Arc<crate::auth::AuthService>,
+    pub room_service: Arc<crate::room::RoomService>,
+    pub ai_service: Arc<crate::ai::AIService>,
 }
 
 pub fn build_router(state: AppState) -> Router {
@@ -34,6 +25,8 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(handlers::health::index))
         .route("/health", get(handlers::health::health))
+        .route("/register", post(handlers::auth::register))
+        .route("/login", post(handlers::auth::login))
         .route("/rooms", post(handlers::room::create_room))
         .route("/rooms/{room_id}", delete(handlers::room::delete_room))
         .route(

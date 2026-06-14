@@ -18,3 +18,24 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 
 tokio-tungstenite = "0.26" # 强大的 Tokio 生态 WebSocket 客户端
+thiserror = "2.0.18"
+anyhow = "1.0.102"
+uuid = {version = "1.23.3", features = ["v4"]}
+chrono = {version = "0.4.45", features = ["serde"]}
+sqlx = { 
+    version = "0.9", 
+    features = [
+        "runtime-tokio",      # 1. 指定异步运行时
+        "tls-rustls-ring",    # 2. 指定 TLS 加密后端（替代了原来的 rustls）
+        "postgres",           # 你的数据库类型
+        "sqlite",
+        "macros",             # 编译时检查宏
+        "migrate",            # 数据库迁移
+        "uuid",               # 按需添加
+        "chrono"              # 按需添加
+    ] 
+}
+async-trait = "0.1.89"
+jsonwebtoken = "9"
+argon2 = "0.5"
+rand = "0.8"

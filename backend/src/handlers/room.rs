@@ -1,176 +1,41 @@
-use std::collections::HashMap;
+use axum::{Json, extract::{Path, State}};
+use serde_json::{json, Value};
 
-use crate::network::manager::RoomHandle;
-use crate::network::room::{RoomCommand, spawn_game_room};
-use crate::persistence::{self, RoomSnapshot};
 use crate::app::AppState;
-use crate::games::lincoln::create_lincoln;
-use crate::games::texas_holdem::create_texas_holdem;
-use axum::extract::Path;
-use axum::{Json, extract::State};
-use serde::Deserialize;
+use crate::error::AppError;
+use crate::auth::middleware::AuthUser;
+use crate::room::model::CreateRoomInput;
 
-/// 创建房间请求体（通用字段）
-#[derive(Deserialize)]
-pub struct CreateRoomInput {
-    pub game_type: String,
-    pub max_round: usize,
-    pub my_role: String,
-    pub role_config: HashMap<String, String>,
-    /// 游戏特定配置（JSON 对象），如德州扑克的小盲注、大盲注等
-    #[serde(default)]
-    pub game_config: Option<serde_json::Value>,
-}
-
-/// 创建房间处理器
+/// 创建房间处理器 (薄 Handler)
 pub async fn create_room(
     State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
     Json(input): Json<CreateRoomInput>,
-) -> Json<serde_json::Value> {
-    let room_id = format!(
-        "room_{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-    );
-
+) -> Result<Json<Value>, AppError> {
     tracing::info!(
-        room_id = %room_id,
+        user_id = %user_id.0,
         game_type = %input.game_type,
-        my_role = %input.my_role,
-        role_config = ?input.role_config,
-        game_config = ?input.game_config,
-        "接收到创建房间请求，开始路由工厂..."
+        "接收到创建房间请求"
     );
-
-    let (engine_box, ai_configs) = match input.game_type.as_str() {
-        "lincoln" => create_lincoln(
-            &room_id,
-            &input.my_role,
-            &input.role_config,
-            input.max_round,
-            Some(&state.ai_configs),
-        ),
-        "texas_holdem" => {
-            // 从 game_config 中解析德州扑克专用参数
-            let gc = input.game_config.unwrap_or_default();
-            let small_blind = gc.get("small_blind").and_then(|v| v.as_u64()).unwrap_or(10) as u32;
-            let big_blind = gc.get("big_blind").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
-            let starting_chips = gc.get("starting_chips").and_then(|v| v.as_u64()).unwrap_or(1000) as u32;
-
-            tracing::info!(
-                room_id = %room_id,
-                small_blind = small_blind,
-                big_blind = big_blind,
-                starting_chips = starting_chips,
-                "创建德州扑克房间"
-            );
-            create_texas_holdem(
-                &room_id,
-                &input.my_role,
-                &input.role_config,
-                small_blind,
-                big_blind,
-                starting_chips,
-                Some(&state.ai_configs),
-            )
-        }
-        _ => {
-            tracing::error!(game_type = %input.game_type, "创建房间失败：未知的游戏类型");
-            return Json(serde_json::json!({
-                "status": "error",
-                "message": format!("不支持的游戏类型: {}", input.game_type)
-            }));
-        }
-    };
-
-    // 注册 AI 配置到全局存储（DashMap 自身并发安全，无需额外锁）
-    for (actor_id, cfg) in &ai_configs {
-        state
-            .ai_configs
-            .insert(format!("{}/{}", room_id, actor_id), cfg.clone());
-    }
-
-    // 持久化到文件（新房间的 AI 配置也会保存）
-    crate::persistence::save_configs_to_file(&state.ai_configs);
-
-    // 保存初始房间快照
-    let initial_snapshot = RoomSnapshot {
-        room_id: room_id.clone(),
-        game_type: engine_box.game_type().to_string(),
-        engine_state: engine_box.to_json(),
-        role_config: input.role_config.clone(),
-        ai_configs: ai_configs.clone(),
-        max_round: input.max_round,
-    };
-    persistence::save_room_snapshot(&state.snapshots, &room_id, initial_snapshot);
-
-    let room_tx = spawn_game_room(
-        room_id.clone(),
-        engine_box,
-        Some(state.ai_tx.clone()),
-        ai_configs,
-        Some(state.ai_configs.clone()),
-        state.room_manager.rooms.clone(),
-        state.snapshots.clone(),
-        input.role_config.clone(),
-        false,
-    );
-
-    state.room_manager.rooms.insert(
-        room_id.clone(),
-        RoomHandle {
-            room_id: room_id.clone(),
-            tx: room_tx,
-        },
-    );
-
-    let creator_actor_id = determine_actor_id(&input.my_role, &input.role_config);
-
-    tracing::info!(room_id = %room_id, creator_actor_id = %creator_actor_id, "房间创建并注册完毕");
-
-    Json(serde_json::json!({
+    let out = state.room_service.create_room(user_id, input).await?;
+    Ok(Json(json!({
         "status": "success",
-        "room_id": room_id,
-        "actor_id": creator_actor_id,
-    }))
+        "room_id": out.room_id,
+        "actor_id": out.assigned_slot
+    })))
 }
 
-/// 确定创建者的 actor_id
-fn determine_actor_id(my_role: &str, role_config: &HashMap<String, String>) -> String {
-    match role_config.get(my_role).map(|s| s.as_str()) {
-        Some("human") => my_role.to_string(),
-        _ => format!("human_{}", my_role.to_lowercase()),
-    }
-}
-
-/// 删除房间处理器
+/// 删除房间处理器 (薄 Handler)
 pub async fn delete_room(
     State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
     Path(room_id): Path<String>,
-) -> Json<serde_json::Value> {
-    tracing::info!(room_id = %room_id, "收到销毁房间请求");
-
-    // 清理 AI 配置（DashMap 自身并发安全）
-    let prefix = format!("{}/", room_id);
-    state
-        .ai_configs
-        .retain(|key: &String, _| !key.starts_with(&prefix));
-
-    if let Some((_, handle)) = state.room_manager.rooms.remove(&room_id) {
-        if let Err(e) = handle.tx.send(RoomCommand::Shutdown).await {
-            tracing::warn!(room_id = %room_id, error = ?e, "房间协程可能已提前销毁");
-        }
-        tracing::info!(room_id = %room_id, "房间已销毁");
-        Json(serde_json::json!({
-            "status": "success",
-            "message": format!("房间 {} 销毁成功", room_id)
-        }))
-    } else {
-        Json(serde_json::json!({
-            "status": "error",
-            "message": format!("未找到房间: {}", room_id)
-        }))
-    }
+) -> Result<Json<Value>, AppError> {
+    tracing::info!(
+        user_id = %user_id.0,
+        room_id = %room_id,
+        "接收到销毁房间请求"
+    );
+    state.room_service.delete_room(user_id, &room_id).await?;
+    Ok(Json(json!({ "status": "success" })))
 }

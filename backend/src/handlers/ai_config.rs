@@ -1,40 +1,44 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use serde::Deserialize;
+use serde_json::{json, Value};
 
 use crate::app::AppState;
+use crate::error::AppError;
 
-/// GET /rooms/{room_id}/ai-config
+/// GET /rooms/{room_id}/ai-config (薄 Handler - 读 SQLite)
 pub async fn get_ai_config(
     State(state): State<AppState>,
     Path(room_id): Path<String>,
-) -> Json<serde_json::Value> {
-    let prefix = format!("{}/", room_id);
+) -> Result<Json<Value>, AppError> {
+    let configs = state
+        .ai_service
+        .config_repo
+        .get_all_for_room(&room_id)
+        .await
+        .map_err(AppError::Ai)?;
 
     let mut result = serde_json::Map::new();
-    for entry in state.ai_configs.iter() {
-        if entry.key().starts_with(&prefix) {
-            let actor_id = entry.key().strip_prefix(&prefix).unwrap_or(entry.key());
-            result.insert(
-                actor_id.to_string(),
-                serde_json::json!({
-                    "api_key": entry.value().api_key,
-                    "base_url": entry.value().base_url,
-                    "model": entry.value().model,
-                    "max_tokens": entry.value().max_tokens,
-                    "prompt": entry.value().prompt,
-                }),
-            );
-        }
+    for (actor_id, cfg) in configs {
+        result.insert(
+            actor_id,
+            json!({
+                "api_key": cfg.api_key,
+                "base_url": cfg.base_url,
+                "model": cfg.model,
+                "max_tokens": cfg.max_tokens,
+                "prompt": cfg.prompt,
+            }),
+        );
     }
 
-    Json(serde_json::json!({
+    Ok(Json(json!({
         "status": "success",
         "configs": result,
-    }))
+    })))
 }
 
-/// 更新 AI 配置请求体（所有字段可选）
+/// 更新 AI 配置请求体
 #[derive(Deserialize)]
 pub struct UpdateAiConfigInput {
     pub api_key: Option<String>,
@@ -44,42 +48,46 @@ pub struct UpdateAiConfigInput {
     pub prompt: Option<String>,
 }
 
-/// PUT /rooms/{room_id}/ai-config/{actor_id}
+/// PUT /rooms/{room_id}/ai-config/{actor_id} (薄 Handler - 写 SQLite)
 pub async fn update_ai_config(
     State(state): State<AppState>,
     Path((room_id, actor_id)): Path<(String, String)>,
     Json(input): Json<UpdateAiConfigInput>,
-) -> Json<serde_json::Value> {
-    let key = format!("{}/{}", room_id, actor_id);
+) -> Result<Json<Value>, AppError> {
+    // 1) 读取当前配置
+    let mut config = state
+        .ai_service
+        .config_repo
+        .get(&room_id, &actor_id)
+        .await
+        .map_err(AppError::Ai)?;
 
-    // 1) 读取当前配置并修改，clone 后立即 drop RefMut 释放写锁
-    let updated = {
-        let Some(mut cfg) = state.ai_configs.get_mut(&key) else {
-            return Json(serde_json::json!({
-                "status": "error",
-                "message": format!("未找到 AI 配置: {}/{}", room_id, actor_id)
-            }));
-        };
-        if let Some(v) = input.api_key {
-            cfg.api_key = v;
-        }
-        if let Some(v) = input.base_url {
-            cfg.base_url = v;
-        }
-        if let Some(v) = input.model {
-            cfg.model = v;
-        }
-        if let Some(v) = input.max_tokens {
-            cfg.max_tokens = v;
-        }
-        if let Some(v) = input.prompt {
-            cfg.prompt = v;
-        }
-        cfg.clone()
-        // cfg (RefMut) 在此 drop，写锁释放
-    };
+    // 2) 更新参数
+    if let Some(v) = input.api_key {
+        config.api_key = v;
+    }
+    if let Some(v) = input.base_url {
+        config.base_url = v;
+    }
+    if let Some(v) = input.model {
+        config.model = v;
+    }
+    if let Some(v) = input.max_tokens {
+        config.max_tokens = v;
+    }
+    if let Some(v) = input.prompt {
+        config.prompt = v;
+    }
 
-    // 2) 更新全局默认配置（无锁冲突）
+    // 3) 保存更新后的配置
+    state
+        .ai_service
+        .config_repo
+        .set(&room_id, &actor_id, &config)
+        .await
+        .map_err(AppError::Ai)?;
+
+    // 4) 提取角色名并更新全局默认配置
     let role_name = actor_id
         .strip_prefix("ai_")
         .map(|r| {
@@ -90,22 +98,24 @@ pub async fn update_ai_config(
             }
         })
         .unwrap_or_else(|| actor_id.clone());
-    let defaults_key = format!("__defaults__/{}", role_name);
-    state.ai_configs.insert(defaults_key, updated.clone());
 
-    // 3) 持久化到文件（此时无写锁，iter() 安全）
-    crate::persistence::save_configs_to_file(&state.ai_configs);
+    state
+        .ai_service
+        .config_repo
+        .set("__defaults__", &role_name, &config)
+        .await
+        .map_err(AppError::Ai)?;
 
-    tracing::info!(room_id = %room_id, actor_id = %actor_id, "AI 配置已更新（含全局默认）");
+    tracing::info!(room_id = %room_id, actor_id = %actor_id, "AI 配置已于 SQLite 更新（含全局默认）");
 
-    Json(serde_json::json!({
+    Ok(Json(json!({
         "status": "success",
         "config": {
-            "api_key": updated.api_key,
-            "base_url": updated.base_url,
-            "model": updated.model,
-            "max_tokens": updated.max_tokens,
-            "prompt": updated.prompt,
+            "api_key": config.api_key,
+            "base_url": config.base_url,
+            "model": config.model,
+            "max_tokens": config.max_tokens,
+            "prompt": config.prompt,
         }
-    }))
+    })))
 }

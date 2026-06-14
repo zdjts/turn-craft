@@ -4,7 +4,7 @@ use tracing::error;
 
 use crate::{
     ai::client::request_speech,
-    network::room::{AiTask, RoomCommand},
+    room::model::{AiTask, RoomCommand},
 };
 
 use super::env::build_messages;

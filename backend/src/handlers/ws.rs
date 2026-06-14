@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{
-        Path, State, WebSocketUpgrade,
+        Path, State, WebSocketUpgrade, Query,
         ws::{Message, WebSocket},
     },
     response::IntoResponse,
@@ -13,56 +13,61 @@ use tokio::sync::mpsc;
 
 use crate::{
     app::AppState,
-    network::{
-        manager::{Peer, RoomManager},
-        room::RoomCommand,
-    },
+    room::model::RoomCommand,
+    user::model::UserId,
+    error::AppError,
 };
 
-/// WebSocket 连接参数
+#[derive(Deserialize)]
+pub struct WsQuery {
+    pub token: String,
+}
+
 #[derive(Deserialize)]
 pub struct ConnectParams {
     pub room_id: String,
     pub actor_id: String,
 }
 
-/// WebSocket 升级处理器
+/// WebSocket 升级处理器 (带 Token 验证)
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
-    State(app): State<AppState>,
+    State(state): State<AppState>,
     Path(params): Path<ConnectParams>,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| {
-        handle_socket(socket, app.room_manager, params.room_id, params.actor_id)
-    })
+    Query(query): Query<WsQuery>,
+) -> Result<impl IntoResponse, AppError> {
+    let user_id = state.auth_service.verify_token(&query.token).await?;
+    Ok(ws.on_upgrade(move |socket| {
+        handle_socket(socket, state.room_service.clone(), params.room_id, user_id, params.actor_id)
+    }))
 }
 
 /// 处理 WebSocket 连接：双向数据转发
 async fn handle_socket(
     socket: WebSocket,
-    room_manager: Arc<RoomManager>,
+    room_service: Arc<crate::room::RoomService>,
     room_id: String,
+    user_id: UserId,
     actor_id: String,
 ) {
-    let room_tx = {
-        if let Some(handle) = room_manager.rooms.get(&room_id) {
-            handle.tx.clone()
-        } else {
-            tracing::warn!(room_id = %room_id, actor_id = %actor_id, "拒绝连接：目标房间不存在");
+    let (peer_tx, mut peer_rx) = mpsc::channel::<String>(64);
+
+    // 1. 调用 room_service.connect() 进行鉴权和加入
+    if let Err(e) = room_service.connect(user_id, &room_id, &actor_id, peer_tx).await {
+        tracing::warn!(room_id = %room_id, actor_id = %actor_id, error = ?e, "连接拒绝：room_service.connect 失败");
+        return;
+    }
+
+    // 2. 获取 room_tx 用于后续发送上行动作
+    let room_tx = match room_service.get_room_tx(&room_id) {
+        Some(tx) => tx,
+        None => {
+            tracing::error!(room_id = %room_id, "找不到房间的通道");
             return;
         }
     };
 
     let (mut ws_sender, mut ws_receiver) = socket.split();
-    let (peer_tx, mut peer_rx) = mpsc::channel::<String>(64);
-    let peer = Peer {
-        actor_id: actor_id.clone(),
-        tx: peer_tx,
-    };
-    if let Err(e) = room_tx.send(RoomCommand::Join(peer)).await {
-        tracing::error!(room_id = %room_id, actor_id = %actor_id, error = ?e, "加入房间失败，控制总线已关闭");
-        return;
-    };
     tracing::info!(room_id = %room_id, actor_id = %actor_id, "网关与房间会话绑定成功");
 
     let room_tx_ingress = room_tx.clone();
@@ -73,7 +78,6 @@ async fn handle_socket(
         while let Some(meg_res) = ws_receiver.next().await {
             match meg_res {
                 Ok(Message::Text(text)) => {
-                    // 尝试解析为 JSON；如果不是合法 JSON，则包装为 {"content": text}
                     let action = match serde_json::from_str::<serde_json::Value>(&text) {
                         Ok(val) => val,
                         Err(_) => serde_json::json!({ "content": text.to_string() }),
@@ -99,6 +103,7 @@ async fn handle_socket(
             }
         }
     });
+
     let actor_id_egress = actor_id.clone();
     let room_id_egress = room_id.clone();
 

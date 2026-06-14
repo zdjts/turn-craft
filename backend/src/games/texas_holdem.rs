@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use async_trait::async_trait;
 use platform_core::{
     games::texas_holdem::{ActionHistory, GamePhase, PokerPlayer, ShowdownResult, TexasHoldemEngine},
     traits::{ActionKind, GameEngine},
@@ -9,66 +9,80 @@ use platform_core::{
 use serde_json::Value;
 
 use crate::ai::env::AiConfig;
+use crate::ai::config_repo::AiConfigRepository;
+use crate::room::model::CreateRoomInput;
+use crate::error::AppError;
+use super::factory::GameFactory;
 
-/// 创建德州扑克引擎：初始化玩家和 AI 配置
-pub fn create_texas_holdem(
-    room_id: &str,
-    my_id: &str,
-    role_config: &HashMap<String, String>,
-    small_blind: u32,
-    big_blind: u32,
-    starting_chips: u32,
-    global_ai_configs: Option<&Arc<DashMap<String, AiConfig>>>,
-) -> (Box<dyn GameEngine>, HashMap<String, AiConfig>) {
-    let mut engine = TexasHoldemEngine::new(room_id.to_string(), small_blind, big_blind);
+pub struct TexasHoldemFactory;
 
-    let default_prompt = "你是一位经验丰富的德州扑克 AI 玩家。请根据当前局面做出最优决策（fold/check/call/raise/all_in）。";
-
-    let global_defaults_key = "__defaults__";
-
-    let mut ai_configs = HashMap::new();
-
-    for (player_id, player_type) in role_config {
-        match player_type.as_str() {
-            "human" => {
-                engine.add_player(player_id.clone(), ActionKind::Human, starting_chips);
-            }
-            "ai" => {
-                engine.add_player(player_id.clone(), ActionKind::Ai, starting_chips);
-
-                let saved = global_ai_configs.and_then(|gc| {
-                    gc.get(&format!("{}/{}", global_defaults_key, player_id))
-                        .map(|r| r.clone())
-                });
-
-                let config = match saved {
-                    Some(s) => AiConfig {
-                        api_key: s.api_key,
-                        base_url: s.base_url,
-                        model: s.model,
-                        max_tokens: s.max_tokens,
-                        prompt: if s.prompt.is_empty() {
-                            default_prompt.to_string()
-                        } else {
-                            s.prompt
-                        },
-                    },
-                    None => AiConfig {
-                        api_key: std::env::var("DEEPSEEK_API_KEY").unwrap_or_default(),
-                        base_url: "https://api.deepseek.com/v1".to_string(),
-                        model: "deepseek-chat".to_string(),
-                        prompt: default_prompt.to_string(),
-                        max_tokens: 2048,
-                    },
-                };
-
-                ai_configs.insert(player_id.clone(), config);
-            }
-            _ => {}
-        }
+#[async_trait]
+impl GameFactory for TexasHoldemFactory {
+    fn game_type(&self) -> &str {
+        "texas_holdem"
     }
 
-    (Box::new(engine), ai_configs)
+    async fn create(
+        &self,
+        room_id: &str,
+        input: &CreateRoomInput,
+        config_repo: &dyn AiConfigRepository,
+    ) -> Result<(Box<dyn GameEngine>, HashMap<String, AiConfig>), AppError> {
+        let gc = input.game_config.as_ref();
+        let small_blind = gc.and_then(|v| v.get("small_blind")).and_then(|v| v.as_u64()).unwrap_or(10) as u32;
+        let big_blind = gc.and_then(|v| v.get("big_blind")).and_then(|v| v.as_u64()).unwrap_or(20) as u32;
+        let starting_chips = gc.and_then(|v| v.get("starting_chips")).and_then(|v| v.as_u64()).unwrap_or(1000) as u32;
+
+        let mut engine = TexasHoldemEngine::new(room_id.to_string(), small_blind, big_blind);
+        let default_prompt = "你是一位经验丰富的德州扑克 AI 玩家。请根据当前局面做出最优决策（fold/check/call/raise/all_in）。";
+        let global_defaults_key = "__defaults__";
+        let mut ai_configs = HashMap::new();
+
+        for (player_id, player_type) in &input.slot_configs {
+            match player_type.as_str() {
+                "human" => {
+                    engine.add_player(player_id.clone(), ActionKind::Human, starting_chips);
+                }
+                "ai" => {
+                    engine.add_player(player_id.clone(), ActionKind::Ai, starting_chips);
+
+                    // 优先从 SQLite 配置仓储获取默认全局配置
+                    let saved = config_repo.get(global_defaults_key, player_id).await.ok();
+
+                    let config = match saved {
+                        Some(s) => AiConfig {
+                            api_key: s.api_key,
+                            base_url: s.base_url,
+                            model: s.model,
+                            max_tokens: s.max_tokens,
+                            prompt: if s.prompt.is_empty() {
+                                default_prompt.to_string()
+                            } else {
+                                s.prompt
+                            },
+                        },
+                        None => AiConfig {
+                            api_key: crate::config::CONFIG.default_ai_api_key.clone(),
+                            base_url: crate::config::CONFIG.default_ai_base_url.clone(),
+                            model: crate::config::CONFIG.default_ai_model.clone(),
+                            prompt: default_prompt.to_string(),
+                            max_tokens: crate::config::CONFIG.default_ai_max_tokens,
+                        },
+                    };
+
+                    ai_configs.insert(player_id.clone(), config);
+                }
+                _ => {}
+            }
+        }
+
+        Ok((Box::new(engine), ai_configs))
+    }
+
+    fn restore(&self, state: &Value) -> Result<Box<dyn GameEngine>, AppError> {
+        let engine = restore_texas_holdem(state).map_err(|e| crate::room::error::RoomError::EngineError(e))?;
+        Ok(engine)
+    }
 }
 
 /// 从 JSON 快照恢复 TexasHoldemEngine

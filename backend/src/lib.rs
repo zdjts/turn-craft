@@ -1,6 +1,9 @@
 pub mod ai;
 pub mod app;
+pub mod auth;
+pub mod config;
+pub mod error;
 pub mod games;
 pub mod handlers;
-pub mod network;
-pub mod persistence;
+pub mod room;
+pub mod user;
