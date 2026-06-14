@@ -83,7 +83,8 @@ pub fn use_ws_bridge(room_id: &str, actor_id: &str) -> WsBridge {
             let url = {
                 let origin = crate::BACKEND_ORIGIN;
                 let ws_origin = origin.replace("http://", "ws://").replace("https://", "wss://");
-                format!("{ws_origin}/ws/{room}/{actor}")
+                let token = crate::api::get_token().unwrap_or_default();
+                format!("{ws_origin}/ws/{room}/{actor}?token={token}")
             };
 
             info!(target: "ws", url = %url, room = %room, actor = %actor, "正在建立 WebSocket 连接...");

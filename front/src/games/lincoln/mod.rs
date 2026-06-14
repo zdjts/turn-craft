@@ -200,3 +200,87 @@ fn HistoryBubble(props: HistoryBubbleProps) -> Element {
         }
     }
 }
+
+const LINCOLN_ROLES: &[(&str, &str)] = &[
+    ("Judge", "裁判 — 开题与总结"),
+    ("Pro", "正方 — 立论"),
+    ("Con", "反方 — 驳论"),
+];
+
+pub fn LincolnLobbyCard(props: crate::games::registry::GameConfigProps) -> Element {
+    let mut role_config = props.role_config;
+    let mut my_role = props.my_role;
+    let mut max_round = props.max_round;
+    let mut game_config = props.game_config;
+
+    // Ensure state is initialized for Lincoln if not already
+    use_effect(move || {
+        if my_role.read().is_empty() || !["Judge", "Pro", "Con"].contains(&my_role.read().as_str()) {
+            my_role.set("Judge".to_string());
+            role_config.set(std::collections::HashMap::from([
+                ("Judge".to_string(), "human".to_string()),
+                ("Pro".to_string(), "ai".to_string()),
+                ("Con".to_string(), "ai".to_string()),
+            ]));
+            game_config.set(None);
+        }
+    });
+
+    let mut select_role = move |rn: String| {
+        my_role.set(rn.clone());
+        let mut modes = std::collections::HashMap::new();
+        for (name, _) in LINCOLN_ROLES {
+            let n = name.to_string();
+            if n == rn {
+                modes.insert(n, "human".to_string());
+            } else {
+                modes.insert(n, "ai".to_string());
+            }
+        }
+        role_config.set(modes);
+    };
+
+    rsx! {
+        div { class: "form-field",
+            label { "你的角色" }
+            div { class: "role-grid",
+                for (role_name, role_desc) in LINCOLN_ROLES.iter() {
+                    {
+                        let rn = role_name.to_string();
+                        let is_selected = *my_role.read() == rn;
+                        let mode = role_config.read().get(&rn).cloned().unwrap_or("ai".to_string());
+                        let is_human = mode == "human";
+                        rsx! {
+                            div {
+                                class: if is_selected { "role-card selected" } else { "role-card" },
+                                onclick: move |_| select_role(rn.clone()),
+                                div { class: "role-card-header",
+                                    span { class: "role-card-name", "{role_name}" }
+                                    span {
+                                        class: if is_human { "role-badge human" } else { "role-badge ai" },
+                                        if is_human { "真人" } else { "AI" }
+                                    }
+                                }
+                                div { class: "role-card-desc", "{role_desc}" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        div { class: "form-field",
+            label { "最大轮次" }
+            input {
+                r#type: "number",
+                placeholder: "16",
+                value: "{max_round}",
+                oninput: move |e| {
+                    if let Ok(val) = e.value().parse::<usize>() {
+                        max_round.set(val);
+                    }
+                },
+            }
+        }
+    }
+}

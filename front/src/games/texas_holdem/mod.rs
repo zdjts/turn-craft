@@ -735,3 +735,185 @@ fn PokerCard(props: PokerCardProps) -> Element {
         }
     }
 }
+
+const PLAYER_COUNT_OPTIONS: &[usize] = &[2, 3, 4, 5, 6];
+
+pub fn TexasHoldemLobbyCard(props: crate::games::registry::GameConfigProps) -> Element {
+    let mut role_config = props.role_config;
+    let mut my_role = props.my_role;
+    let mut max_round = props.max_round;
+    let mut game_config = props.game_config;
+
+    let mut small_blind = use_signal(|| "10".to_string());
+    let mut big_blind = use_signal(|| "20".to_string());
+    let mut starting_chips = use_signal(|| "1000".to_string());
+    let mut player_count = use_signal(|| 6_usize);
+    let mut spectator_mode = use_signal(|| false);
+
+    // Initializer: run once when mounting if state not yet configured
+    use_effect(move || {
+        let current_role = my_role.read().clone();
+        if current_role.is_empty() || (!current_role.starts_with("player") && current_role != "spectator") {
+            let sb = small_blind.read().parse::<u32>().unwrap_or(10);
+            let bb = big_blind.read().parse::<u32>().unwrap_or(20);
+            let sc = starting_chips.read().parse::<u32>().unwrap_or(1000);
+
+            game_config.set(Some(serde_json::json!({
+                "small_blind": sb,
+                "big_blind": bb,
+                "starting_chips": sc,
+            })));
+
+            let count = *player_count.read();
+            let mut modes = std::collections::HashMap::new();
+            modes.insert("player1".to_string(), "human".to_string());
+            for i in 2..=count {
+                modes.insert(format!("player{}", i), "ai".to_string());
+            }
+            my_role.set("player1".to_string());
+            role_config.set(modes);
+            max_round.set(100);
+        }
+    });
+
+    rsx! {
+        div { class: "form-field",
+            label { "游戏人数" }
+            div { class: "player-count-grid",
+                for count_opt in PLAYER_COUNT_OPTIONS.iter() {
+                    {
+                        let c = *count_opt;
+                        let is_selected = *player_count.read() == c;
+                        rsx! {
+                            button {
+                                class: if is_selected { "count-btn selected" } else { "count-btn" },
+                                onclick: move |_| {
+                                    player_count.set(c);
+                                    let is_spec = *spectator_mode.read();
+                                    let mut modes = std::collections::HashMap::new();
+                                    if is_spec {
+                                        for i in 1..=c {
+                                            modes.insert(format!("player{}", i), "ai".to_string());
+                                        }
+                                        my_role.set("spectator".to_string());
+                                    } else {
+                                        modes.insert("player1".to_string(), "human".to_string());
+                                        for i in 2..=c {
+                                            modes.insert(format!("player{}", i), "ai".to_string());
+                                        }
+                                        my_role.set("player1".to_string());
+                                    }
+                                    role_config.set(modes);
+                                },
+                                "{c} 人"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        div { class: "form-field",
+            label { "游戏模式" }
+            div { class: "mode-toggle",
+                button {
+                    class: if !*spectator_mode.read() { "mode-btn selected" } else { "mode-btn" },
+                    onclick: move |_| {
+                        spectator_mode.set(false);
+                        let count = *player_count.read();
+                        let mut modes = std::collections::HashMap::new();
+                        modes.insert("player1".to_string(), "human".to_string());
+                        for i in 2..=count {
+                            modes.insert(format!("player{}", i), "ai".to_string());
+                        }
+                        my_role.set("player1".to_string());
+                        role_config.set(modes);
+                    },
+                    div { class: "mode-icon", "🎮" }
+                    div { class: "mode-label", "亲自上阵" }
+                    div { class: "mode-desc", "你作为玩家参与对局" }
+                }
+                button {
+                    class: if *spectator_mode.read() { "mode-btn selected" } else { "mode-btn" },
+                    onclick: move |_| {
+                        spectator_mode.set(true);
+                        let count = *player_count.read();
+                        let mut modes = std::collections::HashMap::new();
+                        for i in 1..=count {
+                            modes.insert(format!("player{}", i), "ai".to_string());
+                        }
+                        my_role.set("spectator".to_string());
+                        role_config.set(modes);
+                    },
+                    div { class: "mode-icon", "👀" }
+                    div { class: "mode-label", "观战模式" }
+                    div { class: "mode-desc", "观看 AI 之间的对局" }
+                }
+            }
+        }
+
+        div { class: "form-field",
+            label { "德州扑克配置" }
+            div { class: "texas-config",
+                div { class: "config-field",
+                    label { "小盲注" }
+                    input {
+                        r#type: "number",
+                        value: "{small_blind}",
+                        oninput: move |e| {
+                            let val = e.value();
+                            small_blind.set(val.clone());
+                            let sb = val.parse::<u32>().unwrap_or(10);
+                            let bb = big_blind.read().parse::<u32>().unwrap_or(20);
+                            let sc = starting_chips.read().parse::<u32>().unwrap_or(1000);
+                            game_config.set(Some(serde_json::json!({
+                                "small_blind": sb,
+                                "big_blind": bb,
+                                "starting_chips": sc,
+                            })));
+                        },
+                    }
+                }
+                div { class: "config-field",
+                    label { "大盲注" }
+                    input {
+                        r#type: "number",
+                        value: "{big_blind}",
+                        oninput: move |e| {
+                            let val = e.value();
+                            big_blind.set(val.clone());
+                            let sb = small_blind.read().parse::<u32>().unwrap_or(10);
+                            let bb = val.parse::<u32>().unwrap_or(20);
+                            let sc = starting_chips.read().parse::<u32>().unwrap_or(1000);
+                            game_config.set(Some(serde_json::json!({
+                                "small_blind": sb,
+                                "big_blind": bb,
+                                "starting_chips": sc,
+                            })));
+                        },
+                    }
+                }
+            }
+
+            div { class: "config-field",
+                label { "起始筹码" }
+                input {
+                    r#type: "number",
+                    value: "{starting_chips}",
+                    oninput: move |e| {
+                        let val = e.value();
+                        starting_chips.set(val.clone());
+                        let sb = small_blind.read().parse::<u32>().unwrap_or(10);
+                        let bb = big_blind.read().parse::<u32>().unwrap_or(20);
+                        let sc = val.parse::<u32>().unwrap_or(1000);
+                        game_config.set(Some(serde_json::json!({
+                            "small_blind": sb,
+                            "big_blind": bb,
+                            "starting_chips": sc,
+                        })));
+                    },
+                }
+            }
+        }
+    }
+}

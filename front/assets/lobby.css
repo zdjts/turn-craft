@@ -1,165 +1,220 @@
-/* Lobby page styles extracted from main.css */
+/* ═══════════════════════════════════════════════════════
+   Turn Craft — Lobby Styles
+   ═══════════════════════════════════════════════════════ */
 
-.lobby-shell {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    radial-gradient(
-      ellipse at 50% 0%,
-      rgba(52, 211, 153, 0.04) 0%,
-      transparent 60%
-    ),
-    var(--bg-deep);
-  padding: 20px;
-}
-
-.lobby-card {
-  width: 100%;
-  max-width: 420px;
+.lobby-container {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 32px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 0;
 }
 
-.lobby-brand {
-  text-align: center;
+.lobby-header-banner {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.1) 0%,
+    rgba(52, 211, 153, 0.02) 100%
+  );
+  border: 1px solid rgba(52, 211, 153, 0.15);
+  border-radius: 16px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.lobby-brand h1 {
+.lobby-header-banner h1 {
   font-size: 28px;
   font-weight: 800;
   color: var(--text-primary);
+  margin: 0;
   letter-spacing: -0.02em;
 }
 
-.lobby-brand p {
+.lobby-header-banner p {
   font-size: 14px;
   color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
 }
 
-.lobby-form {
-  background: var(--bg-card);
-  border: 1px solid var(--border-dim);
-  border-radius: 16px;
+.lobby-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 32px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .lobby-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lobby-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.section-card {
   padding: 28px;
+  border-radius: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.section-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 20px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Game Select Carousel ───────────────────────────── */
+
+.game-carousel-wrapper {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+}
+
+.game-select-card {
+  flex: 1;
+  min-width: 180px;
+  padding: 24px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.game-select-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(52, 211, 153, 0.3);
+  transform: translateY(-2px);
+}
+
+.game-select-card.active {
+  background: rgba(52, 211, 153, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 15px rgba(52, 211, 153, 0.15);
+}
+
+.game-select-icon {
+  font-size: 40px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+}
+
+.game-select-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ── Config Form ────────────────────────────────────── */
+
+.game-config-form {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.inline-field {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 12px !important;
 }
 
-.form-field label {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
-}
-
-.form-field input {
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 14px;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.form-field input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.08);
-}
-
-.form-field input::placeholder {
-  color: var(--text-muted);
-}
-
-.form-error {
+.field-hint {
   font-size: 13px;
-  color: var(--red);
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.15);
-  border-radius: 8px;
-  padding: 10px 14px;
+  color: var(--text-muted);
 }
 
-.lobby-submit {
-  width: 100%;
-  padding: 14px;
-  background: var(--accent);
-  color: #000;
-  font-size: 15px;
-  font-weight: 700;
-  border: none;
+/* Checkbox Switch styling */
+.styled-checkbox {
+  appearance: none;
+  width: 44px;
+  height: 24px;
   border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.lobby-submit:hover {
-  background: #4ade80;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(52, 211, 153, 0.25);
-}
-
-.lobby-submit:disabled {
   background: var(--border-subtle);
-  color: var(--text-muted);
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
 }
 
-.lobby-footer {
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
+.styled-checkbox:checked {
+  background: var(--accent);
 }
 
+.styled-checkbox::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.styled-checkbox:checked::before {
+  transform: translateX(20px);
+}
+
+/* Lincoln / Texas specific lobby config sub-styles */
 .role-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
 }
 
 .role-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-dim);
+  padding: 16px;
   border-radius: 10px;
-  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .role-card:hover {
-  border-color: var(--border-subtle);
-  background: var(--bg-card-hover);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .role-card.selected {
-  border-color: rgba(52, 211, 153, 0.4);
-  background: rgba(52, 211, 153, 0.06);
-  box-shadow: 0 0 12px rgba(52, 211, 153, 0.08);
+  border-color: var(--accent);
+  background: rgba(52, 211, 153, 0.04);
 }
 
 .role-card-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  align-items: center;
 }
 
 .role-card-name {
@@ -169,175 +224,330 @@
 }
 
 .role-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: 600;
   padding: 2px 8px;
   border-radius: 4px;
 }
 
 .role-badge.human {
+  background: rgba(16, 185, 129, 0.15);
   color: var(--accent);
-  background: rgba(52, 211, 153, 0.1);
-  border: 1px solid rgba(52, 211, 153, 0.2);
 }
 
 .role-badge.ai {
-  color: var(--text-secondary);
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
 }
 
 .role-card-desc {
   font-size: 12px;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
-.room-meta {
+.player-count-grid {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.room-actor-id {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-family: "JetBrains Mono", monospace;
-}
-
-.settings-link {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: var(--bg-card);
-  border: 1px solid var(--border-dim);
+.count-btn {
+  flex: 1;
+  padding: 10px;
   border-radius: 8px;
+  border: 1px solid var(--border-dim);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  width: 100%;
-  margin-top: 4px;
 }
 
-.settings-link:hover {
+.count-btn:hover {
   border-color: var(--border-subtle);
   color: var(--text-primary);
 }
 
-.player-count-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.count-btn {
-  padding: 10px 0;
-  border-radius: 8px;
-  border: 1px solid var(--border-dim);
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
 .count-btn.selected {
-  border-color: rgba(52, 211, 153, 0.4);
-  background: rgba(52, 211, 153, 0.06);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+/* Create button */
+.create-room-btn {
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.create-room-btn:hover {
+  box-shadow: 0 6px 20px rgba(52, 211, 153, 0.35);
+  transform: translateY(-1px);
+}
+
+.create-room-btn:active {
+  transform: translateY(0);
+}
+
+/* ── Lobby Right Column: Active Public Rooms ──────────── */
+
+.lobby-right-col {
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.public-rooms-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.public-rooms-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.refresh-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+}
+
+.refresh-btn:hover {
+  color: var(--accent);
+  transform: rotate(180deg);
+}
+
+.public-rooms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.public-room-card {
+  padding: 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.public-room-card:hover {
+  border-color: rgba(52, 211, 153, 0.25);
+  transform: translateX(2px);
+}
+
+.room-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.room-card-game {
+  font-size: 14px;
+  font-weight: 700;
   color: var(--text-primary);
 }
+
+.room-card-slots-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(52, 211, 153, 0.1);
+  color: var(--accent);
+}
+
+.room-card-mid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.room-id-label {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-secondary);
+}
+
+.room-meta-label,
+.room-time-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.join-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.join-btn.player {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.join-btn.player:hover {
+  background: #059669;
+}
+
+.join-btn.spectator {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.join-btn.spectator:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.empty-state-card {
+  text-align: center;
+  padding: 32px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-icon {
+  font-size: 32px;
+}
+
+.empty-state-card p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Texas Hold'em Lobby Specific Styles ──────────────── */
 
 .mode-toggle {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
 }
 
 .mode-btn {
-  text-align: left;
-  padding: 12px;
-  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-dim);
-  background: var(--bg-surface);
-  color: var(--text-secondary);
   cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-secondary);
+}
+
+.mode-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(52, 211, 153, 0.4);
+  transform: translateY(-2px);
 }
 
 .mode-btn.selected {
-  border-color: rgba(52, 211, 153, 0.4);
-  color: var(--text-primary);
+  background: rgba(52, 211, 153, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 4px 15px rgba(52, 211, 153, 0.15);
 }
 
 .mode-icon {
-  font-size: 20px;
-  margin-bottom: 6px;
+  font-size: 32px;
+  margin-bottom: 4px;
+  transition: transform 0.2s ease;
+}
+
+.mode-btn:hover .mode-icon {
+  transform: scale(1.1);
 }
 
 .mode-label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 .mode-desc {
-  font-size: 11px;
+  font-size: 12px;
+  text-align: center;
   color: var(--text-muted);
 }
 
 .texas-config {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .config-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .config-field label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .config-field input {
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
+  width: 100%;
+  padding: 12px;
   border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 13px;
-  outline: none;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-dim);
+  color: var(--text-primary);
+  font-family: "JetBrains Mono", monospace;
+  transition: all 0.2s ease;
 }
 
-.game-type-grid {
-  display: flex;
-  /* grid-template-columns: 1fr 1fr; */
-  width: 100%;
-  gap: 8px;
-}
-.game-type-card {
-  flex: 1;
-  background: var(--bg-surface); /* 使用项目定义的表面背景色变量 */
-  border: 1px solid var(--border-dim); /* 1像素的微弱暗色边框 */
-  border-radius: 10px; /* 柔和的圆角 */
-  padding: 12px 16px; /* 上下内边距 12px，左右内边距 16px，撑开内部空间 */
-  cursor: pointer; /* 鼠标悬停时显示“小手”图标，暗示其可以点击 */
-  transition: all 0.15s ease;
-  align-tems: center;
-  justify-content: center;
-}
-.game-type-card:hover {
-  border-color: var(--border-subtle);
-  background: var(--bg-card-hover); /* 背景色切换为悬停态专用的颜色 */
-}
-.game-type-card.selected {
-  border-color: rgba(52, 211, 153, 0.4);
-  background: rgba(52, 211, 153, 0.06);
-  box-shadow: 0 0 12px rgba(52, 211, 153, 0.08);
+.config-field input:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: rgba(0, 0, 0, 0.4);
 }

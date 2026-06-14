@@ -1,207 +1,237 @@
 use dioxus::prelude::*;
-use std::collections::HashMap;
-use tracing::{error, info};
+use crate::api::{get_ai_configs, update_ai_config, AiConfigData};
+use crate::routes::layout::use_toast;
 
-use crate::api::{AiConfigData, get_ai_configs, update_ai_config};
-use crate::routes::settings_actions::go_back;
-
-/// AI 配置页面组件：管理房间内 AI 角色的配置
 #[component]
 pub fn Settings(room_id: String, actor_id: String) -> Element {
-    let navigator = use_navigator();
-    let mut configs = use_signal(|| HashMap::<String, AiConfigData>::new());
-    let mut loading = use_signal(|| true);
-    let mut save_msg = use_signal(|| Option::<String>::None);
+    let toast = use_toast();
+    let nav = use_navigator();
 
-    let room_id_clone = room_id.clone();
+    let mut api_key = use_signal(|| String::new());
+    let mut base_url = use_signal(|| String::new());
+    let mut model = use_signal(|| String::new());
+    let mut max_tokens = use_signal(|| 2048_u32);
+    let mut prompt = use_signal(|| String::new());
+
+    let mut loading = use_signal(|| true);
+    let mut saving = use_signal(|| false);
+
+    let rid_for_save = room_id.clone();
+    let aid_for_save = actor_id.clone();
+    let rid_for_cancel = room_id.clone();
+    let aid_for_cancel = actor_id.clone();
+
+    let mut prev_actor = use_signal(|| actor_id.clone());
+    let mut prev_room = use_signal(|| room_id.clone());
+
+    // Update signals if props changed (e.g. from tab navigation)
+    if *prev_actor.peek() != actor_id || *prev_room.peek() != room_id {
+        prev_actor.set(actor_id.clone());
+        prev_room.set(room_id.clone());
+    }
+
+    let mut all_ai_actors = use_signal(|| Vec::<String>::new());
+
+    // Load AI configurations reactively based on tracking signals
     use_effect(move || {
-        let rid = room_id_clone.clone();
+        let rid = prev_room.read().clone();
+        let aid = prev_actor.read().clone();
         spawn(async move {
-            info!(target: "settings", room_id = %rid, "正在加载 AI 配置...");
+            loading.set(true);
             match get_ai_configs(&rid).await {
-                Ok(cfg) => {
-                    info!(target: "settings", count = cfg.len(), "AI 配置加载成功");
-                    configs.set(cfg);
-                    loading.set(false);
+                Ok(configs) => {
+                    let mut actors: Vec<String> = configs.keys().cloned().collect();
+                    actors.sort();
+                    all_ai_actors.set(actors);
+
+                    if let Some(cfg) = configs.get(&aid) {
+                        api_key.set(cfg.api_key.clone());
+                        base_url.set(cfg.base_url.clone());
+                        model.set(cfg.model.clone());
+                        max_tokens.set(cfg.max_tokens);
+                        prompt.set(cfg.prompt.clone());
+                    } else {
+                        // Reset if not found
+                        api_key.set(String::new());
+                        base_url.set(String::new());
+                        model.set(String::new());
+                        max_tokens.set(2048);
+                        prompt.set(String::new());
+                        toast.show(format!("未找到角色 {aid} 的 AI 配置，已初始化默认配置。"), crate::routes::layout::ToastType::Info);
+                    }
                 }
                 Err(e) => {
-                    error!(target: "settings", error = %e, "加载 AI 配置失败");
-                    loading.set(false);
+                    toast.show(format!("加载 AI 配置失败: {e}"), crate::routes::layout::ToastType::Error);
                 }
             }
+            loading.set(false);
         });
     });
 
-    rsx! {
-        div { class: "settings-shell",
-            div { class: "settings-container",
-                div { class: "settings-header",
-                    {
-                        let rid = room_id.clone();
-                        let aid = actor_id.clone();
-                        rsx! {
-                            button {
-                                class: "back-btn",
-                                onclick: move |_| go_back(navigator.clone(), rid.clone(), aid.clone()),
-                                "← 返回对局"
-                            }
-                        }
-                    }
-                    h1 { class: "settings-title", "⚙️ AI 配置" }
-                    p { class: "settings-subtitle",
-                        "房间: {room_id}"
-                    }
-                }
+    let handle_save = move |_| {
+        if *saving.read() {
+            return;
+        }
 
-                if *loading.read() {
-                    div { class: "settings-loading",
-                        div { class: "sync-spinner" }
-                        span { "加载配置中..." }
-                    }
-                } else if configs.read().is_empty() {
-                    div { class: "settings-empty",
-                        p { "该房间没有 AI 角色配置" }
-                    }
-                } else {
-                    div { class: "settings-cards",
-                        for (aid, _cfg) in configs.read().iter() {
-                            AiConfigCard {
-                                key: "{aid}",
-                                actor_id: aid.clone(),
-                                room_id: room_id.clone(),
-                                initial: _cfg.clone(),
-                                on_saved: move |msg: String| {
-                                    save_msg.set(Some(msg));
-                                },
-                            }
-                        }
-                    }
-                }
+        saving.set(true);
+        let rid = rid_for_save.clone();
+        let aid = aid_for_save.clone();
+        let config = AiConfigData {
+            api_key: api_key.read().clone(),
+            base_url: base_url.read().clone(),
+            model: model.read().clone(),
+            max_tokens: *max_tokens.read(),
+            prompt: prompt.read().clone(),
+        };
 
-                if let Some(ref msg) = *save_msg.read() {
-                    div { class: "save-toast",
-                        "{msg}"
-                    }
+        spawn(async move {
+            match update_ai_config(&rid, &aid, &config).await {
+                Ok(_) => {
+                    toast.show("AI 参数已成功更新，设置将在下一回合生效。".to_string(), crate::routes::layout::ToastType::Success);
+                    nav.go_back();
+                }
+                Err(e) => {
+                    toast.show(format!("保存 AI 配置失败: {e}"), crate::routes::layout::ToastType::Error);
                 }
             }
-        }
-    }
-}
-
-/// AI 配置卡片属性
-#[derive(Props, Clone, PartialEq)]
-struct AiConfigCardProps {
-    actor_id: String,
-    room_id: String,
-    initial: AiConfigData,
-    on_saved: Callback<String>,
-}
-
-/// AI 配置卡片组件：编辑单个 AI 角色的配置
-#[component]
-fn AiConfigCard(props: AiConfigCardProps) -> Element {
-    let mut api_key = use_signal(|| props.initial.api_key.clone());
-    let mut base_url = use_signal(|| props.initial.base_url.clone());
-    let mut model = use_signal(|| props.initial.model.clone());
-    let mut max_tokens = use_signal(|| props.initial.max_tokens.to_string());
-    let mut prompt = use_signal(|| props.initial.prompt.clone());
-    let mut saving = use_signal(|| false);
-
-    let actor_label = props.actor_id.clone();
-    let role_emoji = if actor_label.contains("judge") {
-        "👑"
-    } else if actor_label.contains("pro") {
-        "🟢"
-    } else if actor_label.contains("con") {
-        "🔴"
-    } else {
-        "🤖"
+            saving.set(false);
+        });
     };
 
     rsx! {
-        div { class: "ai-config-card",
-            div { class: "ai-config-header",
-                span { class: "ai-config-emoji", "{role_emoji}" }
-                span { class: "ai-config-name", "{props.actor_id}" }
+        div { class: "settings-container animate-fade-in",
+            div { class: "page-header",
+                h1 { "⚙️ 配置 AI 智能参数" }
+                p { "为当前房间的 AI 助手配置专属的大语言模型接入端点和个性化 Prompt 提示词。" }
             }
 
-            div { class: "ai-config-fields",
-                div { class: "ai-field",
-                    label { "Base URL" }
-                    input {
-                        value: "{base_url}",
-                        placeholder: "https://api.deepseek.com/v1",
-                        oninput: move |e| base_url.set(e.value()),
-                    }
+            if *loading.read() {
+                div { class: "loading-canvas glass-panel",
+                    span { class: "spinner" }
+                    p { "正在读取 AI 配置项，请稍候..." }
                 }
-                div { class: "ai-field",
-                    label { "Model" }
-                    input {
-                        value: "{model}",
-                        placeholder: "deepseek-chat",
-                        oninput: move |e| model.set(e.value()),
-                    }
-                }
-                div { class: "ai-field",
-                    label { "API Key" }
-                    input {
-                        r#type: "password",
-                        value: "{api_key}",
-                        placeholder: "sk-...",
-                        oninput: move |e| api_key.set(e.value()),
-                    }
-                }
-                div { class: "ai-field",
-                    label { "Max Tokens" }
-                    input {
-                        value: "{max_tokens}",
-                        placeholder: "200",
-                        oninput: move |e| max_tokens.set(e.value()),
-                    }
-                }
-                div { class: "ai-field full",
-                    label { "System Prompt" }
-                    textarea {
-                        value: "{prompt}",
-                        placeholder: "AI 的系统提示词...",
-                        oninput: move |e| prompt.set(e.value()),
-                    }
-                }
-            }
-
-            button {
-                class: "ai-config-save",
-                disabled: *saving.read(),
-                onclick: {
-                    let rid = props.room_id.clone();
-                    let aid = props.actor_id.clone();
-                    let on_saved = props.on_saved;
-                    move |_| {
-                        let mt = max_tokens.read().trim().parse::<u32>().unwrap_or(200);
-                        let cfg = AiConfigData {
-                            api_key: api_key.read().clone(),
-                            base_url: base_url.read().clone(),
-                            model: model.read().clone(),
-                            max_tokens: mt,
-                            prompt: prompt.read().clone(),
-                        };
-                        let rid = rid.clone();
-                        let aid = aid.clone();
-                        saving.set(true);
-                        spawn(async move {
-                            match update_ai_config(&rid, &aid, &cfg).await {
-                                Ok(()) => {
-                                    on_saved.call(format!("{} 配置已保存", aid));
-                                }
-                                Err(e) => {
-                                    on_saved.call(format!("保存失败: {}", e));
+            } else {
+                div { class: "settings-layout glass-panel",
+                    // Switch AI tabs if there are multiple AI players in the room
+                    if all_ai_actors.read().len() > 1 {
+                        div { class: "ai-actor-tabs",
+                            for actor in all_ai_actors.read().iter() {
+                                {
+                                    let act_id = actor.clone();
+                                    let is_current = act_id == actor_id;
+                                    let rid = room_id.clone();
+                                    let nav = nav.clone();
+                                    let display_name = match act_id.as_str() {
+                                        "ai_pro" => "正方 (Pro)".to_string(),
+                                        "ai_con" => "反方 (Con)".to_string(),
+                                        "ai_judge" => "裁判 (Judge)".to_string(),
+                                        other => {
+                                            if other.starts_with("ai_") {
+                                                format!("AI {}", &other[3..])
+                                            } else {
+                                                other.to_string()
+                                            }
+                                        }
+                                    };
+                                    rsx! {
+                                        button {
+                                            key: "{act_id}",
+                                            class: if is_current { "ai-tab-btn active" } else { "ai-tab-btn" },
+                                            onclick: move |_| {
+                                                nav.push(super::Route::Settings { room_id: rid.clone(), actor_id: act_id.clone() });
+                                            },
+                                            "{display_name}"
+                                        }
+                                    }
                                 }
                             }
-                            saving.set(false);
-                        });
+                        }
                     }
-                },
-                if *saving.read() { "保存中..." } else { "保存" }
+
+                    div { class: "settings-section-title",
+                        "🤖 正在配置: {actor_id}"
+                    }
+
+                    div { class: "settings-form",
+                        div { class: "form-grid-two-cols",
+                            div { class: "form-field",
+                                label { "API 基址 (Base URL)" }
+                                input {
+                                    r#type: "text",
+                                    placeholder: "https://api.openai.com/v1",
+                                    value: "{base_url}",
+                                    oninput: move |e| base_url.set(e.value()),
+                                }
+                            }
+
+                            div { class: "form-field",
+                                label { "模型名称 (Model)" }
+                                input {
+                                    r#type: "text",
+                                    placeholder: "gpt-4o",
+                                    value: "{model}",
+                                    oninput: move |e| model.set(e.value()),
+                                }
+                            }
+                        }
+
+                        div { class: "form-grid-two-cols",
+                            div { class: "form-field",
+                                label { "API 密钥 (API Key)" }
+                                input {
+                                    r#type: "password",
+                                    placeholder: "sk-...",
+                                    value: "{api_key}",
+                                    oninput: move |e| api_key.set(e.value()),
+                                }
+                            }
+
+                            div { class: "form-field",
+                                label { "最大输出限制 (Max Tokens)" }
+                                input {
+                                    r#type: "number",
+                                    placeholder: "2048",
+                                    value: "{max_tokens}",
+                                    oninput: move |e| {
+                                        if let Ok(val) = e.value().parse::<u32>() {
+                                            max_tokens.set(val);
+                                        }
+                                    },
+                                }
+                            }
+                        }
+
+                        div { class: "form-field",
+                            label { "系统提示词 (System Prompt)" }
+                            textarea {
+                                class: "prompt-textarea",
+                                placeholder: "输入赋予该 AI 角色的设定、推理逻辑以及遵守规则...",
+                                value: "{prompt}",
+                                oninput: move |e| prompt.set(e.value()),
+                            }
+                        }
+
+                        div { class: "settings-actions",
+                            button {
+                                class: "cancel-settings-btn glass-panel-subtle",
+                                onclick: move |_| {
+                                    nav.go_back();
+                                },
+                                "取消"
+                            }
+                            button {
+                                class: if *saving.read() { "save-settings-btn loading" } else { "save-settings-btn" },
+                                onclick: handle_save,
+                                disabled: *saving.read(),
+                                if *saving.read() {
+                                    span { class: "spinner" }
+                                } else {
+                                    "💾 保存配置"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -1,166 +1,152 @@
-/* Settings page styles extracted from main.css */
-
-.settings-shell {
-    min-height: 100vh;
-    background: var(--bg-deep);
-    padding: 20px;
-}
+/* ═══════════════════════════════════════════════════════
+   Turn Craft — AI Settings Page Styles
+   ═══════════════════════════════════════════════════════ */
 
 .settings-container {
-    max-width: 720px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
 
-.settings-header {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.settings-layout {
+  border-radius: 16px;
+  padding: 32px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.back-btn {
-    align-self: flex-start;
-    padding: 6px 14px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    background: var(--bg-card);
-    border: 1px solid var(--border-dim);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.15s ease;
+.settings-section-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  border-left: 4px solid var(--accent);
+  padding-left: 12px;
+  line-height: 1;
 }
 
-.back-btn:hover {
-    border-color: var(--border-subtle);
-    color: var(--text-primary);
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.settings-title {
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--text-primary);
+.form-grid-two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
 
-.settings-subtitle {
-    font-size: 13px;
-    color: var(--text-muted);
-    font-family: 'JetBrains Mono', monospace;
+@media (max-width: 640px) {
+  .form-grid-two-cols {
+    grid-template-columns: 1fr;
+  }
 }
 
-.settings-loading,
-.settings-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 60px 20px;
-    color: var(--text-muted);
-    font-size: 14px;
+.prompt-textarea {
+  resize: vertical;
+  min-height: 180px;
+  max-height: 400px;
+  line-height: 1.6;
 }
 
-.settings-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-dim);
 }
 
-.ai-config-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-dim);
-    border-radius: 14px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+.cancel-settings-btn {
+  padding: 12px 24px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
 }
 
-.ai-config-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.cancel-settings-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
-.ai-config-emoji {
-    font-size: 20px;
+.save-settings-btn {
+  padding: 12px 28px;
+  font-size: 14.5px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 }
 
-.ai-config-name {
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
+.save-settings-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
 }
 
-.ai-config-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+.save-settings-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
-.ai-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+.save-settings-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.ai-field.full {
-    grid-column: 1 / -1;
+/* ── AI Actor Switcher Tabs ────────────────────────── */
+
+.ai-actor-tabs {
+  display: flex;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-dim);
+  padding-bottom: 20px;
+  margin-bottom: 12px;
 }
 
-.ai-field label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
+.ai-tab-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-smooth);
 }
 
-.ai-field input,
-.ai-field textarea {
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    border: 1px solid var(--border-subtle);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 13px;
-    font-family: inherit;
-    outline: none;
-    transition: border-color 0.2s ease;
+.ai-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
-.ai-field input:focus,
-.ai-field textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.08);
+.ai-tab-btn.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
 }
 
-.ai-config-save {
-    align-self: flex-start;
-    padding: 10px 16px;
-    border: none;
-    border-radius: 8px;
-    background: var(--accent);
-    color: #000;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.ai-config-save:disabled {
-    background: var(--border-subtle);
-    color: var(--text-muted);
-    cursor: not-allowed;
-}
-
-.save-toast {
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    padding: 10px 14px;
-    border-radius: 8px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-dim);
-    color: var(--text-primary);
-}
