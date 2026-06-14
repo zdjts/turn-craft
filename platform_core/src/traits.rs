@@ -72,7 +72,7 @@ pub trait GameEngine: Send + 'static {
         &mut self,
         actor_id: &str,
         action: serde_json::Value,
-    ) -> Result<Vec<EngineEvent>, String>;
+    ) -> Result<Vec<EngineEvent>, crate::error::EngineError>;
 
     /// 导出当前全量状态快照为 JSON
     fn to_json(&self) -> serde_json::Value;

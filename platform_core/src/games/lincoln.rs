@@ -74,7 +74,7 @@ impl GameEngine for LincolnEngine {
         "lincoln"
     }
 
-    fn step(&mut self, actor_id: &str, action: serde_json::Value) -> Result<Vec<EngineEvent>, String> {
+    fn step(&mut self, actor_id: &str, action: serde_json::Value) -> Result<Vec<EngineEvent>, crate::error::EngineError> {
         // 支持两种格式：
         // 1. 直接内容: {"content": "text"}
         // 2. 完整消息: {"role": "assistant", "content": "text"}
@@ -93,10 +93,10 @@ impl GameEngine for LincolnEngine {
             .ok_or(format!("未注册的 actor: {actor_id}"))?;
 
         if actor.role != self.cur_role {
-            return Err(format!(
+            return Err(crate::error::EngineError(format!(
                 "还没轮到 {:?} 发言，当前轮次: {:?}",
                 actor.role, self.cur_role
-            ));
+            )));
         }
 
         // 写入历史

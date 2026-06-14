@@ -725,7 +725,7 @@ impl GameEngine for TexasHoldemEngine {
         &mut self,
         actor_id: &str,
         action: serde_json::Value,
-    ) -> Result<Vec<EngineEvent>, String> {
+    ) -> Result<Vec<EngineEvent>, crate::error::EngineError> {
         // 如果游戏还没开始，或者已经结束，检查是否可以开始新牌局
         if self.phase == GamePhase::WaitingForPlayers || self.phase == GamePhase::Finished {
             if self.players.len() >= 2 {
@@ -791,14 +791,14 @@ impl GameEngine for TexasHoldemEngine {
             .ok_or(format!("未注册的玩家: {actor_id}"))?;
 
         if player_index != self.active_index {
-            return Err(format!(
+            return Err(crate::error::EngineError(format!(
                 "还没轮到 {} 行动，当前应该是 {}",
                 actor_id, self.players[self.active_index].id
-            ));
+            )));
         }
 
         if self.players[player_index].folded {
-            return Err(format!("{} 已经弃牌", actor_id));
+            return Err(crate::error::EngineError(format!("{} 已经弃牌", actor_id)));
         }
 
         // 解析动作（支持 tool_calls 格式和直接格式）
@@ -812,7 +812,7 @@ impl GameEngine for TexasHoldemEngine {
             }
             PlayerAction::Check => {
                 if self.players[player_index].current_bet < self.current_bet {
-                    return Err("当前有下注，不能 check".to_string());
+                    return Err(crate::error::EngineError("当前有下注，不能 check".to_string()));
                 }
                 self.players[player_index].acted_this_round = true;
             }
@@ -829,7 +829,7 @@ impl GameEngine for TexasHoldemEngine {
             }
             PlayerAction::Raise(amount) => {
                 if *amount <= self.current_bet {
-                    return Err(format!("加注金额必须大于当前下注 {}", self.current_bet));
+                    return Err(crate::error::EngineError(format!("加注金额必须大于当前下注 {}", self.current_bet)));
                 }
                 let total_needed = *amount - self.players[player_index].current_bet;
                 let actual = total_needed.min(self.players[player_index].chips);
