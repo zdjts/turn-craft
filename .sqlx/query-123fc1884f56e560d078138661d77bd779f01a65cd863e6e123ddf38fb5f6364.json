@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT OR REPLACE INTO rooms\n                (room_id, owner_id, game_type, engine_state, actor_slots, ai_configs, max_round, created_at)\n            VALUES (?, ?, ?, ?, ?, ?, ?, ?)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": []
+  },
+  "hash": "123fc1884f56e560d078138661d77bd779f01a65cd863e6e123ddf38fb5f6364"
+}

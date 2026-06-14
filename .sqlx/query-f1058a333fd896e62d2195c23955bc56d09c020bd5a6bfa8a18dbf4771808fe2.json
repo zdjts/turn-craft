@@ -1,0 +1,122 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT * FROM rooms WHERE room_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "room_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "rooms",
+            "name": "room_id"
+          }
+        }
+      },
+      {
+        "name": "owner_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "rooms",
+            "name": "owner_id"
+          }
+        }
+      },
+      {
+        "name": "game_type",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "rooms",
+            "name": "game_type"
+          }
+        }
+      },
+      {
+        "name": "engine_state",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "rooms",
+            "name": "engine_state"
+          }
+        }
+      },
+      {
+        "name": "actor_slots",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "rooms",
+            "name": "actor_slots"
+          }
+        }
+      },
+      {
+        "name": "ai_configs",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "rooms",
+            "name": "ai_configs"
+          }
+        }
+      },
+      {
+        "name": "max_round",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "rooms",
+            "name": "max_round"
+          }
+        }
+      },
+      {
+        "name": "game_config",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "rooms",
+            "name": "game_config"
+          }
+        }
+      },
+      {
+        "name": "created_at",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "rooms",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f1058a333fd896e62d2195c23955bc56d09c020bd5a6bfa8a18dbf4771808fe2"
+}
