@@ -28,7 +28,13 @@ pub fn build_router(state: AppState) -> Router {
         .route("/register", post(handlers::auth::register))
         .route("/login", post(handlers::auth::login))
         .route("/rooms", post(handlers::room::create_room))
+        .route("/rooms/public", get(handlers::room::list_public_rooms))
+        .route("/rooms/history", get(handlers::room::list_history_rooms))
         .route("/rooms/{room_id}", delete(handlers::room::delete_room))
+        .route(
+            "/rooms/{room_id}/public",
+            put(handlers::room::set_room_public),
+        )
         .route(
             "/rooms/{room_id}/ai-config",
             get(handlers::ai_config::get_ai_config),

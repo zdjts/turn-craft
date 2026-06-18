@@ -43,6 +43,17 @@ async fn main() {
         .await
         .expect("数据库迁移执行失败");
 
+    // Initialize system user and __defaults__ room for global AI config defaults
+    sqlx::query("INSERT OR IGNORE INTO users (id, username, password_hash) VALUES ('system', 'system', 'system')")
+        .execute(&pool)
+        .await
+        .expect("Failed to initialize system user");
+    sqlx::query("INSERT OR IGNORE INTO rooms (room_id, owner_id, game_type, engine_state, actor_slots) VALUES ('__defaults__', 'system', 'system', '{}', '{}')")
+        .execute(&pool)
+        .await
+        .expect("Failed to initialize __defaults__ room");
+
+
     // 3. 初始化 Repository
     let user_repo = Arc::new(crate::user::repository::SqliteUserRepo::new(pool.clone()))
         as Arc<dyn crate::user::repository::UserRepository>;

@@ -766,6 +766,7 @@ impl GameEngine for TexasHoldemEngine {
 
         // 摊牌阶段自动处理
         if self.phase == GamePhase::Showdown {
+            self.collect_bets();
             let winners = self.showdown();
             let winner_share = if winners.is_empty() {
                 0
@@ -777,7 +778,7 @@ impl GameEngine for TexasHoldemEngine {
                     player.chips += winner_share;
                 }
             }
-            self.collect_bets();
+            self.pot = 0;
             self.phase = GamePhase::Finished;
             self.finished = true;
             return Ok(vec![EngineEvent::GameOver]);
@@ -879,6 +880,7 @@ impl GameEngine for TexasHoldemEngine {
 
         // 检查是否只剩一个未弃牌玩家
         if self.non_folded_count() <= 1 {
+            self.collect_bets();
             let winner_id = self
                 .players
                 .iter()
@@ -889,7 +891,6 @@ impl GameEngine for TexasHoldemEngine {
                 winner.chips += self.pot;
                 self.pot = 0;
             }
-            self.collect_bets();
             self.phase = GamePhase::Finished;
             self.finished = true;
             events.push(EngineEvent::GameOver);
@@ -909,6 +910,7 @@ impl GameEngine for TexasHoldemEngine {
                         self.advance_phase();
                     }
                     if self.phase == GamePhase::Showdown {
+                        self.collect_bets();
                         let winners = self.showdown();
                         let winner_share = if winners.is_empty() {
                             0
@@ -922,7 +924,7 @@ impl GameEngine for TexasHoldemEngine {
                                 player.chips += winner_share;
                             }
                         }
-                        self.collect_bets();
+                        self.pot = 0;
                         self.phase = GamePhase::Finished;
                         self.finished = true;
                         events.push(EngineEvent::GameOver);
@@ -933,6 +935,7 @@ impl GameEngine for TexasHoldemEngine {
                     self.advance_phase();
 
                     if self.phase == GamePhase::Showdown {
+                        self.collect_bets();
                         let winners = self.showdown();
                         let winner_share = if winners.is_empty() {
                             0
@@ -946,7 +949,7 @@ impl GameEngine for TexasHoldemEngine {
                                 player.chips += winner_share;
                             }
                         }
-                        self.collect_bets();
+                        self.pot = 0;
                         self.phase = GamePhase::Finished;
                         self.finished = true;
                         events.push(EngineEvent::GameOver);
@@ -963,6 +966,7 @@ impl GameEngine for TexasHoldemEngine {
                     self.advance_phase();
                 }
                 if self.phase == GamePhase::Showdown {
+                    self.collect_bets();
                     let winners = self.showdown();
                     let winner_share = if winners.is_empty() {
                         0
@@ -974,7 +978,7 @@ impl GameEngine for TexasHoldemEngine {
                             player.chips += winner_share;
                         }
                     }
-                    self.collect_bets();
+                    self.pot = 0;
                     self.phase = GamePhase::Finished;
                     self.finished = true;
                     events.push(EngineEvent::GameOver);

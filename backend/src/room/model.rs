@@ -67,6 +67,8 @@ pub struct CreateRoomInput {
     pub slots: Vec<String>,
     pub slot_configs: std::collections::HashMap<String, String>,
     pub game_config: Option<serde_json::Value>,
+    #[serde(default)]
+    pub is_public: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,4 +87,5 @@ pub struct RoomSnapshot {
     pub ai_configs: HashMap<String, AiConfig>,
     pub max_round: usize,
     pub created_at: chrono::NaiveDateTime,
+    pub is_public: bool,
 }

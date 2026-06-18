@@ -66,6 +66,7 @@ pub fn spawn_game_room(
                         ai_configs: Default::default(),
                         max_round: 0,
                         created_at: chrono::Utc::now().naive_utc(),
+                        is_public: false,
                     };
                     let _ = effect_tx.send(SideEffect::PersistSnapshot(snapshot)).await;
 

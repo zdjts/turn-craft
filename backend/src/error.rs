@@ -23,6 +23,7 @@ pub enum AppError {
 
 impl axum::response::IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
+        tracing::error!(error = ?self, "AppError converted into response");
         let status = match &self {
             AppError::Auth(e) => match e {
                 AuthError::InvalidCredentials => axum::http::StatusCode::UNAUTHORIZED,

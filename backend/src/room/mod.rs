@@ -66,23 +66,24 @@ impl RoomService {
         // 2. 创建引擎和 AI 配置
         let (engine, ai_configs) = factory.create(&room_id, &input, &*self.ai_config_repo).await?;
 
-        // 3. 保存 AI 配置
-        for (actor_id, config) in &ai_configs {
-            self.ai_config_repo.set(&room_id, actor_id, config).await.map_err(AppError::Ai)?;
-        }
-
-        // 4. 保存房间
+        // 3. 保存房间
         let snapshot = RoomSnapshot {
             room_id: room_id.clone(),
             owner_id,
             game_type: input.game_type,
             engine_state: engine.to_json(),
             actor_slots: slots,
-            ai_configs,
+            ai_configs: ai_configs.clone(),
             max_round: input.max_round,
             created_at: chrono::Utc::now().naive_utc(),
+            is_public: input.is_public,
         };
         self.room_repo.save(&snapshot).await.map_err(AppError::Room)?;
+
+        // 4. 保存 AI 配置
+        for (actor_id, config) in &ai_configs {
+            self.ai_config_repo.set(&room_id, actor_id, config).await.map_err(AppError::Ai)?;
+        }
 
         // 5. 启动 RoomActor + side effect handler
         let (effect_tx, effect_rx) = mpsc::channel::<SideEffect>(64);
@@ -161,12 +162,14 @@ impl RoomService {
             .load(room_id)
             .await?
             .ok_or(AppError::RoomNotFound)?;
-        let slot = snapshot
-            .actor_slots
-            .iter()
-            .find(|s| s.slot_name == slot_name)
-            .ok_or(AppError::Forbidden)?;
-        slot.authorize(&user_id).map_err(AppError::Room)?;
+        if slot_name != "spectator" && !slot_name.starts_with("spectator") {
+            let slot = snapshot
+                .actor_slots
+                .iter()
+                .find(|s| s.slot_name == slot_name)
+                .ok_or(AppError::Forbidden)?;
+            slot.authorize(&user_id).map_err(AppError::Room)?;
+        }
 
         let room_tx = self
             .active_rooms
@@ -234,6 +237,32 @@ impl RoomService {
             }
         }
         Ok(())
+    }
+
+    pub async fn list_public_rooms(&self) -> Result<Vec<RoomSnapshot>, AppError> {
+        let rooms = self.room_repo.list_all().await.map_err(AppError::Room)?;
+        Ok(rooms.into_iter().filter(|r| r.is_public).collect())
+    }
+
+    pub async fn list_history_rooms(&self, user_id: UserId) -> Result<Vec<RoomSnapshot>, AppError> {
+        self.room_repo.list_by_user(&user_id).await.map_err(AppError::Room)
+    }
+
+    pub async fn set_room_public(&self, user_id: UserId, room_id: &str, is_public: bool) -> Result<(), AppError> {
+        let snapshot = self
+            .room_repo
+            .load(room_id)
+            .await?
+            .ok_or(AppError::RoomNotFound)?;
+        if snapshot.owner_id != user_id {
+            return Err(AppError::Forbidden);
+        }
+        self.room_repo.set_public(room_id, is_public).await.map_err(AppError::Room)?;
+        Ok(())
+    }
+
+    pub async fn get_room_snapshot(&self, room_id: &str) -> Result<Option<RoomSnapshot>, AppError> {
+        self.room_repo.load(room_id).await.map_err(AppError::Room)
     }
 }
 
