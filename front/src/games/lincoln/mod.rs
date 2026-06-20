@@ -74,6 +74,8 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
             .unwrap_or(false)
     });
 
+    let mut show_ai_content = use_signal(|| true);
+
     rsx! {
         div { class: "lincoln-shell",
             // ── 时间轴区域 ──
@@ -87,6 +89,15 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
                         div { class: "timeline-round",
                             "轮次 {s.round} / {s.max_round}"
                         }
+                        button {
+                            class: "glass-panel-subtle toggle-ai-btn",
+                            style: "margin-left: auto; font-size: 0.85em; padding: 4px 12px; cursor: pointer;",
+                            onclick: move |_| {
+                                let cur = *show_ai_content.read();
+                                show_ai_content.set(!cur);
+                            },
+                            if *show_ai_content.read() { "👀 隐藏 AI 发言" } else { "🙈 显示 AI 发言" }
+                        }
                     }
 
                     // 历史气泡
@@ -94,6 +105,8 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
                         HistoryBubble {
                             key: "{idx}:{entry.actor_id}",
                             entry: entry.clone(),
+                            is_ai: s.actors.iter().any(|a| a.id == entry.actor_id && a.kind.to_lowercase() == "ai"),
+                            show_ai_content: *show_ai_content.read(),
                         }
                     }
 
@@ -167,6 +180,10 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
 #[derive(Props, Clone, PartialEq)]
 struct HistoryBubbleProps {
     entry: HistoryEntry,
+    #[props(default = false)]
+    is_ai: bool,
+    #[props(default = true)]
+    show_ai_content: bool,
 }
 
 /// 历史气泡组件：显示单条发言
@@ -181,6 +198,8 @@ fn HistoryBubble(props: HistoryBubbleProps) -> Element {
         _ => ("", "❓", "未知"),
     };
 
+    let should_hide = props.is_ai && !props.show_ai_content;
+
     rsx! {
         div { class: "bubble-row",
             div { class: "bubble-avatar {role_cls}",
@@ -194,7 +213,11 @@ fn HistoryBubble(props: HistoryBubbleProps) -> Element {
                     }
                 }
                 div { class: "bubble-content {role_cls}",
-                    "{e.content}"
+                    if should_hide {
+                        span { class: "hidden-content-hint", style: "color: #888; font-style: italic;", "🤖 AI 发言已隐藏" }
+                    } else {
+                        "{e.content}"
+                    }
                 }
             }
         }
@@ -228,21 +251,28 @@ pub fn LincolnLobbyCard(props: crate::games::registry::GameConfigProps) -> Eleme
 
     let mut select_role = move |rn: String| {
         my_role.set(rn.clone());
-        let mut modes = std::collections::HashMap::new();
-        for (name, _) in LINCOLN_ROLES {
-            let n = name.to_string();
-            if n == rn {
-                modes.insert(n, "human".to_string());
-            } else {
-                modes.insert(n, "ai".to_string());
+        let mut modes = role_config.read().clone();
+        modes.insert(rn, "human".to_string());
+        role_config.set(modes);
+    };
+
+    let mut toggle_role_mode = move |rn: String| {
+        let mut modes = role_config.read().clone();
+        let current = modes.get(&rn).cloned().unwrap_or("ai".to_string());
+        if current == "human" {
+            // Cannot change my own role to ai
+            if *my_role.read() != rn {
+                modes.insert(rn, "ai".to_string());
             }
+        } else {
+            modes.insert(rn, "human".to_string());
         }
         role_config.set(modes);
     };
 
     rsx! {
         div { class: "form-field",
-            label { "你的角色" }
+            label { "角色配置" }
             div { class: "role-grid",
                 for (role_name, role_desc) in LINCOLN_ROLES.iter() {
                     {
@@ -250,15 +280,29 @@ pub fn LincolnLobbyCard(props: crate::games::registry::GameConfigProps) -> Eleme
                         let is_selected = *my_role.read() == rn;
                         let mode = role_config.read().get(&rn).cloned().unwrap_or("ai".to_string());
                         let is_human = mode == "human";
+                        
+                        let rn_for_select = rn.clone();
+                        let rn_for_toggle = rn.clone();
+                        
                         rsx! {
                             div {
                                 class: if is_selected { "role-card selected" } else { "role-card" },
-                                onclick: move |_| select_role(rn.clone()),
                                 div { class: "role-card-header",
-                                    span { class: "role-card-name", "{role_name}" }
-                                    span {
+                                    span { 
+                                        class: "role-card-name",
+                                        style: "cursor: pointer;",
+                                        onclick: move |_| select_role(rn_for_select.clone()),
+                                        if is_selected { "👉 " }
+                                        "{role_name} (我的角色)"
+                                    }
+                                    button {
                                         class: if is_human { "role-badge human" } else { "role-badge ai" },
-                                        if is_human { "真人" } else { "AI" }
+                                        style: "border: none; cursor: pointer;",
+                                        onclick: move |e| {
+                                            e.stop_propagation();
+                                            toggle_role_mode(rn_for_toggle.clone());
+                                        },
+                                        if is_human { "开放联机" } else { "AI 接管" }
                                     }
                                 }
                                 div { class: "role-card-desc", "{role_desc}" }

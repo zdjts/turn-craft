@@ -31,6 +31,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/rooms/public", get(handlers::room::list_public_rooms))
         .route("/rooms/history", get(handlers::room::list_history_rooms))
         .route("/rooms/{room_id}", delete(handlers::room::delete_room))
+        .route("/rooms/{room_id}", get(handlers::room::get_room))
+        .route("/rooms/{room_id}/join", post(handlers::room::join_room))
         .route(
             "/rooms/{room_id}/public",
             put(handlers::room::set_room_public),

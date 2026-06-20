@@ -1,7 +1,7 @@
-use dioxus::prelude::*;
 use crate::api::{get_public_rooms, RoomSnapshotData};
 use crate::games::registry::REGISTRY;
 use crate::routes::layout::use_toast;
+use dioxus::prelude::*;
 
 #[component]
 pub fn PublicRooms() -> Element {
@@ -18,7 +18,10 @@ pub fn PublicRooms() -> Element {
                     rooms.set(r);
                 }
                 Err(e) => {
-                    toast.show(format!("获取公开房间失败: {e}"), crate::routes::layout::ToastType::Error);
+                    toast.show(
+                        format!("获取公开房间失败: {e}"),
+                        crate::routes::layout::ToastType::Error,
+                    );
                 }
             }
             loading.set(false);
@@ -102,7 +105,7 @@ pub fn PublicRooms() -> Element {
 
                                     div { class: "grid-card-body",
                                         div { class: "room-id-badge", "ID: {rid}" }
-                                        
+
                                         div { class: "slots-indicator-bar",
                                             div { class: "slots-label",
                                                 span { "空余席位:" }

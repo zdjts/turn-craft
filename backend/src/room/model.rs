@@ -54,7 +54,7 @@ impl ActorSlot {
             ActorOccupant::Human(owner) if owner == user_id => Ok(()),
             ActorOccupant::Human(_) => Err(RoomError::NotFound),
             ActorOccupant::Ai => Err(RoomError::NotFound),
-            ActorOccupant::Empty => Ok(()),
+            ActorOccupant::Empty => Err(RoomError::NotFound), // Must call join_room API first to claim the slot
         }
     }
 }

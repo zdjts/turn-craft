@@ -147,6 +147,7 @@ pub struct ActionHistory {
     pub action: PlayerAction,
     pub phase: GamePhase,
     pub chips_after: u32,
+    pub ai_content: Option<String>,
 }
 
 /// 摊牌结果条目
@@ -868,12 +869,16 @@ impl GameEngine for TexasHoldemEngine {
             }
         }
 
+        // 尝试提取 AI 的原始 content
+        let ai_content = action.get("content").and_then(|v| v.as_str()).map(|s| s.to_string());
+
         // 记录历史
         self.history.push(ActionHistory {
             actor_id: actor_id.to_string(),
             action: player_action,
             phase: self.phase,
             chips_after: self.players[player_index].chips,
+            ai_content,
         });
 
         let mut events = Vec::new();
@@ -1049,6 +1054,20 @@ impl GameEngine for TexasHoldemEngine {
 
     fn to_json_for_player(&self, actor_id: &str) -> serde_json::Value {
         let mut result = self.to_json();
+
+        // 检查请求快照的 actor 是否为 AI
+        let is_ai = self.players.iter().any(|p| p.id == actor_id && p.kind == "Ai");
+        
+        // 如果是 AI，则抹除 history 中的 ai_content，防止“读心术”
+        if is_ai {
+            if let Some(history) = result.get_mut("history").and_then(|h| h.as_array_mut()) {
+                for entry in history.iter_mut() {
+                    if let Some(obj) = entry.as_object_mut() {
+                        obj.remove("ai_content");
+                    }
+                }
+            }
+        }
 
         // 如果是观察者，显示所有玩家的手牌
         if actor_id == "spectator" || actor_id.starts_with("human_spectator") {

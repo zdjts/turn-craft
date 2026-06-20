@@ -68,6 +68,14 @@ pub struct SpectatorHand {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct HistoryEntryView {
+    pub actor_id: String,
+    pub action_desc: String,
+    pub phase: String,
+    pub ai_content: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TexasHoldemViewState {
     pub game_type: String,
     pub room_id: String,
@@ -84,6 +92,7 @@ pub struct TexasHoldemViewState {
     pub your_hand: Vec<Card>,
     pub showdown_results: Vec<ShowdownResultView>,
     pub spectator_hands: Vec<SpectatorHand>,
+    pub history: Vec<HistoryEntryView>,
 }
 
 // ═══════════════════════════════════════════════════════
@@ -176,6 +185,38 @@ fn parse_spectator_hand(v: &Value) -> Option<SpectatorHand> {
     })
 }
 
+fn parse_history_entry(v: &Value) -> Option<HistoryEntryView> {
+    let actor_id = v.get("actor_id")?.as_str()?.to_string();
+    let phase = v.get("phase").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
+    let ai_content = v.get("ai_content").and_then(|v| v.as_str()).map(|s| s.to_string());
+    
+    let action_val = v.get("action")?;
+    let action_desc = if let Some(s) = action_val.as_str() {
+        match s {
+            "Fold" => "弃牌".to_string(),
+            "Check" => "过牌".to_string(),
+            "Call" => "跟注".to_string(),
+            "AllIn" => "All-In".to_string(),
+            _ => s.to_string(),
+        }
+    } else if let Some(obj) = action_val.as_object() {
+        if let Some(amt) = obj.get("Raise").and_then(|v| v.as_u64()) {
+            format!("加注到 {}", amt)
+        } else {
+            "未知操作".to_string()
+        }
+    } else {
+        "未知操作".to_string()
+    };
+
+    Some(HistoryEntryView {
+        actor_id,
+        action_desc,
+        phase,
+        ai_content,
+    })
+}
+
 fn parse_state(raw: &Value) -> Option<TexasHoldemViewState> {
     let game_type = raw.get("game_type")?.as_str()?.to_string();
     let room_id = raw
@@ -237,6 +278,12 @@ fn parse_state(raw: &Value) -> Option<TexasHoldemViewState> {
         .map(|arr| arr.iter().filter_map(parse_spectator_hand).collect())
         .unwrap_or_default();
 
+    let history = raw
+        .get("history")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(parse_history_entry).collect())
+        .unwrap_or_default();
+
     Some(TexasHoldemViewState {
         game_type,
         room_id,
@@ -253,6 +300,7 @@ fn parse_state(raw: &Value) -> Option<TexasHoldemViewState> {
         your_hand,
         showdown_results,
         spectator_hands,
+        history,
     })
 }
 
@@ -395,6 +443,7 @@ fn GameStateView(props: GameStateViewProps) -> Element {
     let my_player = s.players.iter().find(|p| p.id == my_actor_id).cloned();
 
     let mut raise_amount = use_signal(|| "0".to_string());
+    let mut show_ai_content = use_signal(|| false);
 
     rsx! {
         // ── 顶部信息栏 ──
@@ -695,6 +744,52 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                 }
             }
         }
+
+        // ── 历史流水 ──
+        div { class: "history-panel glass-panel",
+            style: "margin-top: 20px; padding: 15px; border-radius: 8px;",
+            div { class: "history-header",
+                style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;",
+                h4 { style: "margin: 0;", "📜 历史流水记录" }
+                button {
+                    class: "glass-panel-subtle toggle-ai-btn",
+                    style: "font-size: 0.85em; padding: 4px 12px; cursor: pointer;",
+                    onclick: move |_| {
+                        let cur = *show_ai_content.read();
+                        show_ai_content.set(!cur);
+                    },
+                    if *show_ai_content.read() { "👀 隐藏 AI 心声" } else { "🙈 显示 AI 心声" }
+                }
+            }
+            div { class: "history-list",
+                style: "max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;",
+                if s.history.is_empty() {
+                    div { style: "color: #888; text-align: center;", "暂无记录" }
+                } else {
+                    for entry in s.history.iter().rev() {
+                        div { class: "history-item", style: "margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;",
+                            div { class: "history-action",
+                                span { style: "font-weight: bold; margin-right: 8px;", "{entry.actor_id}" }
+                                span { style: "color: #bbb;", "[{phase_display(&entry.phase)}] {entry.action_desc}" }
+                            }
+                            if *show_ai_content.read() {
+                                if let Some(content) = &entry.ai_content {
+                                    div { class: "history-ai-content",
+                                        style: "margin-top: 4px; padding: 6px; background: rgba(255,255,255,0.05); border-left: 3px solid #66b3ff; font-size: 0.9em; color: #add8e6; white-space: pre-wrap;",
+                                        "🤖: {content}"
+                                    }
+                                } else if s.players.iter().any(|p| p.id == entry.actor_id && p.kind == "Ai") {
+                                    div { class: "history-ai-content",
+                                        style: "margin-top: 4px; padding: 6px; font-size: 0.8em; color: #888; font-style: italic;",
+                                        "[由于后端未下发或无记录，无法显示AI心声]"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -824,14 +919,16 @@ pub fn TexasHoldemLobbyCard(props: crate::games::registry::GameConfigProps) -> E
                         let mut modes = std::collections::HashMap::new();
                         modes.insert("player1".to_string(), "human".to_string());
                         for i in 2..=count {
-                            modes.insert(format!("player{}", i), "ai".to_string());
+                            // 保留之前的设置，如果之前就是 human 就保留
+                            let prev = role_config.read().get(&format!("player{}", i)).cloned().unwrap_or_else(|| "ai".to_string());
+                            modes.insert(format!("player{}", i), prev);
                         }
                         my_role.set("player1".to_string());
                         role_config.set(modes);
                     },
                     div { class: "mode-icon", "🎮" }
                     div { class: "mode-label", "亲自上阵" }
-                    div { class: "mode-desc", "你作为玩家参与对局" }
+                    div { class: "mode-desc", "你可以设置多个座位为真人联机" }
                 }
                 button {
                     class: if *spectator_mode.read() { "mode-btn selected" } else { "mode-btn" },
@@ -847,7 +944,39 @@ pub fn TexasHoldemLobbyCard(props: crate::games::registry::GameConfigProps) -> E
                     },
                     div { class: "mode-icon", "👀" }
                     div { class: "mode-label", "观战模式" }
-                    div { class: "mode-desc", "观看 AI 之间的对局" }
+                    div { class: "mode-desc", "观看全 AI 之间的对局" }
+                }
+            }
+        }
+
+        if !*spectator_mode.read() {
+            div { class: "form-field",
+                label { "联机席位配置" }
+                div { class: "seats-toggle-grid",
+                    for i in 2..=*player_count.read() {
+                        {
+                            let slot_name = format!("player{}", i);
+                            let is_human = role_config.read().get(&slot_name).map(|s| s.as_str()) == Some("human");
+                            rsx! {
+                                button {
+                                    key: "{slot_name}",
+                                    class: if is_human { "seat-btn human" } else { "seat-btn ai" },
+                                    onclick: move |_| {
+                                        let mut modes = role_config.read().clone();
+                                        if modes.get(&slot_name).map(|s| s.as_str()) == Some("human") {
+                                            modes.insert(slot_name.clone(), "ai".to_string());
+                                        } else {
+                                            modes.insert(slot_name.clone(), "human".to_string());
+                                        }
+                                        role_config.set(modes);
+                                    },
+                                    div { class: "seat-icon", if is_human { "👤" } else { "🤖" } }
+                                    div { class: "seat-label", "Player {i}" }
+                                    div { class: "seat-status", if is_human { "开放联机" } else { "AI 接管" } }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

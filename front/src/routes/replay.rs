@@ -91,17 +91,34 @@ fn LincolnReplayView(engine_state: Value) -> Element {
         serde_json::from_value::<LincolnState>(engine_state.clone()).ok()
     });
 
+    let mut show_ai_content = use_signal(|| true);
+
     rsx! {
         div { class: "lincoln-replay-view",
             if let Some(ref s) = *state.read() {
                 div { class: "lincoln-replay-inner",
-                    div { class: "replay-round-indicator", "🏛️ 林肯辩论历史辩词 (共 {s.round} 轮)" }
+                    div { class: "replay-round-indicator", 
+                        span { "🏛️ 林肯辩论历史辩词 (共 {s.round} 轮)" }
+                        button {
+                            class: "glass-panel-subtle toggle-ai-btn",
+                            style: "margin-left: 15px; font-size: 0.85em; padding: 4px 12px; cursor: pointer;",
+                            onclick: move |_| {
+                                let cur = *show_ai_content.read();
+                                show_ai_content.set(!cur);
+                            },
+                            if *show_ai_content.read() { "👀 隐藏 AI 发言" } else { "🙈 显示 AI 发言" }
+                        }
+                    }
                     div { class: "timeline-scroll replay-timeline",
                         if s.history.is_empty() {
                             p { style: "color: var(--text-muted); text-align: center; padding: 20px;", "没有发言记录" }
                         } else {
                             for entry in s.history.iter() {
-                                LincolnHistoryBubble { entry: entry.clone() }
+                                LincolnHistoryBubble { 
+                                    entry: entry.clone(),
+                                    is_ai: s.actors.iter().any(|a| a.id == entry.actor_id && a.kind.to_lowercase() == "ai"),
+                                    show_ai_content: *show_ai_content.read(),
+                                }
                             }
                         }
                     }
@@ -113,14 +130,27 @@ fn LincolnReplayView(engine_state: Value) -> Element {
     }
 }
 
+#[derive(Props, Clone, PartialEq)]
+struct LincolnHistoryBubbleProps {
+    entry: HistoryEntry,
+    #[props(default = false)]
+    is_ai: bool,
+    #[props(default = true)]
+    show_ai_content: bool,
+}
+
 #[component]
-fn LincolnHistoryBubble(entry: HistoryEntry) -> Element {
+fn LincolnHistoryBubble(props: LincolnHistoryBubbleProps) -> Element {
+    let entry = &props.entry;
     let (role_cls, icon, label) = match entry.role.as_str() {
         "Judge" => ("judge", "👑", "裁判"),
         "Pro" => ("pro", "🟢", "正方"),
         "Con" => ("con", "🔴", "反方"),
         _ => ("", "❓", "未知"),
     };
+
+    let should_hide = props.is_ai && !props.show_ai_content;
+
     rsx! {
         div { key: "{entry.actor_id}:{entry.content.len()}", class: "bubble-row",
             div { class: "bubble-avatar {role_cls}", "{icon}" }
@@ -129,7 +159,13 @@ fn LincolnHistoryBubble(entry: HistoryEntry) -> Element {
                     span { class: "bubble-name", "{entry.actor_id}" }
                     span { class: "bubble-tag {role_cls}", "{label}" }
                 }
-                div { class: "bubble-content {role_cls}", "{entry.content}" }
+                div { class: "bubble-content {role_cls}", 
+                    if should_hide {
+                        span { class: "hidden-content-hint", style: "color: #888; font-style: italic;", "🤖 AI 发言已隐藏" }
+                    } else {
+                        "{entry.content}"
+                    }
+                }
             }
         }
     }

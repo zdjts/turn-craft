@@ -125,6 +125,36 @@ impl RoomService {
         Ok(())
     }
 
+    pub async fn join_slot(&self, user_id: UserId, room_id: &str, slot_name: &str) -> Result<(), AppError> {
+        let mut snapshot = self
+            .room_repo
+            .load(room_id)
+            .await?
+            .ok_or(AppError::RoomNotFound)?;
+        
+        let slot = snapshot
+            .actor_slots
+            .iter_mut()
+            .find(|s| s.slot_name == slot_name)
+            .ok_or(AppError::Forbidden)?;
+            
+        match &slot.occupant {
+            crate::room::model::ActorOccupant::Empty => {
+                slot.occupant = crate::room::model::ActorOccupant::Human(user_id);
+            }
+            crate::room::model::ActorOccupant::Human(id) if id == &user_id => {
+                // 已经占据该位置
+                return Ok(());
+            }
+            _ => {
+                return Err(AppError::Forbidden); // Slot taken or is AI
+            }
+        }
+        
+        self.room_repo.save(&snapshot).await?;
+        Ok(())
+    }
+
     pub async fn restore_all(&self) -> Result<(), AppError> {
         // 从 SQLite 加载所有房间 → 重建引擎 → 启动 Actor
         todo!()

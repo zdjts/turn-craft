@@ -264,6 +264,36 @@ impl RoomService {
     pub async fn get_room_snapshot(&self, room_id: &str) -> Result<Option<RoomSnapshot>, AppError> {
         self.room_repo.load(room_id).await.map_err(AppError::Room)
     }
+
+    pub async fn join_slot(&self, user_id: UserId, room_id: &str, slot_name: &str) -> Result<(), AppError> {
+        let mut snapshot = self
+            .room_repo
+            .load(room_id)
+            .await?
+            .ok_or(AppError::RoomNotFound)?;
+        
+        let slot = snapshot
+            .actor_slots
+            .iter_mut()
+            .find(|s| s.slot_name == slot_name)
+            .ok_or(AppError::Forbidden)?;
+            
+        match &slot.occupant {
+            self::model::ActorOccupant::Empty => {
+                slot.occupant = self::model::ActorOccupant::Human(user_id);
+            }
+            self::model::ActorOccupant::Human(id) if id == &user_id => {
+                // 已经占据该位置
+                return Ok(());
+            }
+            _ => {
+                return Err(AppError::Forbidden); // Slot taken or is AI
+            }
+        }
+        
+        self.room_repo.save(&snapshot).await.map_err(AppError::Room)?;
+        Ok(())
+    }
 }
 
 fn build_slots(input: &CreateRoomInput, owner_id: &UserId) -> Vec<self::model::ActorSlot> {
@@ -272,7 +302,13 @@ fn build_slots(input: &CreateRoomInput, owner_id: &UserId) -> Vec<self::model::A
         .iter()
         .map(|name| {
             let occupant = match input.slot_configs.get(name).map(|s| s.as_str()) {
-                Some("human") => self::model::ActorOccupant::Human(owner_id.clone()),
+                Some("human") => {
+                    if name == &input.my_slot || (input.my_slot.is_empty() && name == "spectator") {
+                        self::model::ActorOccupant::Human(owner_id.clone())
+                    } else {
+                        self::model::ActorOccupant::Empty
+                    }
+                }
                 Some("ai") => self::model::ActorOccupant::Ai,
                 _ => self::model::ActorOccupant::Empty,
             };

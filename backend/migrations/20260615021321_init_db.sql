@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS rooms (
     ai_configs      TEXT NOT NULL DEFAULT '{}',
     max_round       INTEGER NOT NULL DEFAULT 16,
     game_config     TEXT NOT NULL DEFAULT '{}',
+    is_public       BOOLEAN NOT NULL DEFAULT 0,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

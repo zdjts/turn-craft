@@ -327,6 +327,31 @@ pub async fn get_history_rooms() -> Result<Vec<RoomSnapshotData>, String> {
     Ok(rooms)
 }
 
+pub async fn join_room(room_id: &str, slot_name: &str) -> Result<(), String> {
+    let url = format!("{}/rooms/{}/join", crate::BACKEND_ORIGIN, room_id);
+    let mut request = gloo_net::http::Request::post(&url);
+    if let Some(token) = get_token() {
+        request = request.header("Authorization", &format!("Bearer {token}"));
+    }
+    
+    let payload = serde_json::json!({
+        "slot_name": slot_name
+    });
+
+    let resp = request
+        .json(&payload)
+        .map_err(|e| format!("序列化失败: {e}"))?
+        .send()
+        .await
+        .map_err(|e| format!("HTTP POST 失败: {e}"))?;
+
+    if !resp.ok() {
+        let err_msg = resp.text().await.unwrap_or_default();
+        return Err(format!("加入房间失败: HTTP {} {}", resp.status(), err_msg));
+    }
+    Ok(())
+}
+
 pub async fn set_room_public(room_id: &str, is_public: bool) -> Result<(), String> {
     let url = format!("{}/rooms/{}/public", crate::BACKEND_ORIGIN, room_id);
     let body = serde_json::json!({ "is_public": is_public });

@@ -100,3 +100,19 @@ pub async fn get_room(
         "room": room
     })))
 }
+
+#[derive(serde::Deserialize)]
+pub struct JoinRoomInput {
+    pub slot_name: String,
+}
+
+/// 加入房间并占据一个空槽位
+pub async fn join_room(
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+    Path(room_id): Path<String>,
+    Json(input): Json<JoinRoomInput>,
+) -> Result<Json<Value>, AppError> {
+    state.room_service.join_slot(user_id, &room_id, &input.slot_name).await?;
+    Ok(Json(json!({ "status": "success" })))
+}

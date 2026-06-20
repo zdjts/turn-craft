@@ -1,4 +1,4 @@
-use crate::api::{create_room, get_public_rooms, CreateRoomRequest, RoomSnapshotData};
+use crate::api::{create_room, get_public_rooms, join_room, CreateRoomRequest, RoomSnapshotData};
 use crate::games::registry::{GameConfigProps, REGISTRY};
 use crate::routes::layout::use_toast;
 use dioxus::prelude::*;
@@ -282,7 +282,7 @@ pub fn Lobby() -> Element {
                                     // Detect occupied status
                                     let empty_slots = if let Some(arr) = room.actor_slots.as_array() {
                                         arr.iter().filter(|s| {
-                                            s.get("occupant").and_then(|o| o.get("Empty")).is_some()
+                                            s.get("occupant").and_then(|o| o.as_str()) == Some("Empty")
                                         }).count()
                                     } else {
                                         0
@@ -292,7 +292,7 @@ pub fn Lobby() -> Element {
                                     let mut first_empty_slot = "spectator".to_string();
                                     if let Some(arr) = room.actor_slots.as_array() {
                                         for slot_val in arr {
-                                            if slot_val.get("occupant").and_then(|o| o.get("Empty")).is_some() {
+                                            if slot_val.get("occupant").and_then(|o| o.as_str()) == Some("Empty") {
                                                 if let Some(name) = slot_val.get("slot_name").and_then(|n| n.as_str()) {
                                                     first_empty_slot = name.to_string();
                                                     break;
@@ -318,7 +318,23 @@ pub fn Lobby() -> Element {
                                                     button {
                                                         class: "join-btn player",
                                                         onclick: move |_| {
-                                                            nav.push(super::Route::Game { room_id: rid.clone(), actor_id: first_empty_slot.clone() });
+                                                            let rid = rid.clone();
+                                                            let aid = first_empty_slot.clone();
+                                                            let nav = nav.clone();
+                                                            let toast = toast.clone();
+                                                            spawn(async move {
+                                                                match join_room(&rid, &aid).await {
+                                                                    Ok(_) => {
+                                                                        nav.push(super::Route::Game { room_id: rid, actor_id: aid });
+                                                                    }
+                                                                    Err(e) => {
+                                                                        toast.show(
+                                                                            format!("加入失败: {}", e),
+                                                                            crate::routes::layout::ToastType::Error,
+                                                                        );
+                                                                    }
+                                                                }
+                                                            });
                                                         },
                                                         "加入对局"
                                                     }
