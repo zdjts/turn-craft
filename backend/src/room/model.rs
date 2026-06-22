@@ -15,12 +15,33 @@ pub struct Peer {
 }
 
 /// 房间命令协议 — Actor 和 AI Worker 共用
-#[derive(Debug)]
 pub enum RoomCommand {
-    PlayerAction { actor_id: String, action: Value },
+    PlayerAction {
+        actor_id: String,
+        action: Value,
+        feedback_tx: Option<tokio::sync::oneshot::Sender<Result<(), String>>>,
+    },
     Join(Peer),
     Leave(String),
     Shutdown,
+}
+
+impl std::fmt::Debug for RoomCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PlayerAction {
+                actor_id, action, ..
+            } => f
+                .debug_struct("PlayerAction")
+                .field("actor_id", actor_id)
+                .field("action", action)
+                .field("feedback_tx", &"<Sender>")
+                .finish(),
+            Self::Join(arg0) => f.debug_tuple("Join").field(arg0).finish(),
+            Self::Leave(arg0) => f.debug_tuple("Leave").field(arg0).finish(),
+            Self::Shutdown => write!(f, "Shutdown"),
+        }
+    }
 }
 
 /// AI 任务 — 供 AiWorker 消费

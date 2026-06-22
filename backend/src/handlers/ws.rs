@@ -89,6 +89,7 @@ async fn handle_socket(
                     let cmd = RoomCommand::PlayerAction {
                         actor_id: actor_id_ingress.clone(),
                         action,
+                        feedback_tx: None,
                     };
                     if let Err(e) = room_tx_ingress.send(cmd).await {
                         tracing::error!(room_id = %room_id_ingress, actor_id = %actor_id_ingress, error = ?e, "上行数据转发失败，房间已销毁");

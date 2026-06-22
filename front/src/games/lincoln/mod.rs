@@ -145,15 +145,17 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
                         value: "{draft}",
                         oninput: move |e| draft.set(e.value()),
                         onkeydown: move |e: Event<KeyboardData>| {
-                            if e.key() == Key::Enter && e.modifiers().ctrl() {
-                                let content = draft.read().trim().to_string();
-                                if content.is_empty() {
-                                    warn!(target: "lincoln::action", "用户尝试发送空发言，已忽略");
-                                    return;
+                            if e.key() == Key::Enter {
+                                if e.modifiers().ctrl() {
+                                    draft.write().push('\n');
+                                } else {
+                                    let content = draft.read().trim().to_string();
+                                    if !content.is_empty() {
+                                        info!(target: "lincoln::action", content_len = content.len(), "裁判通过 Enter 发射发言");
+                                        on_action.call(serde_json::json!({"content": content}));
+                                    }
+                                    draft.write().clear();
                                 }
-                                info!(target: "lincoln::action", content_len = content.len(), "裁判通过 Ctrl+Enter 发射发言");
-                                on_action.call(serde_json::json!({"content": content}));
-                                draft.write().clear();
                             }
                         },
                     }

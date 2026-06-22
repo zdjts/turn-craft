@@ -328,10 +328,14 @@ pub fn WerewolfActionPanel(
                     value: "{text_input}",
                     oninput: move |e| text_input.set(e.value()),
                     onkeydown: move |e: Event<KeyboardData>| {
-                        if e.key() == Key::Enter && e.modifiers().ctrl() {
-                            let content = text_input.read().trim().to_string();
-                            if !content.is_empty() {
-                                on_action.call(serde_json::json!({ "action_type": "speak", "content": content }));
+                        if e.key() == Key::Enter {
+                            if e.modifiers().ctrl() {
+                                text_input.write().push('\n');
+                            } else {
+                                let content = text_input.read().trim().to_string();
+                                if !content.is_empty() {
+                                    on_action.call(serde_json::json!({ "action_type": "speak", "content": content }));
+                                }
                                 text_input.write().clear();
                             }
                         }

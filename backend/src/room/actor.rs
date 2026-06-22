@@ -44,12 +44,23 @@ pub fn spawn_game_room(
 
         while let Some(cmd) = rx.recv().await {
             match cmd {
-                RoomCommand::PlayerAction { actor_id, action } => {
+                RoomCommand::PlayerAction {
+                    actor_id,
+                    action,
+                    feedback_tx,
+                } => {
                     let events = match engine.step(&actor_id, action) {
-                        Ok(events) => events,
+                        Ok(events) => {
+                            if let Some(tx) = feedback_tx {
+                                let _ = tx.send(Ok(()));
+                            }
+                            events
+                        }
                         Err(e) => {
                             warn!(room_id = %room_id, actor_id = %actor_id, error = %e, "动作执行失败");
-                            if let Some(p) = peers.iter().find(|p| p.actor_id == actor_id) {
+                            if let Some(tx) = feedback_tx {
+                                let _ = tx.send(Err(e.to_string()));
+                            } else if let Some(p) = peers.iter().find(|p| p.actor_id == actor_id) {
                                 let _ = p
                                     .tx
                                     .send(serde_json::json!({"error": e.to_string()}).to_string())
