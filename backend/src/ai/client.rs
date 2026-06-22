@@ -41,6 +41,8 @@ pub async fn request_speech(
     // 如果传入了 tools，添加到请求体
     if let Some(tools_value) = tools {
         body["tools"] = tools_value.clone();
+        body["tool_choice"] = serde_json::json!("required");
+        tracing::info!(tools = %tools_value, "发送的 tools 定义");
     }
 
     let start = Instant::now();

@@ -179,7 +179,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
             }
 
             // ── 操作面板 ──
-            div { class: if (is_my_turn && !is_finished) || phase_name == "Init" { "action-console" } else { "action-console locked" },
+            div { class: if (is_my_turn && !is_finished) || phase_name == "Init" || (phase_name == "DayVote" && my_alive) { "action-console" } else { "action-console locked" },
                 if phase_name == "Init" {
                     div { class: "console-row", style: "justify-content: center;",
                         button {
@@ -193,7 +193,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                             "🎮 开始游戏"
                         }
                     }
-                } else if is_my_turn && !is_finished {
+                } else if (is_my_turn || (phase_name == "DayVote" && my_alive)) && !is_finished {
                     WerewolfActionPanel {
                         phase_name: phase_name.clone(),
                         my_role: my_role.clone(),

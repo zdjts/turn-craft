@@ -4,15 +4,15 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use platform_core::{
-    games::werewolf::{Phase, WerewolfEngine, WerewolfRole, HistoryEvent, WerewolfPlayer},
+    games::werewolf::{HistoryEvent, Phase, WerewolfEngine, WerewolfPlayer, WerewolfRole},
     traits::{ActionKind, GameEngine},
 };
 
-use crate::ai::env::AiConfig;
-use crate::ai::config_repo::AiConfigRepository;
-use crate::room::model::CreateRoomInput;
-use crate::error::AppError;
 use super::factory::GameFactory;
+use crate::ai::config_repo::AiConfigRepository;
+use crate::ai::env::AiConfig;
+use crate::error::AppError;
+use crate::room::model::CreateRoomInput;
 
 pub struct WerewolfFactory;
 
@@ -31,11 +31,26 @@ impl GameFactory for WerewolfFactory {
         let mut engine = WerewolfEngine::new(room_id.to_string());
 
         let default_prompts: HashMap<WerewolfRole, &str> = HashMap::from([
-            (WerewolfRole::Werewolf, "你是一只狼人。每晚你需要和另一只狼人队友统一意见杀人。白天如果局势不利，你可以选择'自爆'（直接结束白天进入黑夜）。请隐藏好自己的身份，发言时伪装成好人。"),
-            (WerewolfRole::Seer, "你是预言家。每晚你可以查验一名玩家的身份（好人或狼人）。白天你需要通过发言带领好人阵营投票出狼人。"),
-            (WerewolfRole::Witch, "你是女巫。你有一瓶解药和一瓶毒药，解药可救活今晚被狼杀的人，毒药可毒杀任意一人。每晚你只能使用其中一瓶，且全场游戏无法自救。"),
-            (WerewolfRole::Hunter, "你是猎人。如果你被狼人杀害或白天被投票出局，你可以开枪带走任意一名存活玩家。但如果是被女巫毒死，你将无法开枪。"),
-            (WerewolfRole::Villager, "你是一个平民。你没有任何夜间技能，只能在白天认真听取大家发言，分辨谁是狼人并投票将其出局。"),
+            (
+                WerewolfRole::Werewolf,
+                "你是一只狼人。每晚你需要和另一只狼人队友统一意见杀人。白天如果局势不利，你可以选择'自爆'（直接结束白天进入黑夜）。请隐藏好自己的身份，发言时伪装成好人。",
+            ),
+            (
+                WerewolfRole::Seer,
+                "你是预言家。每晚你可以查验一名玩家的身份（好人或狼人）。白天你需要通过发言带领好人阵营投票出狼人。",
+            ),
+            (
+                WerewolfRole::Witch,
+                "你是女巫。你有一瓶解药和一瓶毒药，解药可救活今晚被狼杀的人，毒药可毒杀任意一人。每晚你只能使用其中一瓶救。",
+            ),
+            (
+                WerewolfRole::Hunter,
+                "你是猎人。如果你被狼人杀害或白天被投票出局，你可以开枪带走任意一名存活玩家。但如果是被女巫毒死，你将无法开枪。",
+            ),
+            (
+                WerewolfRole::Villager,
+                "你是一个平民。你没有任何夜间技能，只能在白天认真听取大家发言，分辨谁是狼人并投票将其出局。",
+            ),
         ]);
 
         let global_defaults_key = "__defaults__";
@@ -47,7 +62,7 @@ impl GameFactory for WerewolfFactory {
         // Let's hardcode a role distribution for 7 slots, or parse from config.
         // Assuming slots are just player names, we assign roles randomly or deterministically.
         // To be safe, we assign them deterministically if exactly 7 slots.
-        
+
         let mut roles_pool = vec![
             WerewolfRole::Werewolf,
             WerewolfRole::Werewolf,
@@ -57,10 +72,10 @@ impl GameFactory for WerewolfFactory {
             WerewolfRole::Villager,
             WerewolfRole::Villager,
         ];
-        
+
         for (slot_name, role_type) in &input.slot_configs {
             let role = roles_pool.pop().unwrap_or(WerewolfRole::Villager);
-            
+
             match role_type.as_str() {
                 "human" => {
                     let actor_id = if slot_name == &input.my_slot {
@@ -90,7 +105,11 @@ impl GameFactory for WerewolfFactory {
                             base_url: s.base_url,
                             model: s.model,
                             max_tokens: s.max_tokens,
-                            prompt: if s.prompt.is_empty() { default_prompt } else { s.prompt },
+                            prompt: if s.prompt.is_empty() {
+                                default_prompt
+                            } else {
+                                s.prompt
+                            },
                         },
                         None => AiConfig {
                             api_key: crate::config::CONFIG.default_ai_api_key.clone(),
@@ -109,8 +128,9 @@ impl GameFactory for WerewolfFactory {
     }
 
     fn restore(&self, state: &Value) -> Result<Box<dyn GameEngine>, AppError> {
-        let engine: WerewolfEngine = serde_json::from_value(state.clone())
-            .map_err(|e| crate::room::error::RoomError::EngineError(format!("恢复狼人杀失败: {}", e)))?;
+        let engine: WerewolfEngine = serde_json::from_value(state.clone()).map_err(|e| {
+            crate::room::error::RoomError::EngineError(format!("恢复狼人杀失败: {}", e))
+        })?;
         Ok(Box::new(engine))
     }
 }

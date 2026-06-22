@@ -1,9 +1,9 @@
-use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::{HashMap, HashSet};
 
-use crate::traits::{ActionKind, EngineEvent, GameEngine};
 use crate::error::EngineError;
+use crate::traits::{ActionKind, EngineEvent, GameEngine};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Copy, Serialize, Deserialize)]
 pub enum WerewolfRole {
@@ -33,7 +33,7 @@ pub enum Phase {
     DaySpeech,
     DayVote,
     DayHunterShoot(String, String), // shooter_id, next_phase ("DaySpeech" | "NightWolf")
-    GameOver(String), // winner faction: "Wolves" | "Good"
+    GameOver(String),               // winner faction: "Wolves" | "Good"
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -54,20 +54,20 @@ pub struct WerewolfEngine {
     pub phase: Phase,
     pub day: usize,
     pub history: Vec<HistoryEvent>,
-    
+
     // Night temp state
     pub wolf_votes: HashMap<String, String>, // voter -> target
     pub night_kill_target: Option<String>,
     pub night_poison_target: Option<String>,
     pub witch_has_save: bool,
     pub witch_has_poison: bool,
-    
+
     // Day temp state
     pub speakers: Vec<String>,
     pub current_speaker_idx: usize,
     pub day_votes: HashMap<String, Option<String>>, // voter -> target
-    pub pk_players: Option<Vec<String>>, // if tie
-    pub last_dead: Vec<String>, // to determine start of speech
+    pub pk_players: Option<Vec<String>>,            // if tie
+    pub last_dead: Vec<String>,                     // to determine start of speech
 }
 
 impl WerewolfEngine {
@@ -78,13 +78,13 @@ impl WerewolfEngine {
             phase: Phase::Init,
             day: 1,
             history: Vec::new(),
-            
+
             wolf_votes: HashMap::new(),
             night_kill_target: None,
             night_poison_target: None,
             witch_has_save: true,
             witch_has_poison: true,
-            
+
             speakers: Vec::new(),
             current_speaker_idx: 0,
             day_votes: HashMap::new(),
@@ -121,11 +121,19 @@ impl WerewolfEngine {
     }
 
     fn check_win(&self) -> Option<String> {
-        let alive_wolves = self.players.iter().filter(|p| p.is_alive && p.role == WerewolfRole::Werewolf).count();
+        let alive_wolves = self
+            .players
+            .iter()
+            .filter(|p| p.is_alive && p.role == WerewolfRole::Werewolf)
+            .count();
         if alive_wolves == 0 {
             return Some("Good".to_string());
         }
-        let alive_good = self.players.iter().filter(|p| p.is_alive && p.role != WerewolfRole::Werewolf).count();
+        let alive_good = self
+            .players
+            .iter()
+            .filter(|p| p.is_alive && p.role != WerewolfRole::Werewolf)
+            .count();
         if alive_good == 0 {
             return Some("Wolves".to_string());
         }
@@ -133,7 +141,11 @@ impl WerewolfEngine {
     }
 
     fn get_alive_players(&self) -> Vec<String> {
-        self.players.iter().filter(|p| p.is_alive).map(|p| p.id.clone()).collect()
+        self.players
+            .iter()
+            .filter(|p| p.is_alive)
+            .map(|p| p.id.clone())
+            .collect()
     }
 
     fn die(&mut self, target: &str, is_poison: bool) {
@@ -158,8 +170,8 @@ impl WerewolfEngine {
                 if seer.map_or(false, |p| p.is_alive) {
                     self.phase = Phase::NightSeer;
                 } else {
-                    self.phase = Phase::NightSeer; 
-                    return self.next_night_phase(); 
+                    self.phase = Phase::NightSeer;
+                    return self.next_night_phase();
                 }
             }
             Phase::NightSeer => {
@@ -168,7 +180,7 @@ impl WerewolfEngine {
                     self.phase = Phase::NightWitch;
                 } else {
                     self.phase = Phase::NightWitch;
-                    return self.next_night_phase(); 
+                    return self.next_night_phase();
                 }
             }
             Phase::NightWitch => {
@@ -182,17 +194,17 @@ impl WerewolfEngine {
 
     fn resolve_night(&mut self) -> Vec<EngineEvent> {
         self.last_dead.clear();
-        
+
         let killed = self.night_kill_target.clone();
         let poisoned = self.night_poison_target.clone();
-        
+
         let mut dead_this_night = Vec::new();
 
         if let Some(target) = killed {
             self.die(&target, false);
             dead_this_night.push(target);
         }
-        
+
         if let Some(target) = poisoned {
             if !dead_this_night.contains(&target) {
                 self.die(&target, true);
@@ -229,7 +241,7 @@ impl WerewolfEngine {
         }
 
         self.phase = Phase::DaySpeech;
-        
+
         self.trigger_next()
     }
 
@@ -244,12 +256,20 @@ impl WerewolfEngine {
                 }
             }
             Phase::NightSeer => {
-                if let Some(p) = self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Seer && p.kind == "Ai") {
+                if let Some(p) = self
+                    .players
+                    .iter()
+                    .find(|p| p.is_alive && p.role == WerewolfRole::Seer && p.kind == "Ai")
+                {
                     events.push(EngineEvent::TriggerAi(p.id.clone()));
                 }
             }
             Phase::NightWitch => {
-                if let Some(p) = self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Witch && p.kind == "Ai") {
+                if let Some(p) = self
+                    .players
+                    .iter()
+                    .find(|p| p.is_alive && p.role == WerewolfRole::Witch && p.kind == "Ai")
+                {
                     events.push(EngineEvent::TriggerAi(p.id.clone()));
                 }
             }
@@ -308,28 +328,47 @@ impl GameEngine for WerewolfEngine {
     }
 
     fn step(&mut self, actor_id: &str, action: Value) -> Result<Vec<EngineEvent>, EngineError> {
-        let parsed_action = if let Some(tool_calls) = action.get("tool_calls").and_then(|v| v.as_array()) {
-            if let Some(first_call) = tool_calls.first() {
-                let args_str = first_call
-                    .get("function")
-                    .and_then(|f| f.get("arguments"))
-                    .and_then(|a| a.as_str())
-                    .unwrap_or("{}");
-                serde_json::from_str::<Value>(args_str).unwrap_or(action.clone())
+        let parsed_action =
+            if let Some(tool_calls) = action.get("tool_calls").and_then(|v| v.as_array()) {
+                if let Some(first_call) = tool_calls.first() {
+                    let args_str = first_call
+                        .get("function")
+                        .and_then(|f| f.get("arguments"))
+                        .and_then(|a| a.as_str())
+                        .unwrap_or("{}");
+                    serde_json::from_str::<Value>(args_str).unwrap_or(action.clone())
+                } else {
+                    action.clone()
+                }
             } else {
                 action.clone()
-            }
-        } else {
-            action.clone()
-        };
+            };
 
-        let action_type = parsed_action.get("action_type").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let target = parsed_action.get("target").and_then(|v| v.as_str()).map(|s| s.to_string());
-        let content = parsed_action.get("content").or_else(|| action.get("content")).and_then(|v| v.as_str()).map(|s| s.to_string());
+        let action_type = parsed_action
+            .get("action_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let target = parsed_action
+            .get("target")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let content = parsed_action
+            .get("content")
+            .or_else(|| action.get("content"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
-        let actor = self.players.iter().find(|p| p.id == actor_id).cloned().ok_or(EngineError("Unknown actor".into()))?;
+        let actor = self
+            .players
+            .iter()
+            .find(|p| p.id == actor_id)
+            .cloned()
+            .ok_or(EngineError("Unknown actor".into()))?;
 
-        if !actor.is_alive && !matches!(self.phase, Phase::DayHunterShoot(ref id, _) if id == actor_id) {
+        if !actor.is_alive
+            && !matches!(self.phase, Phase::DayHunterShoot(ref id, _) if id == actor_id)
+        {
             return Err(EngineError("Dead players cannot act".into()));
         }
 
@@ -344,14 +383,14 @@ impl GameEngine for WerewolfEngine {
                     content: Some("自爆".to_string()),
                     visibility: "public".to_string(),
                 });
-                
+
                 self.die(actor_id, false);
-                
+
                 if let Some(winner) = self.check_win() {
                     self.phase = Phase::GameOver(winner);
                     return Ok(vec![EngineEvent::GameOver]);
                 }
-                
+
                 if self.check_hunter_shoot("DaySpeech") {
                     return Ok(self.trigger_next());
                 } else {
@@ -388,12 +427,16 @@ impl GameEngine for WerewolfEngine {
                 }
                 let t = target.ok_or(EngineError("Missing target".into()))?;
                 self.wolf_votes.insert(actor_id.to_string(), t);
-                
-                let alive_wolves = self.players.iter().filter(|p| p.is_alive && p.role == WerewolfRole::Werewolf).count();
+
+                let alive_wolves = self
+                    .players
+                    .iter()
+                    .filter(|p| p.is_alive && p.role == WerewolfRole::Werewolf)
+                    .count();
                 if self.wolf_votes.len() == alive_wolves {
                     let final_target = self.wolf_votes.values().next().cloned();
                     self.night_kill_target = final_target.clone();
-                    
+
                     self.history.push(HistoryEvent {
                         day: self.day,
                         phase: "NightWolf".to_string(),
@@ -403,7 +446,7 @@ impl GameEngine for WerewolfEngine {
                         content: None,
                         visibility: "wolves".to_string(),
                     });
-                    
+
                     self.wolf_votes.clear();
                     return Ok(self.next_night_phase());
                 }
@@ -419,14 +462,18 @@ impl GameEngine for WerewolfEngine {
                     let t = target.ok_or(EngineError("Missing target".into()))?;
                     let target_role = self.players.iter().find(|p| p.id == t).map(|p| p.role);
                     let is_wolf = target_role == Some(WerewolfRole::Werewolf);
-                    
+
                     self.history.push(HistoryEvent {
                         day: self.day,
                         phase: "NightSeer".to_string(),
                         actor_id: Some(actor_id.to_string()),
                         action_type: "check_result".to_string(),
                         target: Some(t),
-                        content: Some(if is_wolf { "狼人".to_string() } else { "好人".to_string() }),
+                        content: Some(if is_wolf {
+                            "狼人".to_string()
+                        } else {
+                            "好人".to_string()
+                        }),
                         visibility: "seer".to_string(),
                     });
                 }
@@ -437,29 +484,45 @@ impl GameEngine for WerewolfEngine {
                     return Err(EngineError("Not your turn".into()));
                 }
                 if action_type == "save" {
-                    if !self.witch_has_save { return Err(EngineError("No save potion".into())); }
-                    if let Some(kt) = &self.night_kill_target {
-                        if kt == actor_id { return Err(EngineError("Cannot save self".into())); }
+                    if !self.witch_has_save {
+                        return Err(EngineError("No save potion".into()));
                     }
                     self.night_kill_target = None;
                     self.witch_has_save = false;
                     self.history.push(HistoryEvent {
-                        day: self.day, phase: "NightWitch".to_string(), actor_id: Some(actor_id.to_string()),
-                        action_type: "save".to_string(), target: None, content: None, visibility: "witch".to_string(),
+                        day: self.day,
+                        phase: "NightWitch".to_string(),
+                        actor_id: Some(actor_id.to_string()),
+                        action_type: "save".to_string(),
+                        target: None,
+                        content: None,
+                        visibility: "witch".to_string(),
                     });
                 } else if action_type == "poison" {
-                    if !self.witch_has_poison { return Err(EngineError("No poison potion".into())); }
+                    if !self.witch_has_poison {
+                        return Err(EngineError("No poison potion".into()));
+                    }
                     let t = target.ok_or(EngineError("Missing target".into()))?;
                     self.night_poison_target = Some(t.clone());
                     self.witch_has_poison = false;
                     self.history.push(HistoryEvent {
-                        day: self.day, phase: "NightWitch".to_string(), actor_id: Some(actor_id.to_string()),
-                        action_type: "poison".to_string(), target: Some(t), content: None, visibility: "witch".to_string(),
+                        day: self.day,
+                        phase: "NightWitch".to_string(),
+                        actor_id: Some(actor_id.to_string()),
+                        action_type: "poison".to_string(),
+                        target: Some(t),
+                        content: None,
+                        visibility: "witch".to_string(),
                     });
                 } else if action_type == "skip" {
                     self.history.push(HistoryEvent {
-                        day: self.day, phase: "NightWitch".to_string(), actor_id: Some(actor_id.to_string()),
-                        action_type: "skip".to_string(), target: None, content: None, visibility: "witch".to_string(),
+                        day: self.day,
+                        phase: "NightWitch".to_string(),
+                        actor_id: Some(actor_id.to_string()),
+                        action_type: "skip".to_string(),
+                        target: None,
+                        content: None,
+                        visibility: "witch".to_string(),
                     });
                 } else {
                     return Err(EngineError("Invalid action".into()));
@@ -482,7 +545,7 @@ impl GameEngine for WerewolfEngine {
                     content: content.clone(),
                     visibility: "public".to_string(),
                 });
-                
+
                 self.current_speaker_idx += 1;
                 if self.current_speaker_idx >= self.speakers.len() {
                     self.phase = Phase::DayVote;
@@ -494,15 +557,22 @@ impl GameEngine for WerewolfEngine {
                 if action_type != "vote" && action_type != "skip" {
                     return Err(EngineError("Must vote or skip".into()));
                 }
-                self.day_votes.insert(actor_id.to_string(), if action_type == "vote" { target.clone() } else { None });
-                
+                self.day_votes.insert(
+                    actor_id.to_string(),
+                    if action_type == "vote" {
+                        target.clone()
+                    } else {
+                        None
+                    },
+                );
+
                 let alive_count = self.players.iter().filter(|p| p.is_alive).count();
                 if self.day_votes.len() == alive_count {
                     let mut vote_counts = HashMap::new();
                     for t in self.day_votes.values().flatten() {
                         *vote_counts.entry(t.clone()).or_insert(0) += 1;
                     }
-                    
+
                     self.history.push(HistoryEvent {
                         day: self.day,
                         phase: "DayVote".to_string(),
@@ -538,12 +608,12 @@ impl GameEngine for WerewolfEngine {
                         self.last_dead.clear();
                         self.die(&out_id, false);
                         self.pk_players = None;
-                        
+
                         if let Some(winner) = self.check_win() {
                             self.phase = Phase::GameOver(winner);
                             return Ok(vec![EngineEvent::GameOver]);
                         }
-                        
+
                         if self.check_hunter_shoot("NightWolf") {
                             return Ok(self.trigger_next());
                         }
@@ -578,7 +648,7 @@ impl GameEngine for WerewolfEngine {
                     } else {
                         self.pk_players = None;
                     }
-                    
+
                     self.day += 1;
                     self.phase = Phase::NightWolf;
                     return Ok(self.trigger_next());
@@ -601,11 +671,11 @@ impl GameEngine for WerewolfEngine {
                         content: None,
                         visibility: "public".to_string(),
                     });
-                    
+
                     if let Some(p) = self.players.iter_mut().find(|p| p.id == *actor_id) {
                         p.can_shoot = false;
                     }
-                    
+
                     if let Some(winner) = self.check_win() {
                         self.phase = Phase::GameOver(winner);
                         return Ok(vec![EngineEvent::GameOver]);
@@ -623,9 +693,11 @@ impl GameEngine for WerewolfEngine {
                 } else {
                     return Err(EngineError("Invalid action".into()));
                 }
-                
+
                 if next_phase == "DaySpeech" {
                     self.phase = Phase::DaySpeech;
+                    self.speakers = self.get_alive_players();
+                    self.current_speaker_idx = 0;
                 } else {
                     self.day += 1;
                     self.phase = Phase::NightWolf;
@@ -643,32 +715,57 @@ impl GameEngine for WerewolfEngine {
     fn to_json(&self) -> Value {
         let mut v = serde_json::to_value(self).unwrap_or(Value::Null);
         if let Some(obj) = v.as_object_mut() {
-            obj.insert("game_type".to_string(), Value::String(self.game_type().to_string()));
-            obj.insert("active_actor".to_string(), serde_json::to_value(self.current_actor()).unwrap_or(Value::Null));
+            obj.insert(
+                "game_type".to_string(),
+                Value::String(self.game_type().to_string()),
+            );
+            obj.insert(
+                "active_actor".to_string(),
+                serde_json::to_value(self.current_actor()).unwrap_or(Value::Null),
+            );
+            let phase_hint = match &self.phase {
+                Phase::NightWolf => "现在是狼人行动阶段，请选择要击杀的目标".to_string(),
+                Phase::NightSeer => "现在是预言家行动阶段，请选择要查验的玩家或跳过".to_string(),
+                Phase::NightWitch => "现在是女巫行动阶段，请选择救人或毒人或跳过".to_string(),
+                Phase::DaySpeech => "现在是发言阶段，请发言分析局势".to_string(),
+                Phase::DayVote => {
+                    "发言阶段已结束，现在是投票阶段，请选择要投票的玩家或跳过".to_string()
+                }
+                Phase::DayHunterShoot(..) => "你是猎人，请选择要开枪的玩家或跳过".to_string(),
+                _ => String::new(),
+            };
+            if !phase_hint.is_empty() {
+                obj.insert("phase_hint".to_string(), Value::String(phase_hint));
+            }
         }
         v
     }
 
     fn to_json_for_player(&self, actor_id: &str) -> Value {
         let mut v = self.to_json();
-        let role = self.players.iter().find(|p| p.id == actor_id).map(|p| p.role);
-        
+        let role = self
+            .players
+            .iter()
+            .find(|p| p.id == actor_id)
+            .map(|p| p.role);
+
         if let Some(history) = v.get_mut("history").and_then(|h| h.as_array_mut()) {
             history.retain(|evt| {
-                let vis = evt.get("visibility").and_then(|v| v.as_str()).unwrap_or("public");
+                let vis = evt
+                    .get("visibility")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("public");
                 match vis {
                     "public" => true,
                     "wolves" => role == Some(WerewolfRole::Werewolf),
                     "seer" => role == Some(WerewolfRole::Seer),
                     "witch" => role == Some(WerewolfRole::Witch),
-                    "private" => {
-                        evt.get("actor_id").and_then(|a| a.as_str()) == Some(actor_id)
-                    }
+                    "private" => evt.get("actor_id").and_then(|a| a.as_str()) == Some(actor_id),
                     _ => false,
                 }
             });
         }
-        
+
         if let Some(players) = v.get_mut("players").and_then(|p| p.as_array_mut()) {
             for p in players.iter_mut() {
                 let id = p.get("id").and_then(|v| v.as_str()).unwrap_or("");
@@ -676,7 +773,7 @@ impl GameEngine for WerewolfEngine {
                     let is_wolf = role == Some(WerewolfRole::Werewolf);
                     let target_role = p.get("role").and_then(|v| v.as_str()).unwrap_or("");
                     let target_alive = p.get("is_alive").and_then(|v| v.as_bool()).unwrap_or(true);
-                    
+
                     if target_alive {
                         if is_wolf && target_role == "Werewolf" {
                         } else {
@@ -688,15 +785,27 @@ impl GameEngine for WerewolfEngine {
                 }
             }
         }
-        
+
         v
     }
 
     fn current_actor(&self) -> Option<String> {
         match &self.phase {
-            Phase::NightWolf => self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Werewolf).map(|p| p.id.clone()),
-            Phase::NightSeer => self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Seer).map(|p| p.id.clone()),
-            Phase::NightWitch => self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Witch).map(|p| p.id.clone()),
+            Phase::NightWolf => self
+                .players
+                .iter()
+                .find(|p| p.is_alive && p.role == WerewolfRole::Werewolf)
+                .map(|p| p.id.clone()),
+            Phase::NightSeer => self
+                .players
+                .iter()
+                .find(|p| p.is_alive && p.role == WerewolfRole::Seer)
+                .map(|p| p.id.clone()),
+            Phase::NightWitch => self
+                .players
+                .iter()
+                .find(|p| p.is_alive && p.role == WerewolfRole::Witch)
+                .map(|p| p.id.clone()),
             Phase::DaySpeech => {
                 if self.current_speaker_idx < self.speakers.len() {
                     Some(self.speakers[self.current_speaker_idx].clone())
@@ -714,6 +823,17 @@ impl GameEngine for WerewolfEngine {
     }
 
     fn tools(&self) -> Option<serde_json::Value> {
+        let (action_enum, required) = match &self.phase {
+            Phase::NightWolf => (vec!["kill"], vec!["action_type", "target"]),
+            Phase::NightSeer => (vec!["check", "skip"], vec!["action_type"]),
+            Phase::NightWitch => (vec!["save", "poison", "skip"], vec!["action_type"]),
+            Phase::DaySpeech => (vec!["speak"], vec!["action_type", "content"]),
+            Phase::DayVote => (vec!["vote", "skip"], vec!["action_type"]),
+            Phase::DayHunterShoot(..) => (vec!["shoot", "skip"], vec!["action_type"]),
+            // Init / DayAnnounce / GameOver — no AI action needed
+            _ => return None,
+        };
+
         Some(serde_json::json!([
             {
                 "type": "function",
@@ -725,7 +845,7 @@ impl GameEngine for WerewolfEngine {
                         "properties": {
                             "action_type": {
                                 "type": "string",
-                                "enum": ["kill", "skip_kill", "check", "save", "poison", "skip_poison", "skip_save", "voted_out", "shoot", "skip_shoot", "explode"],
+                                "enum": action_enum,
                                 "description": "要执行的动作"
                             },
                             "target": {
@@ -737,7 +857,7 @@ impl GameEngine for WerewolfEngine {
                                 "description": "发言内容或行动说明"
                             }
                         },
-                        "required": ["action_type"]
+                        "required": required
                     }
                 }
             }
