@@ -4,3 +4,6 @@
 ai_configs.json
 rooms.json
 ARCHITECTURE.md
+# .sqlx/
+*.db
+migrations/
