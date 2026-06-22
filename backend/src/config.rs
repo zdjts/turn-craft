@@ -21,8 +21,10 @@ pub struct AppConfig {
 impl AppConfig {
     fn from_env() -> Self {
         Self {
-            database_url: std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://dev.db".to_string()),
-            jwt_secret: std::env::var("JWT_SECRET").unwrap_or_else(|_| "super-secret-key-change-me".to_string()),
+            database_url: std::env::var("DATABASE_URL")
+                .unwrap_or_else(|_| "sqlite://dev.db".to_string()),
+            jwt_secret: std::env::var("JWT_SECRET")
+                .unwrap_or_else(|_| "super-secret-key-change-me".to_string()),
             jwt_expires_in_secs: std::env::var("JWT_EXPIRES_IN_SECS")
                 .ok()
                 .and_then(|s| s.parse().ok())
@@ -35,7 +37,8 @@ impl AppConfig {
             default_ai_api_key: std::env::var("DEEPSEEK_API_KEY").unwrap_or_default(),
             default_ai_base_url: std::env::var("DEEPSEEK_BASE_URL")
                 .unwrap_or_else(|_| "https://api.deepseek.com/v1".to_string()),
-            default_ai_model: std::env::var("DEEPSEEK_MODEL").unwrap_or_else(|_| "deepseek-chat".to_string()),
+            default_ai_model: std::env::var("DEEPSEEK_MODEL")
+                .unwrap_or_else(|_| "deepseek-chat".to_string()),
             default_ai_max_tokens: std::env::var("DEEPSEEK_MAX_TOKENS")
                 .ok()
                 .and_then(|s| s.parse().ok())

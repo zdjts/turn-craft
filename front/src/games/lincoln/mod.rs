@@ -4,8 +4,8 @@ use serde_json::Value;
 use tracing::{debug, info, warn};
 
 pub mod actions;
-use actions::submit_litigation;
 use super::GamePluginProps;
+use actions::submit_litigation;
 
 // ═══════════════════════════════════════════════════════
 //  强类型结构 — 从不透明 Value 解冻
@@ -238,7 +238,8 @@ pub fn LincolnLobbyCard(props: crate::games::registry::GameConfigProps) -> Eleme
 
     // Ensure state is initialized for Lincoln if not already
     use_effect(move || {
-        if my_role.read().is_empty() || !["Judge", "Pro", "Con"].contains(&my_role.read().as_str()) {
+        if my_role.read().is_empty() || !["Judge", "Pro", "Con"].contains(&my_role.read().as_str())
+        {
             my_role.set("Judge".to_string());
             role_config.set(std::collections::HashMap::from([
                 ("Judge".to_string(), "human".to_string()),
@@ -280,15 +281,15 @@ pub fn LincolnLobbyCard(props: crate::games::registry::GameConfigProps) -> Eleme
                         let is_selected = *my_role.read() == rn;
                         let mode = role_config.read().get(&rn).cloned().unwrap_or("ai".to_string());
                         let is_human = mode == "human";
-                        
+
                         let rn_for_select = rn.clone();
                         let rn_for_toggle = rn.clone();
-                        
+
                         rsx! {
                             div {
                                 class: if is_selected { "role-card selected" } else { "role-card" },
                                 div { class: "role-card-header",
-                                    span { 
+                                    span {
                                         class: "role-card-name",
                                         style: "cursor: pointer;",
                                         onclick: move |_| select_role(rn_for_select.clone()),

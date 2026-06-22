@@ -82,7 +82,9 @@ pub fn use_ws_bridge(room_id: &str, actor_id: &str) -> WsBridge {
             // ── Derive WS endpoint from backend origin ──
             let url = {
                 let origin = crate::BACKEND_ORIGIN;
-                let ws_origin = origin.replace("http://", "ws://").replace("https://", "wss://");
+                let ws_origin = origin
+                    .replace("http://", "ws://")
+                    .replace("https://", "wss://");
                 let token = crate::api::get_token().unwrap_or_default();
                 format!("{ws_origin}/ws/{room}/{actor}?token={token}")
             };
@@ -131,7 +133,7 @@ pub fn use_ws_bridge(room_id: &str, actor_id: &str) -> WsBridge {
                                                 continue;
                                             }
                                         }
-                                        
+
                                         let game_type = v.get("game_type").and_then(|g| g.as_str()).unwrap_or("?");
                                         let players_count = v.get("players").and_then(|p| p.as_array()).map(|a| a.len()).unwrap_or(0);
                                         let active = v.get("active_player")

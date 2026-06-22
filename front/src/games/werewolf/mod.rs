@@ -69,7 +69,10 @@ pub fn parse_phase_name(phase: Option<&Value>) -> String {
         if let Some(s) = p.as_str() {
             s.to_string()
         } else if let Some(obj) = p.as_object() {
-            obj.keys().next().cloned().unwrap_or_else(|| "Init".to_string())
+            obj.keys()
+                .next()
+                .cloned()
+                .unwrap_or_else(|| "Init".to_string())
         } else {
             "Init".to_string()
         }
@@ -79,8 +82,12 @@ pub fn parse_phase_name(phase: Option<&Value>) -> String {
 }
 
 pub fn get_player_role(players: Option<&Value>, my_id: &str) -> String {
-    players.and_then(|p| p.as_array())
-        .and_then(|arr| arr.iter().find(|p| p.get("id").and_then(|id| id.as_str()) == Some(my_id)))
+    players
+        .and_then(|p| p.as_array())
+        .and_then(|arr| {
+            arr.iter()
+                .find(|p| p.get("id").and_then(|id| id.as_str()) == Some(my_id))
+        })
         .and_then(|p| p.get("role"))
         .and_then(|r| r.as_str())
         .unwrap_or("未知")
@@ -88,8 +95,12 @@ pub fn get_player_role(players: Option<&Value>, my_id: &str) -> String {
 }
 
 pub fn get_player_alive(players: Option<&Value>, my_id: &str) -> bool {
-    players.and_then(|p| p.as_array())
-        .and_then(|arr| arr.iter().find(|p| p.get("id").and_then(|id| id.as_str()) == Some(my_id)))
+    players
+        .and_then(|p| p.as_array())
+        .and_then(|arr| {
+            arr.iter()
+                .find(|p| p.get("id").and_then(|id| id.as_str()) == Some(my_id))
+        })
         .and_then(|p| p.get("is_alive"))
         .and_then(|a| a.as_bool())
         .unwrap_or(false)
@@ -100,7 +111,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
     let state = props.state.read().clone();
     let is_finished = state.get("phase").and_then(|p| p.get("GameOver")).is_some();
     let my_id = props.actor_id.clone();
-    
+
     let my_role = get_player_role(state.get("players"), &my_id);
     let my_alive = get_player_alive(state.get("players"), &my_id);
     let phase_name = parse_phase_name(state.get("phase"));
@@ -154,7 +165,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                                     let is_sys = actor == "System";
                                     let act_type = evt.get("action_type").and_then(|v| v.as_str()).unwrap_or("");
                                     let d = evt.get("day").and_then(|v| v.as_u64()).unwrap_or(0);
-                                    
+
                                     rsx! {
                                         div { class: "bubble-row", key: "{idx}",
                                             div { class: if is_sys { "bubble-avatar" } else { "bubble-avatar pro" },
@@ -226,18 +237,31 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
 }
 
 #[component]
-pub fn WerewolfActionPanel(phase_name: String, my_role: String, state: Value, on_action: EventHandler<Value>) -> Element {
+pub fn WerewolfActionPanel(
+    phase_name: String,
+    my_role: String,
+    state: Value,
+    on_action: EventHandler<Value>,
+) -> Element {
     let mut text_input = use_signal(|| "".to_string());
-    
-    let alive_players: Vec<String> = state.get("players").and_then(|p| p.as_array()).map(|arr| {
-        arr.iter().filter_map(|p| {
-            if p.get("is_alive").and_then(|v| v.as_bool()).unwrap_or(false) {
-                p.get("id").and_then(|id| id.as_str()).map(|s| s.to_string())
-            } else {
-                None
-            }
-        }).collect()
-    }).unwrap_or_default();
+
+    let alive_players: Vec<String> = state
+        .get("players")
+        .and_then(|p| p.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|p| {
+                    if p.get("is_alive").and_then(|v| v.as_bool()).unwrap_or(false) {
+                        p.get("id")
+                            .and_then(|id| id.as_str())
+                            .map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
 
     rsx! {
         div { class: "console-row", style: "flex-wrap: wrap; gap: 10px;",
@@ -378,13 +402,13 @@ mod tests {
     #[test]
     fn test_parse_phase_name() {
         assert_eq!(parse_phase_name(None), "Init");
-        
+
         let p1 = json!("DaySpeech");
         assert_eq!(parse_phase_name(Some(&p1)), "DaySpeech");
-        
+
         let p2 = json!({"DayHunterShoot": ["hunter", "NightWolf"]});
         assert_eq!(parse_phase_name(Some(&p2)), "DayHunterShoot");
-        
+
         let p3 = json!({"GameOver": "Wolves"});
         assert_eq!(parse_phase_name(Some(&p3)), "GameOver");
     }
@@ -395,7 +419,7 @@ mod tests {
             {"id": "Player1", "role": "Werewolf", "is_alive": true},
             {"id": "Player2", "role": "Seer", "is_alive": false}
         ]);
-        
+
         assert_eq!(get_player_role(Some(&state), "Player1"), "Werewolf");
         assert_eq!(get_player_role(Some(&state), "Player2"), "Seer");
         assert_eq!(get_player_role(Some(&state), "Player3"), "未知");
@@ -408,7 +432,7 @@ mod tests {
             {"id": "Player1", "role": "Werewolf", "is_alive": true},
             {"id": "Player2", "role": "Seer", "is_alive": false}
         ]);
-        
+
         assert!(get_player_alive(Some(&state), "Player1"));
         assert!(!get_player_alive(Some(&state), "Player2"));
         assert!(!get_player_alive(Some(&state), "Player3"));

@@ -1,5 +1,5 @@
-use dioxus::prelude::*;
 use crate::api::get_token;
+use dioxus::prelude::*;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ToastType {
@@ -28,7 +28,7 @@ pub fn use_toast() -> ToastService {
 #[component]
 pub fn AppLayout() -> Element {
     let nav = use_navigator();
-    
+
     // Auth redirect check
     use_effect(move || {
         if get_token().is_none() {
@@ -189,7 +189,7 @@ pub fn AppLayout() -> Element {
                 // Dynamic ambient glows
                 div { class: "bg-glow bg-glow-1" }
                 div { class: "bg-glow bg-glow-2" }
-                
+
                 div { class: "viewport-content",
                     Outlet::<super::Route> {}
                 }

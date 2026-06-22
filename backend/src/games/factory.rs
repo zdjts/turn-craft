@@ -1,12 +1,12 @@
-use std::collections::HashMap;
 use async_trait::async_trait;
-use serde_json::Value;
 use platform_core::traits::GameEngine;
+use serde_json::Value;
+use std::collections::HashMap;
 
-use crate::room::model::CreateRoomInput;
-use crate::ai::env::AiConfig;
 use crate::ai::config_repo::AiConfigRepository;
+use crate::ai::env::AiConfig;
 use crate::error::AppError;
+use crate::room::model::CreateRoomInput;
 
 #[async_trait]
 pub trait GameFactory: Send + Sync {
@@ -31,7 +31,8 @@ impl GameRegistry {
         }
     }
     pub fn register(&mut self, factory: Box<dyn GameFactory>) {
-        self.factories.insert(factory.game_type().to_string(), factory);
+        self.factories
+            .insert(factory.game_type().to_string(), factory);
     }
     pub fn get(&self, game_type: &str) -> Option<&dyn GameFactory> {
         self.factories.get(game_type).map(|b| b.as_ref())

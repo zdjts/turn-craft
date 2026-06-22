@@ -1,6 +1,6 @@
-use dioxus::prelude::*;
 use crate::api::{get_history_rooms, get_token, RoomSnapshotData};
 use crate::games::registry::REGISTRY;
+use dioxus::prelude::*;
 
 #[component]
 pub fn Profile() -> Element {
@@ -33,7 +33,11 @@ pub fn Profile() -> Element {
     // Derive simple mock statistics based on actual history rooms
     let total_games = use_memo(move || rooms.read().len());
     let (wins, losses) = (total_games() * 3 / 5, total_games() * 2 / 5); // simulated ratio for visual purposes
-    let win_rate = if total_games() > 0 { (wins * 100) / total_games() } else { 0 };
+    let win_rate = if total_games() > 0 {
+        (wins * 100) / total_games()
+    } else {
+        0
+    };
 
     rsx! {
         div { class: "profile-container animate-fade-in",

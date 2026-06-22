@@ -58,6 +58,10 @@ impl axum::response::IntoResponse for AppError {
             AppError::RoomNotFound => axum::http::StatusCode::NOT_FOUND,
             AppError::Forbidden => axum::http::StatusCode::FORBIDDEN,
         };
-        (status, axum::Json(serde_json::json!({ "status": "error", "message": self.to_string() }))).into_response()
+        (
+            status,
+            axum::Json(serde_json::json!({ "status": "error", "message": self.to_string() })),
+        )
+            .into_response()
     }
 }

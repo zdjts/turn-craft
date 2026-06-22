@@ -12,10 +12,10 @@ mod handlers;
 mod room;
 mod user;
 
-use crate::room::model::AiTask;
 use crate::ai::listener::AiWorker;
 use crate::app::{AppState, build_router};
 use crate::config::CONFIG;
+use crate::room::model::AiTask;
 
 #[tokio::main]
 async fn main() {
@@ -37,7 +37,9 @@ async fn main() {
     });
 
     // 2. 建立数据库连接池并运行迁移
-    let pool = sqlx::SqlitePool::connect(&CONFIG.database_url).await.expect("无法连接到 SQLite 数据库");
+    let pool = sqlx::SqlitePool::connect(&CONFIG.database_url)
+        .await
+        .expect("无法连接到 SQLite 数据库");
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
@@ -53,14 +55,14 @@ async fn main() {
         .await
         .expect("Failed to initialize __defaults__ room");
 
-
     // 3. 初始化 Repository
     let user_repo = Arc::new(crate::user::repository::SqliteUserRepo::new(pool.clone()))
         as Arc<dyn crate::user::repository::UserRepository>;
     let room_repo = Arc::new(crate::room::repository::SqliteRoomRepo::new(pool.clone()))
         as Arc<dyn crate::room::repository::RoomRepository>;
-    let ai_config_repo = Arc::new(crate::ai::config_repo::SqliteAiConfigRepo::new(pool.clone()))
-        as Arc<dyn crate::ai::config_repo::AiConfigRepository>;
+    let ai_config_repo = Arc::new(crate::ai::config_repo::SqliteAiConfigRepo::new(
+        pool.clone(),
+    )) as Arc<dyn crate::ai::config_repo::AiConfigRepository>;
 
     // 4. 初始化 GameRegistry 并注册游戏工厂
     let mut game_registry = crate::games::GameRegistry::new();

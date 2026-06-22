@@ -112,21 +112,27 @@ async fn test_texas_holdem_flow() -> Result<(), Box<dyn Error>> {
                                 game_started = true;
                             }
                         }
-                        
+
                         // 检查是否是轮到我们行动
-                        if let Some(active_player) = json.get("active_player").and_then(|v| v.as_str()) {
+                        if let Some(active_player) =
+                            json.get("active_player").and_then(|v| v.as_str())
+                        {
                             if active_player == actor_id {
                                 println!("🎯 轮到你行动了！请输入你的动作：");
                             }
                         }
-                        
+
                         // 打印游戏状态摘要
                         if let Some(players) = json.get("players").and_then(|v| v.as_array()) {
                             println!("👥 玩家状态:");
                             for player in players {
                                 let id = player.get("id").and_then(|v| v.as_str()).unwrap_or("?");
-                                let chips = player.get("chips").and_then(|v| v.as_u64()).unwrap_or(0);
-                                let folded = player.get("folded").and_then(|v| v.as_bool()).unwrap_or(false);
+                                let chips =
+                                    player.get("chips").and_then(|v| v.as_u64()).unwrap_or(0);
+                                let folded = player
+                                    .get("folded")
+                                    .and_then(|v| v.as_bool())
+                                    .unwrap_or(false);
                                 let status = if folded { "已弃牌" } else { "在游戏中" };
                                 println!("   {} - 筹码: {} - {}", id, chips, status);
                             }
@@ -215,10 +221,7 @@ async fn test_texas_holdem_flow() -> Result<(), Box<dyn Error>> {
     match del_res {
         Ok(response) => {
             if response.status().is_success() {
-                println!(
-                    "✅ 服务器响应：房间 {} 已成功销毁。",
-                    room_id
-                );
+                println!("✅ 服务器响应：房间 {} 已成功销毁。", room_id);
             } else {
                 println!(
                     "⚠️ 销毁请求发出，但服务器返回了异常状态码: {}",

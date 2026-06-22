@@ -58,11 +58,8 @@ impl UserRepository for SqliteUserRepo {
             id: UserId(r.id),
             username: r.username,
             password_hash: r.password_hash,
-            created_at: chrono::NaiveDateTime::parse_from_str(
-                &r.created_at,
-                "%Y-%m-%d %H:%M:%S",
-            )
-            .unwrap_or_else(|_| chrono::Utc::now().naive_utc()),
+            created_at: chrono::NaiveDateTime::parse_from_str(&r.created_at, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_else(|_| chrono::Utc::now().naive_utc()),
         }))
     }
 
@@ -78,11 +75,8 @@ impl UserRepository for SqliteUserRepo {
             id: UserId(r.id),
             username: r.username,
             password_hash: r.password_hash,
-            created_at: chrono::NaiveDateTime::parse_from_str(
-                &r.created_at,
-                "%Y-%m-%d %H:%M:%S",
-            )
-            .unwrap_or_else(|_| chrono::Utc::now().naive_utc()),
+            created_at: chrono::NaiveDateTime::parse_from_str(&r.created_at, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_else(|_| chrono::Utc::now().naive_utc()),
         }))
     }
 }

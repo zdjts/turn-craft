@@ -1,25 +1,25 @@
-pub mod lobby;
-pub mod login;
-pub mod history;
-pub mod public;
-pub mod profile;
 pub mod about;
 pub mod game;
-pub mod settings;
-pub mod replay;
+pub mod history;
 pub mod layout;
+pub mod lobby;
+pub mod login;
+pub mod profile;
+pub mod public;
+pub mod replay;
+pub mod settings;
 
+use about::About;
 use dioxus::prelude::*;
+use game::Game;
+use history::History;
+use layout::AppLayout;
 use lobby::Lobby;
 use login::Login;
-use history::History;
-use public::PublicRooms;
 use profile::Profile;
-use about::About;
-use game::Game;
-use settings::Settings;
+use public::PublicRooms;
 use replay::Replay;
-use layout::AppLayout;
+use settings::Settings;
 
 #[derive(Routable, Clone, PartialEq, Debug)]
 #[rustfmt::skip]

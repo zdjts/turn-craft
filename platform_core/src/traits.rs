@@ -1,4 +1,3 @@
-
 /// 动作来源类型：AI 或人类玩家
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum ActionKind {

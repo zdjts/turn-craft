@@ -4,8 +4,8 @@ pub mod env;
 pub mod error;
 pub mod listener;
 
-use std::sync::Arc;
 use crate::ai::config_repo::AiConfigRepository;
+use std::sync::Arc;
 
 pub struct AIService {
     pub config_repo: Arc<dyn AiConfigRepository>,

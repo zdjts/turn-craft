@@ -10,8 +10,10 @@ use tracing::{error, info, warn};
 
 pub fn get_token() -> Option<String> {
     web_sys::window()?
-        .local_storage().ok()??
-        .get_item("token").ok()?
+        .local_storage()
+        .ok()??
+        .get_item("token")
+        .ok()?
 }
 
 pub fn set_token(token: &str) {
@@ -63,7 +65,10 @@ pub async fn register(req: &AuthRequest) -> Result<AuthResponse, String> {
         return Err(format!("HTTP {}: {}", resp.status(), resp.status_text()));
     }
 
-    let body: AuthResponse = resp.json().await.map_err(|e| format!("解析响应失败: {e}"))?;
+    let body: AuthResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("解析响应失败: {e}"))?;
     Ok(body)
 }
 
@@ -83,7 +88,10 @@ pub async fn login(req: &AuthRequest) -> Result<AuthResponse, String> {
         return Err(format!("HTTP {}: {}", resp.status(), resp.status_text()));
     }
 
-    let body: AuthResponse = resp.json().await.map_err(|e| format!("解析响应失败: {e}"))?;
+    let body: AuthResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("解析响应失败: {e}"))?;
     Ok(body)
 }
 
@@ -123,8 +131,8 @@ pub async fn create_room(req: &CreateRoomRequest) -> Result<CreateRoomResponse, 
         e.to_string()
     })?;
 
-    let mut request = gloo_net::http::Request::post(&url)
-        .header("Content-Type", "application/json");
+    let mut request =
+        gloo_net::http::Request::post(&url).header("Content-Type", "application/json");
 
     if let Some(token) = get_token() {
         request = request.header("Authorization", &format!("Bearer {token}"));
@@ -247,15 +255,16 @@ pub async fn update_ai_config(
 ) -> Result<(), String> {
     let url = format!(
         "{}/rooms/{}/ai-config/{}",
-        crate::BACKEND_ORIGIN, room_id, actor_id
+        crate::BACKEND_ORIGIN,
+        room_id,
+        actor_id
     );
 
     info!(target: "api", url = %url, "PUT AI 配置");
 
     let body_str = serde_json::to_string(config).map_err(|e| e.to_string())?;
 
-    let mut request = gloo_net::http::Request::put(&url)
-        .header("Content-Type", "application/json");
+    let mut request = gloo_net::http::Request::put(&url).header("Content-Type", "application/json");
 
     if let Some(token) = get_token() {
         request = request.header("Authorization", &format!("Bearer {token}"));
@@ -301,13 +310,17 @@ pub async fn get_public_rooms() -> Result<Vec<RoomSnapshotData>, String> {
     if let Some(token) = get_token() {
         request = request.header("Authorization", &format!("Bearer {token}"));
     }
-    let resp = request.send().await.map_err(|e| format!("HTTP GET 失败: {e}"))?;
+    let resp = request
+        .send()
+        .await
+        .map_err(|e| format!("HTTP GET 失败: {e}"))?;
     if !resp.ok() {
         return Err(format!("HTTP {}", resp.status()));
     }
     let body: Value = resp.json().await.map_err(|e| format!("解析失败: {e}"))?;
     let rooms_val = body.get("rooms").ok_or("缺少 rooms 字段")?;
-    let rooms: Vec<RoomSnapshotData> = serde_json::from_value(rooms_val.clone()).map_err(|e| e.to_string())?;
+    let rooms: Vec<RoomSnapshotData> =
+        serde_json::from_value(rooms_val.clone()).map_err(|e| e.to_string())?;
     Ok(rooms)
 }
 
@@ -317,13 +330,17 @@ pub async fn get_history_rooms() -> Result<Vec<RoomSnapshotData>, String> {
     if let Some(token) = get_token() {
         request = request.header("Authorization", &format!("Bearer {token}"));
     }
-    let resp = request.send().await.map_err(|e| format!("HTTP GET 失败: {e}"))?;
+    let resp = request
+        .send()
+        .await
+        .map_err(|e| format!("HTTP GET 失败: {e}"))?;
     if !resp.ok() {
         return Err(format!("HTTP {}", resp.status()));
     }
     let body: Value = resp.json().await.map_err(|e| format!("解析失败: {e}"))?;
     let rooms_val = body.get("rooms").ok_or("缺少 rooms 字段")?;
-    let rooms: Vec<RoomSnapshotData> = serde_json::from_value(rooms_val.clone()).map_err(|e| e.to_string())?;
+    let rooms: Vec<RoomSnapshotData> =
+        serde_json::from_value(rooms_val.clone()).map_err(|e| e.to_string())?;
     Ok(rooms)
 }
 
@@ -333,7 +350,7 @@ pub async fn join_room(room_id: &str, slot_name: &str) -> Result<(), String> {
     if let Some(token) = get_token() {
         request = request.header("Authorization", &format!("Bearer {token}"));
     }
-    
+
     let payload = serde_json::json!({
         "slot_name": slot_name
     });
@@ -356,8 +373,7 @@ pub async fn set_room_public(room_id: &str, is_public: bool) -> Result<(), Strin
     let url = format!("{}/rooms/{}/public", crate::BACKEND_ORIGIN, room_id);
     let body = serde_json::json!({ "is_public": is_public });
     let body_str = body.to_string();
-    let mut request = gloo_net::http::Request::put(&url)
-        .header("Content-Type", "application/json");
+    let mut request = gloo_net::http::Request::put(&url).header("Content-Type", "application/json");
     if let Some(token) = get_token() {
         request = request.header("Authorization", &format!("Bearer {token}"));
     }
@@ -404,6 +420,7 @@ pub async fn get_room(room_id: &str) -> Result<RoomSnapshotData, String> {
     }
     let body: Value = resp.json().await.map_err(|e| format!("解析失败: {e}"))?;
     let room_val = body.get("room").ok_or("缺少 room 字段")?;
-    let room: RoomSnapshotData = serde_json::from_value(room_val.clone()).map_err(|e| e.to_string())?;
+    let room: RoomSnapshotData =
+        serde_json::from_value(room_val.clone()).map_err(|e| e.to_string())?;
     Ok(room)
 }

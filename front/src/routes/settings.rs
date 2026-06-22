@@ -1,6 +1,6 @@
-use dioxus::prelude::*;
 use crate::api::{get_ai_configs, update_ai_config, AiConfigData};
 use crate::routes::layout::use_toast;
+use dioxus::prelude::*;
 
 #[component]
 pub fn Settings(room_id: String, actor_id: String) -> Element {
@@ -57,11 +57,17 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                         model.set(String::new());
                         max_tokens.set(2048);
                         prompt.set(String::new());
-                        toast.show(format!("未找到角色 {aid} 的 AI 配置，已初始化默认配置。"), crate::routes::layout::ToastType::Info);
+                        toast.show(
+                            format!("未找到角色 {aid} 的 AI 配置，已初始化默认配置。"),
+                            crate::routes::layout::ToastType::Info,
+                        );
                     }
                 }
                 Err(e) => {
-                    toast.show(format!("加载 AI 配置失败: {e}"), crate::routes::layout::ToastType::Error);
+                    toast.show(
+                        format!("加载 AI 配置失败: {e}"),
+                        crate::routes::layout::ToastType::Error,
+                    );
                 }
             }
             loading.set(false);
@@ -87,11 +93,17 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
         spawn(async move {
             match update_ai_config(&rid, &aid, &config).await {
                 Ok(_) => {
-                    toast.show("AI 参数已成功更新，设置将在下一回合生效。".to_string(), crate::routes::layout::ToastType::Success);
+                    toast.show(
+                        "AI 参数已成功更新，设置将在下一回合生效。".to_string(),
+                        crate::routes::layout::ToastType::Success,
+                    );
                     nav.go_back();
                 }
                 Err(e) => {
-                    toast.show(format!("保存 AI 配置失败: {e}"), crate::routes::layout::ToastType::Error);
+                    toast.show(
+                        format!("保存 AI 配置失败: {e}"),
+                        crate::routes::layout::ToastType::Error,
+                    );
                 }
             }
             saving.set(false);

@@ -1,5 +1,5 @@
-use dioxus::prelude::*;
 use crate::api::{login, register, set_token, AuthRequest};
+use dioxus::prelude::*;
 
 #[component]
 pub fn Login() -> Element {
@@ -23,7 +23,10 @@ pub fn Login() -> Element {
         error_msg.set(None);
 
         spawn(async move {
-            let req = AuthRequest { username: u, password: p };
+            let req = AuthRequest {
+                username: u,
+                password: p,
+            };
             let result = if *is_register.read() {
                 register(&req).await
             } else {

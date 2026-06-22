@@ -74,7 +74,11 @@ impl GameEngine for LincolnEngine {
         "lincoln"
     }
 
-    fn step(&mut self, actor_id: &str, action: serde_json::Value) -> Result<Vec<EngineEvent>, crate::error::EngineError> {
+    fn step(
+        &mut self,
+        actor_id: &str,
+        action: serde_json::Value,
+    ) -> Result<Vec<EngineEvent>, crate::error::EngineError> {
         // 支持两种格式：
         // 1. 直接内容: {"content": "text"}
         // 2. 完整消息: {"role": "assistant", "content": "text"}

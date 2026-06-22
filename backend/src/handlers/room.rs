@@ -44,9 +44,7 @@ pub async fn delete_room(
 }
 
 /// 获取所有公开的房间列表
-pub async fn list_public_rooms(
-    State(state): State<AppState>,
-) -> Result<Json<Value>, AppError> {
+pub async fn list_public_rooms(State(state): State<AppState>) -> Result<Json<Value>, AppError> {
     let rooms = state.room_service.list_public_rooms().await?;
     Ok(Json(json!({
         "status": "success",
@@ -113,6 +111,9 @@ pub async fn join_room(
     Path(room_id): Path<String>,
     Json(input): Json<JoinRoomInput>,
 ) -> Result<Json<Value>, AppError> {
-    state.room_service.join_slot(user_id, &room_id, &input.slot_name).await?;
+    state
+        .room_service
+        .join_slot(user_id, &room_id, &input.slot_name)
+        .await?;
     Ok(Json(json!({ "status": "success" })))
 }

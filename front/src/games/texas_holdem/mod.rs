@@ -187,9 +187,16 @@ fn parse_spectator_hand(v: &Value) -> Option<SpectatorHand> {
 
 fn parse_history_entry(v: &Value) -> Option<HistoryEntryView> {
     let actor_id = v.get("actor_id")?.as_str()?.to_string();
-    let phase = v.get("phase").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
-    let ai_content = v.get("ai_content").and_then(|v| v.as_str()).map(|s| s.to_string());
-    
+    let phase = v
+        .get("phase")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Unknown")
+        .to_string();
+    let ai_content = v
+        .get("ai_content")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
     let action_val = v.get("action")?;
     let action_desc = if let Some(s) = action_val.as_str() {
         match s {
@@ -848,7 +855,9 @@ pub fn TexasHoldemLobbyCard(props: crate::games::registry::GameConfigProps) -> E
     // Initializer: run once when mounting if state not yet configured
     use_effect(move || {
         let current_role = my_role.read().clone();
-        if current_role.is_empty() || (!current_role.starts_with("player") && current_role != "spectator") {
+        if current_role.is_empty()
+            || (!current_role.starts_with("player") && current_role != "spectator")
+        {
             let sb = small_blind.read().parse::<u32>().unwrap_or(10);
             let bb = big_blind.read().parse::<u32>().unwrap_or(20);
             let sc = starting_chips.read().parse::<u32>().unwrap_or(1000);

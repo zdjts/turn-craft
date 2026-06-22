@@ -3,16 +3,18 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use platform_core::{
-    games::texas_holdem::{ActionHistory, GamePhase, PokerPlayer, ShowdownResult, TexasHoldemEngine},
+    games::texas_holdem::{
+        ActionHistory, GamePhase, PokerPlayer, ShowdownResult, TexasHoldemEngine,
+    },
     traits::{ActionKind, GameEngine},
 };
 use serde_json::Value;
 
-use crate::ai::env::AiConfig;
-use crate::ai::config_repo::AiConfigRepository;
-use crate::room::model::CreateRoomInput;
-use crate::error::AppError;
 use super::factory::GameFactory;
+use crate::ai::config_repo::AiConfigRepository;
+use crate::ai::env::AiConfig;
+use crate::error::AppError;
+use crate::room::model::CreateRoomInput;
 
 pub struct TexasHoldemFactory;
 
@@ -29,9 +31,18 @@ impl GameFactory for TexasHoldemFactory {
         config_repo: &dyn AiConfigRepository,
     ) -> Result<(Box<dyn GameEngine>, HashMap<String, AiConfig>), AppError> {
         let gc = input.game_config.as_ref();
-        let small_blind = gc.and_then(|v| v.get("small_blind")).and_then(|v| v.as_u64()).unwrap_or(10) as u32;
-        let big_blind = gc.and_then(|v| v.get("big_blind")).and_then(|v| v.as_u64()).unwrap_or(20) as u32;
-        let starting_chips = gc.and_then(|v| v.get("starting_chips")).and_then(|v| v.as_u64()).unwrap_or(1000) as u32;
+        let small_blind = gc
+            .and_then(|v| v.get("small_blind"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(10) as u32;
+        let big_blind = gc
+            .and_then(|v| v.get("big_blind"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(20) as u32;
+        let starting_chips = gc
+            .and_then(|v| v.get("starting_chips"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1000) as u32;
 
         let mut engine = TexasHoldemEngine::new(room_id.to_string(), small_blind, big_blind);
         let default_prompt = "你是一位经验丰富的德州扑克 AI 玩家。请根据当前局面做出最优决策（fold/check/call/raise/all_in）。";
@@ -80,7 +91,8 @@ impl GameFactory for TexasHoldemFactory {
     }
 
     fn restore(&self, state: &Value) -> Result<Box<dyn GameEngine>, AppError> {
-        let engine = restore_texas_holdem(state).map_err(|e| crate::room::error::RoomError::EngineError(e))?;
+        let engine = restore_texas_holdem(state)
+            .map_err(|e| crate::room::error::RoomError::EngineError(e))?;
         Ok(engine)
     }
 }
@@ -127,8 +139,9 @@ pub fn restore_texas_holdem(engine_state: &Value) -> Result<Box<dyn GameEngine>,
         .unwrap_or(false);
 
     let phase: GamePhase = match engine_state.get("phase") {
-        Some(v) => serde_json::from_value(v.clone())
-            .map_err(|e| format!("解析 phase 失败: {e}"))?,
+        Some(v) => {
+            serde_json::from_value(v.clone()).map_err(|e| format!("解析 phase 失败: {e}"))?
+        }
         None => return Err("engine_state 缺少 phase".to_string()),
     };
 
@@ -154,26 +167,11 @@ pub fn restore_texas_holdem(engine_state: &Value) -> Result<Box<dyn GameEngine>,
             .and_then(|v| v.as_str())
             .unwrap_or("Human")
             .to_string();
-        let chips = p
-            .get("chips")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as u32;
-        let current_bet = p
-            .get("current_bet")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as u32;
-        let total_bet = p
-            .get("total_bet")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as u32;
-        let folded = p
-            .get("folded")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        let all_in = p
-            .get("all_in")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let chips = p.get("chips").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+        let current_bet = p.get("current_bet").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+        let total_bet = p.get("total_bet").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+        let folded = p.get("folded").and_then(|v| v.as_bool()).unwrap_or(false);
+        let all_in = p.get("all_in").and_then(|v| v.as_bool()).unwrap_or(false);
 
         players.push(PokerPlayer {
             id,
@@ -199,9 +197,7 @@ pub fn restore_texas_holdem(engine_state: &Value) -> Result<Box<dyn GameEngine>,
         .unwrap_or_default();
 
     // 从 active_player 推导 active_index
-    let active_player_id = engine_state
-        .get("active_player")
-        .and_then(|v| v.as_str());
+    let active_player_id = engine_state.get("active_player").and_then(|v| v.as_str());
 
     let active_index = active_player_id
         .and_then(|id| players.iter().position(|p| p.id == id))

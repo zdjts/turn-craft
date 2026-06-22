@@ -813,7 +813,9 @@ impl GameEngine for TexasHoldemEngine {
             }
             PlayerAction::Check => {
                 if self.players[player_index].current_bet < self.current_bet {
-                    return Err(crate::error::EngineError("当前有下注，不能 check".to_string()));
+                    return Err(crate::error::EngineError(
+                        "当前有下注，不能 check".to_string(),
+                    ));
                 }
                 self.players[player_index].acted_this_round = true;
             }
@@ -830,7 +832,10 @@ impl GameEngine for TexasHoldemEngine {
             }
             PlayerAction::Raise(amount) => {
                 if *amount <= self.current_bet {
-                    return Err(crate::error::EngineError(format!("加注金额必须大于当前下注 {}", self.current_bet)));
+                    return Err(crate::error::EngineError(format!(
+                        "加注金额必须大于当前下注 {}",
+                        self.current_bet
+                    )));
                 }
                 let total_needed = *amount - self.players[player_index].current_bet;
                 let actual = total_needed.min(self.players[player_index].chips);
@@ -869,7 +874,10 @@ impl GameEngine for TexasHoldemEngine {
         }
 
         // 尝试提取 AI 的原始 content
-        let ai_content = action.get("content").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let ai_content = action
+            .get("content")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
         // 记录历史
         self.history.push(ActionHistory {
@@ -1055,8 +1063,11 @@ impl GameEngine for TexasHoldemEngine {
         let mut result = self.to_json();
 
         // 检查请求快照的 actor 是否为 AI
-        let is_ai = self.players.iter().any(|p| p.id == actor_id && p.kind == "Ai");
-        
+        let is_ai = self
+            .players
+            .iter()
+            .any(|p| p.id == actor_id && p.kind == "Ai");
+
         // 如果是 AI，则抹除 history 中的 ai_content，防止“读心术”
         if is_ai {
             if let Some(history) = result.get_mut("history").and_then(|h| h.as_array_mut()) {

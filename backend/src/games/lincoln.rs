@@ -8,11 +8,11 @@ use platform_core::{
 };
 use serde_json::Value;
 
-use crate::ai::env::AiConfig;
-use crate::ai::config_repo::AiConfigRepository;
-use crate::room::model::CreateRoomInput;
-use crate::error::AppError;
 use super::factory::GameFactory;
+use crate::ai::config_repo::AiConfigRepository;
+use crate::ai::env::AiConfig;
+use crate::error::AppError;
+use crate::room::model::CreateRoomInput;
 
 /// 首字母大写：将 "judge" 转换为 "Judge"
 fn capitalize(s: &str) -> String {
@@ -46,9 +46,18 @@ impl GameFactory for LincolnFactory {
         ]);
 
         let default_prompts: HashMap<&str, &str> = HashMap::from([
-            ("Judge", "你是一位公正的辩论裁判。请给出辩题，听取双方论点后做出最终裁决。字数控制在300字以内。"),
-            ("Pro", "你现在是激进的立论家。请作为正方，针对裁判给出的辩题，发表具有说服力的论点。字数控制在200字以内。"),
-            ("Con", "你现在是沉稳的驳论家。请作为反方，严密审视正方的发言，并进行针锋相对的反驳。字数控制在200字以内。"),
+            (
+                "Judge",
+                "你是一位公正的辩论裁判。请给出辩题，听取双方论点后做出最终裁决。字数控制在300字以内。",
+            ),
+            (
+                "Pro",
+                "你现在是激进的立论家。请作为正方，针对裁判给出的辩题，发表具有说服力的论点。字数控制在200字以内。",
+            ),
+            (
+                "Con",
+                "你现在是沉稳的驳论家。请作为反方，严密审视正方的发言，并进行针锋相对的反驳。字数控制在200字以内。",
+            ),
         ]);
 
         let global_defaults_key = "__defaults__";
@@ -75,7 +84,10 @@ impl GameFactory for LincolnFactory {
                     engine.add_actor(actor_id.clone(), ActionKind::Ai, debate_role);
 
                     // 优先从 SQLite 配置仓储获取默认全局配置
-                    let saved = config_repo.get(global_defaults_key, &capitalized).await.ok();
+                    let saved = config_repo
+                        .get(global_defaults_key, &capitalized)
+                        .await
+                        .ok();
 
                     let default_prompt = default_prompts
                         .get(capitalized.as_str())
@@ -113,7 +125,8 @@ impl GameFactory for LincolnFactory {
     }
 
     fn restore(&self, state: &Value) -> Result<Box<dyn GameEngine>, AppError> {
-        let engine = restore_lincoln(state).map_err(|e| crate::room::error::RoomError::EngineError(e))?;
+        let engine =
+            restore_lincoln(state).map_err(|e| crate::room::error::RoomError::EngineError(e))?;
         Ok(engine)
     }
 }
@@ -149,14 +162,16 @@ pub fn restore_lincoln(engine_state: &Value) -> Result<Box<dyn GameEngine>, Stri
         .unwrap_or(false);
 
     let cur_role: DebateRole = match engine_state.get("cur_role") {
-        Some(v) => serde_json::from_value(v.clone())
-            .map_err(|e| format!("解析 cur_role 失败: {e}"))?,
+        Some(v) => {
+            serde_json::from_value(v.clone()).map_err(|e| format!("解析 cur_role 失败: {e}"))?
+        }
         None => return Err("engine_state 缺少 cur_role".to_string()),
     };
 
     let actors: Vec<LincolnActor> = match engine_state.get("actors") {
-        Some(v) => serde_json::from_value(v.clone())
-            .map_err(|e| format!("解析 actors 失败: {e}"))?,
+        Some(v) => {
+            serde_json::from_value(v.clone()).map_err(|e| format!("解析 actors 失败: {e}"))?
+        }
         None => return Err("engine_state 缺少 actors".to_string()),
     };
 

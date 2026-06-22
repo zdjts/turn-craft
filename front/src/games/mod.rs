@@ -1,7 +1,7 @@
 pub mod lincoln;
+pub mod registry;
 pub mod texas_holdem;
 pub mod werewolf;
-pub mod registry;
 
 pub use registry::{GameConfigProps, REGISTRY};
 

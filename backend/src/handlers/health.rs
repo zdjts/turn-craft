@@ -1,4 +1,3 @@
-
 /// 健康检查端点
 pub async fn health() -> &'static str {
     "ok"

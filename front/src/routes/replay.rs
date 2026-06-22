@@ -1,9 +1,9 @@
+use crate::api::{get_room, RoomSnapshotData};
+use crate::games::lincoln::{HistoryEntry, LincolnState};
+use crate::games::registry::REGISTRY;
+use crate::routes::layout::use_toast;
 use dioxus::prelude::*;
 use serde_json::Value;
-use crate::api::{get_room, RoomSnapshotData};
-use crate::games::registry::REGISTRY;
-use crate::games::lincoln::{LincolnState, HistoryEntry};
-use crate::routes::layout::use_toast;
 
 #[component]
 pub fn Replay(room_id: String) -> Element {
@@ -21,7 +21,10 @@ pub fn Replay(room_id: String) -> Element {
                     room_data.set(Some(r));
                 }
                 Err(e) => {
-                    toast.show(format!("加载对局记录失败: {e}"), crate::routes::layout::ToastType::Error);
+                    toast.show(
+                        format!("加载对局记录失败: {e}"),
+                        crate::routes::layout::ToastType::Error,
+                    );
                 }
             }
             loading.set(false);
@@ -87,9 +90,7 @@ pub fn Replay(room_id: String) -> Element {
 
 #[component]
 fn LincolnReplayView(engine_state: Value) -> Element {
-    let state = use_memo(move || {
-        serde_json::from_value::<LincolnState>(engine_state.clone()).ok()
-    });
+    let state = use_memo(move || serde_json::from_value::<LincolnState>(engine_state.clone()).ok());
 
     let mut show_ai_content = use_signal(|| true);
 
@@ -97,7 +98,7 @@ fn LincolnReplayView(engine_state: Value) -> Element {
         div { class: "lincoln-replay-view",
             if let Some(ref s) = *state.read() {
                 div { class: "lincoln-replay-inner",
-                    div { class: "replay-round-indicator", 
+                    div { class: "replay-round-indicator",
                         span { "🏛️ 林肯辩论历史辩词 (共 {s.round} 轮)" }
                         button {
                             class: "glass-panel-subtle toggle-ai-btn",
@@ -114,7 +115,7 @@ fn LincolnReplayView(engine_state: Value) -> Element {
                             p { style: "color: var(--text-muted); text-align: center; padding: 20px;", "没有发言记录" }
                         } else {
                             for entry in s.history.iter() {
-                                LincolnHistoryBubble { 
+                                LincolnHistoryBubble {
                                     entry: entry.clone(),
                                     is_ai: s.actors.iter().any(|a| a.id == entry.actor_id && a.kind.to_lowercase() == "ai"),
                                     show_ai_content: *show_ai_content.read(),
@@ -159,7 +160,7 @@ fn LincolnHistoryBubble(props: LincolnHistoryBubbleProps) -> Element {
                     span { class: "bubble-name", "{entry.actor_id}" }
                     span { class: "bubble-tag {role_cls}", "{label}" }
                 }
-                div { class: "bubble-content {role_cls}", 
+                div { class: "bubble-content {role_cls}",
                     if should_hide {
                         span { class: "hidden-content-hint", style: "color: #888; font-style: italic;", "🤖 AI 发言已隐藏" }
                     } else {
@@ -173,16 +174,25 @@ fn LincolnHistoryBubble(props: LincolnHistoryBubbleProps) -> Element {
 
 #[component]
 fn TexasHoldemReplayView(engine_state: Value) -> Element {
-    let pot = engine_state.get("pot").and_then(|v| v.as_u64()).unwrap_or(0);
-    let phase = engine_state.get("phase").and_then(|v| v.as_str()).unwrap_or("Unknown");
-    
+    let pot = engine_state
+        .get("pot")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let phase = engine_state
+        .get("phase")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Unknown");
+
     let es_for_memo = engine_state.clone();
     let es_for_showdown = engine_state.clone();
 
     // Community cards
     let community_cards_list = use_memo(move || {
         let mut list = Vec::new();
-        if let Some(cards) = es_for_memo.get("community_cards").and_then(|c| c.as_array()) {
+        if let Some(cards) = es_for_memo
+            .get("community_cards")
+            .and_then(|c| c.as_array())
+        {
             for c in cards {
                 let suit = c.get("suit").and_then(|s| s.as_str()).unwrap_or("");
                 let rank = c.get("rank").and_then(|r| r.as_str()).unwrap_or("");
@@ -245,7 +255,11 @@ fn MiniPokerCard(suit: String, rank: String) -> Element {
         "Spades" => "♠",
         _ => "?",
     };
-    let card_color = if suit == "Hearts" || suit == "Diamonds" { "card-red" } else { "card-black" };
+    let card_color = if suit == "Hearts" || suit == "Diamonds" {
+        "card-red"
+    } else {
+        "card-black"
+    };
     rsx! {
         div { class: "poker-card-mini {card_color}",
             span { class: "rank", "{rank}" }
@@ -258,7 +272,10 @@ fn MiniPokerCard(suit: String, rank: String) -> Element {
 fn ShowdownReplayItem(res: Value) -> Element {
     let p_id = res.get("player_id").and_then(|v| v.as_str()).unwrap_or("?");
     let rank_desc = res.get("hand_rank").and_then(|v| v.as_str()).unwrap_or("?");
-    let winner = res.get("is_winner").and_then(|v| v.as_bool()).unwrap_or(false);
+    let winner = res
+        .get("is_winner")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     rsx! {
         div { class: if winner { "showdown-item winner glass-panel-subtle" } else { "showdown-item" },
             span { class: "showdown-winner-icon", if winner { "👑" } else { "👤" } }

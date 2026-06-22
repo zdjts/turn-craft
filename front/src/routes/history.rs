@@ -1,7 +1,7 @@
-use dioxus::prelude::*;
-use crate::api::{get_history_rooms, set_room_public, delete_room, RoomSnapshotData};
+use crate::api::{delete_room, get_history_rooms, set_room_public, RoomSnapshotData};
 use crate::games::registry::REGISTRY;
 use crate::routes::layout::use_toast;
+use dioxus::prelude::*;
 
 #[component]
 pub fn History() -> Element {
@@ -18,7 +18,10 @@ pub fn History() -> Element {
                     rooms.set(r);
                 }
                 Err(e) => {
-                    toast.show(format!("获取历史对局失败: {e}"), crate::routes::layout::ToastType::Error);
+                    toast.show(
+                        format!("获取历史对局失败: {e}"),
+                        crate::routes::layout::ToastType::Error,
+                    );
                 }
             }
             loading.set(false);
@@ -35,11 +38,17 @@ pub fn History() -> Element {
         spawn(async move {
             match set_room_public(&room_id, new_public).await {
                 Ok(_) => {
-                    toast.show("公开属性更新成功".to_string(), crate::routes::layout::ToastType::Success);
+                    toast.show(
+                        "公开属性更新成功".to_string(),
+                        crate::routes::layout::ToastType::Success,
+                    );
                     load_rooms();
                 }
                 Err(e) => {
-                    toast.show(format!("更新失败: {e}"), crate::routes::layout::ToastType::Error);
+                    toast.show(
+                        format!("更新失败: {e}"),
+                        crate::routes::layout::ToastType::Error,
+                    );
                 }
             }
         });
@@ -49,11 +58,17 @@ pub fn History() -> Element {
         spawn(async move {
             match delete_room(&room_id).await {
                 Ok(_) => {
-                    toast.show("房间删除成功".to_string(), crate::routes::layout::ToastType::Success);
+                    toast.show(
+                        "房间删除成功".to_string(),
+                        crate::routes::layout::ToastType::Success,
+                    );
                     load_rooms();
                 }
                 Err(e) => {
-                    toast.show(format!("删除失败: {e}"), crate::routes::layout::ToastType::Error);
+                    toast.show(
+                        format!("删除失败: {e}"),
+                        crate::routes::layout::ToastType::Error,
+                    );
                 }
             }
         });

@@ -2,11 +2,7 @@ use dioxus::prelude::*;
 use serde_json::Value;
 use tracing::{info, warn};
 
-pub fn submit_litigation(
-    mut draft: Signal<String>,
-    on_action: Callback<Value>,
-    source: &str,
-) {
+pub fn submit_litigation(mut draft: Signal<String>, on_action: Callback<Value>, source: &str) {
     let content = draft.read().trim().to_string();
     if content.is_empty() {
         warn!(target: "lincoln::action", "用户尝试发送空发言，已忽略");

@@ -1,14 +1,14 @@
-use dioxus::prelude::*;
-use serde_json::Value;
-use crate::services::websocket::use_ws_bridge;
 use crate::games::{GamePluginManager, GamePluginProps};
 use crate::routes::layout::use_toast;
+use crate::services::websocket::use_ws_bridge;
+use dioxus::prelude::*;
+use serde_json::Value;
 
 #[component]
 pub fn Game(room_id: String, actor_id: String) -> Element {
     let toast = use_toast();
     let nav = use_navigator();
-    
+
     // Connect websocket bridge
     let bridge = use_ws_bridge(&room_id, &actor_id);
     let connected = bridge.connected;
@@ -22,7 +22,10 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
         if let Some(win) = web_sys::window() {
             let nav = win.navigator().clipboard();
             let _ = nav.write_text(&rid_for_copy);
-            toast.show("房间 ID 已复制到剪贴板".to_string(), crate::routes::layout::ToastType::Success);
+            toast.show(
+                "房间 ID 已复制到剪贴板".to_string(),
+                crate::routes::layout::ToastType::Success,
+            );
         }
     };
 
@@ -37,23 +40,17 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
 
     let max_round = use_memo(move || {
         let s = state.read();
-        s.get("max_round")
-            .and_then(|r| r.as_u64())
-            .unwrap_or(0)
+        s.get("max_round").and_then(|r| r.as_u64()).unwrap_or(0)
     });
 
     let current_round = use_memo(move || {
         let s = state.read();
-        s.get("round")
-            .and_then(|r| r.as_u64())
-            .unwrap_or(0)
+        s.get("round").and_then(|r| r.as_u64()).unwrap_or(0)
     });
 
     let finished = use_memo(move || {
         let s = state.read();
-        s.get("finished")
-            .and_then(|f| f.as_bool())
-            .unwrap_or(false)
+        s.get("finished").and_then(|f| f.as_bool()).unwrap_or(false)
     });
 
     let active_actor = use_memo(move || {
@@ -86,7 +83,11 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                     p.get("id").and_then(|v| v.as_str()),
                     p.get("kind").and_then(|v| v.as_str()),
                 ) {
-                    let pos = p.get("position").or_else(|| p.get("role")).and_then(|v| v.as_str()).unwrap_or("未知");
+                    let pos = p
+                        .get("position")
+                        .or_else(|| p.get("role"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("未知");
                     list.push((id.to_string(), pos.to_string(), kind.to_string()));
                 }
             }
@@ -110,7 +111,7 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                         }
                     }
                     div { class: "room-id-mono", "{room_id}" }
-                    
+
                     // Connection Status
                     div { class: "connection-status-row",
                         div {
@@ -131,7 +132,7 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                                 .filter(|(_, _, kind)| kind.to_lowercase() == "ai")
                                 .cloned()
                                 .collect();
-                            
+
                             if ai_slots.is_empty() {
                                 rsx! {
                                     div { class: "empty-ai-configs-hint", "本局无 AI 参与者" }

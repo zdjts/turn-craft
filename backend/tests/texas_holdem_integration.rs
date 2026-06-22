@@ -500,7 +500,16 @@ fn test_full_game_to_showdown() {
     while !engine.is_finished() && max_steps > 0 {
         max_steps -= 1;
         if let Some(active) = engine.current_actor() {
-            println!("Before action {}: p1: {} (bet {}), p2: {} (bet {}), pot: {}, current_bet: {}", active, engine.players[0].chips, engine.players[0].current_bet, engine.players[1].chips, engine.players[1].current_bet, engine.pot, engine.current_bet);
+            println!(
+                "Before action {}: p1: {} (bet {}), p2: {} (bet {}), pot: {}, current_bet: {}",
+                active,
+                engine.players[0].chips,
+                engine.players[0].current_bet,
+                engine.players[1].chips,
+                engine.players[1].current_bet,
+                engine.pot,
+                engine.current_bet
+            );
             match engine.step(&active, serde_json::json!({"action": "call"})) {
                 Ok(_) => {}
                 Err(e) => {
@@ -509,7 +518,17 @@ fn test_full_game_to_showdown() {
                     let _ = engine.step(&active, serde_json::json!({"action": "check"}));
                 }
             }
-            println!("After action {}: p1: {} (bet {}), p2: {} (bet {}), pot: {}, current_bet: {}, phase: {:?}", active, engine.players[0].chips, engine.players[0].current_bet, engine.players[1].chips, engine.players[1].current_bet, engine.pot, engine.current_bet, engine.phase);
+            println!(
+                "After action {}: p1: {} (bet {}), p2: {} (bet {}), pot: {}, current_bet: {}, phase: {:?}",
+                active,
+                engine.players[0].chips,
+                engine.players[0].current_bet,
+                engine.players[1].chips,
+                engine.players[1].current_bet,
+                engine.pot,
+                engine.current_bet,
+                engine.phase
+            );
         } else {
             break;
         }
@@ -709,4 +728,3 @@ fn test_action_history() {
         assert_eq!(last.action, PlayerAction::Call);
     }
 }
-

@@ -1,4 +1,3 @@
-
 use reqwest::Client;
 use tracing::error;
 
@@ -43,25 +42,26 @@ impl AiWorker {
             ">>> 发送给 AI 的完整内容"
         );
 
-        let ai_response = match request_speech(&http, &config, messages_json, task.tools.as_ref()).await {
-            Ok(response) => {
-                tracing::info!(
-                    actor_id = %task.actor_id,
-                    response = %response,
-                    "<<< AI 返回的完整回复"
-                );
-                response
-            }
-            Err(e) => {
-                tracing::error!(actor_id = %task.actor_id, error = ?e, "请求 AI 接口发生错误");
-                let command = RoomCommand::PlayerAction {
-                    actor_id: task.actor_id,
-                    action: serde_json::json!({"content": "[思考超时，未能发言]"}),
-                };
-                let _ = task.reply_tx.send(command).await;
-                return Err(format!("{:?}", e));
-            }
-        };
+        let ai_response =
+            match request_speech(&http, &config, messages_json, task.tools.as_ref()).await {
+                Ok(response) => {
+                    tracing::info!(
+                        actor_id = %task.actor_id,
+                        response = %response,
+                        "<<< AI 返回的完整回复"
+                    );
+                    response
+                }
+                Err(e) => {
+                    tracing::error!(actor_id = %task.actor_id, error = ?e, "请求 AI 接口发生错误");
+                    let command = RoomCommand::PlayerAction {
+                        actor_id: task.actor_id,
+                        action: serde_json::json!({"content": "[思考超时，未能发言]"}),
+                    };
+                    let _ = task.reply_tx.send(command).await;
+                    return Err(format!("{:?}", e));
+                }
+            };
 
         // 完整响应直接传给游戏引擎解析
         let command = RoomCommand::PlayerAction {

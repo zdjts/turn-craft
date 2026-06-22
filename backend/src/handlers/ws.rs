@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{
-        Path, State, WebSocketUpgrade, Query,
+        Path, Query, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
     response::IntoResponse,
@@ -11,12 +11,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use tokio::sync::mpsc;
 
-use crate::{
-    app::AppState,
-    room::model::RoomCommand,
-    user::model::UserId,
-    error::AppError,
-};
+use crate::{app::AppState, error::AppError, room::model::RoomCommand, user::model::UserId};
 
 #[derive(Deserialize)]
 pub struct WsQuery {
@@ -38,7 +33,13 @@ pub async fn ws_handler(
 ) -> Result<impl IntoResponse, AppError> {
     let user_id = state.auth_service.verify_token(&query.token).await?;
     Ok(ws.on_upgrade(move |socket| {
-        handle_socket(socket, state.room_service.clone(), params.room_id, user_id, params.actor_id)
+        handle_socket(
+            socket,
+            state.room_service.clone(),
+            params.room_id,
+            user_id,
+            params.actor_id,
+        )
     }))
 }
 
@@ -53,7 +54,10 @@ async fn handle_socket(
     let (peer_tx, mut peer_rx) = mpsc::channel::<String>(64);
 
     // 1. 调用 room_service.connect() 进行鉴权和加入
-    if let Err(e) = room_service.connect(user_id, &room_id, &actor_id, peer_tx).await {
+    if let Err(e) = room_service
+        .connect(user_id, &room_id, &actor_id, peer_tx)
+        .await
+    {
         tracing::warn!(room_id = %room_id, actor_id = %actor_id, error = ?e, "连接拒绝：room_service.connect 失败");
         return;
     }

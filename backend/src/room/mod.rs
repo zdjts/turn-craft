@@ -13,8 +13,8 @@ use tokio::sync::mpsc;
 use crate::ai::config_repo::AiConfigRepository;
 use crate::error::AppError;
 use crate::games::GameRegistry;
-use crate::user::model::UserId;
 use crate::room::error::RoomError;
+use crate::user::model::UserId;
 
 use self::actor::{SideEffect, spawn_game_room};
 use self::model::{AiTask, CreateRoomInput, CreateRoomOutput, Peer, RoomCommand, RoomSnapshot};
@@ -53,10 +53,9 @@ impl RoomService {
         owner_id: UserId,
         input: CreateRoomInput,
     ) -> Result<CreateRoomOutput, AppError> {
-        let factory = self
-            .game_registry
-            .get(&input.game_type)
-            .ok_or_else(|| AppError::Room(RoomError::UnsupportedGameType(input.game_type.clone())))?;
+        let factory = self.game_registry.get(&input.game_type).ok_or_else(|| {
+            AppError::Room(RoomError::UnsupportedGameType(input.game_type.clone()))
+        })?;
 
         let room_id = format!("room_{}", uuid::Uuid::new_v4());
 
@@ -64,7 +63,9 @@ impl RoomService {
         let slots = build_slots(&input, &owner_id);
 
         // 2. 创建引擎和 AI 配置
-        let (engine, ai_configs) = factory.create(&room_id, &input, &*self.ai_config_repo).await?;
+        let (engine, ai_configs) = factory
+            .create(&room_id, &input, &*self.ai_config_repo)
+            .await?;
 
         // 3. 保存房间
         let snapshot = RoomSnapshot {
@@ -78,11 +79,17 @@ impl RoomService {
             created_at: chrono::Utc::now().naive_utc(),
             is_public: input.is_public,
         };
-        self.room_repo.save(&snapshot).await.map_err(AppError::Room)?;
+        self.room_repo
+            .save(&snapshot)
+            .await
+            .map_err(AppError::Room)?;
 
         // 4. 保存 AI 配置
         for (actor_id, config) in &ai_configs {
-            self.ai_config_repo.set(&room_id, actor_id, config).await.map_err(AppError::Ai)?;
+            self.ai_config_repo
+                .set(&room_id, actor_id, config)
+                .await
+                .map_err(AppError::Ai)?;
         }
 
         // 5. 启动 RoomActor + side effect handler
@@ -218,8 +225,14 @@ impl RoomService {
             return Err(AppError::Forbidden);
         }
         self.shutdown_room(room_id).await?;
-        self.room_repo.delete(room_id).await.map_err(AppError::Room)?;
-        self.ai_config_repo.delete_room(room_id).await.map_err(AppError::Ai)?;
+        self.room_repo
+            .delete(room_id)
+            .await
+            .map_err(AppError::Room)?;
+        self.ai_config_repo
+            .delete_room(room_id)
+            .await
+            .map_err(AppError::Ai)?;
         Ok(())
     }
 
@@ -237,7 +250,8 @@ impl RoomService {
                 let (effect_tx, effect_rx) = mpsc::channel::<SideEffect>(64);
                 let room_tx = spawn_game_room(snap.room_id.clone(), engine, effect_tx);
                 self.spawn_effect_handler(snap.room_id.clone(), effect_rx);
-                self.active_rooms.insert(snap.room_id.clone(), room_tx.clone());
+                self.active_rooms
+                    .insert(snap.room_id.clone(), room_tx.clone());
 
                 // 恢复时默认开启保活监控，直到有玩家重连
                 self.supervisor.track(snap.room_id.clone(), room_tx).await;
@@ -253,10 +267,18 @@ impl RoomService {
     }
 
     pub async fn list_history_rooms(&self, user_id: UserId) -> Result<Vec<RoomSnapshot>, AppError> {
-        self.room_repo.list_by_user(&user_id).await.map_err(AppError::Room)
+        self.room_repo
+            .list_by_user(&user_id)
+            .await
+            .map_err(AppError::Room)
     }
 
-    pub async fn set_room_public(&self, user_id: UserId, room_id: &str, is_public: bool) -> Result<(), AppError> {
+    pub async fn set_room_public(
+        &self,
+        user_id: UserId,
+        room_id: &str,
+        is_public: bool,
+    ) -> Result<(), AppError> {
         let snapshot = self
             .room_repo
             .load(room_id)
@@ -265,7 +287,10 @@ impl RoomService {
         if snapshot.owner_id != user_id {
             return Err(AppError::Forbidden);
         }
-        self.room_repo.set_public(room_id, is_public).await.map_err(AppError::Room)?;
+        self.room_repo
+            .set_public(room_id, is_public)
+            .await
+            .map_err(AppError::Room)?;
         Ok(())
     }
 
@@ -273,19 +298,24 @@ impl RoomService {
         self.room_repo.load(room_id).await.map_err(AppError::Room)
     }
 
-    pub async fn join_slot(&self, user_id: UserId, room_id: &str, slot_name: &str) -> Result<(), AppError> {
+    pub async fn join_slot(
+        &self,
+        user_id: UserId,
+        room_id: &str,
+        slot_name: &str,
+    ) -> Result<(), AppError> {
         let mut snapshot = self
             .room_repo
             .load(room_id)
             .await?
             .ok_or(AppError::RoomNotFound)?;
-        
+
         let slot = snapshot
             .actor_slots
             .iter_mut()
             .find(|s| s.slot_name == slot_name)
             .ok_or(AppError::Forbidden)?;
-            
+
         match &slot.occupant {
             self::model::ActorOccupant::Empty => {
                 slot.occupant = self::model::ActorOccupant::Human(user_id);
@@ -298,8 +328,11 @@ impl RoomService {
                 return Err(AppError::Forbidden); // Slot taken or is AI
             }
         }
-        
-        self.room_repo.save(&snapshot).await.map_err(AppError::Room)?;
+
+        self.room_repo
+            .save(&snapshot)
+            .await
+            .map_err(AppError::Room)?;
         Ok(())
     }
 }

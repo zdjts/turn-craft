@@ -4,9 +4,9 @@ use axum::{
 };
 
 use crate::app::AppState;
+use crate::auth::error::AuthError;
 use crate::error::AppError;
 use crate::user::model::UserId;
-use crate::auth::error::AuthError;
 
 pub struct AuthUser(pub UserId);
 
@@ -29,10 +29,7 @@ where
             .strip_prefix("Bearer ")
             .ok_or(AppError::Auth(AuthError::Unauthorized))?;
 
-        let user_id = state
-            .auth_service
-            .verify_token(token)
-            .await?;
+        let user_id = state.auth_service.verify_token(token).await?;
 
         Ok(AuthUser(user_id))
     }
