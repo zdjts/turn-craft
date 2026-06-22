@@ -82,11 +82,11 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
         } else if let Some(players) = s.get("players").and_then(|p| p.as_array()) {
             // Texas holdem style roster
             for p in players {
-                if let (Some(id), Some(pos), Some(kind)) = (
+                if let (Some(id), Some(kind)) = (
                     p.get("id").and_then(|v| v.as_str()),
-                    p.get("position").or_else(|| p.get("role")).and_then(|v| v.as_str()),
                     p.get("kind").and_then(|v| v.as_str()),
                 ) {
+                    let pos = p.get("position").or_else(|| p.get("role")).and_then(|v| v.as_str()).unwrap_or("未知");
                     list.push((id.to_string(), pos.to_string(), kind.to_string()));
                 }
             }

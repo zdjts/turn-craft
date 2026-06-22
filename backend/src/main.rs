@@ -66,6 +66,7 @@ async fn main() {
     let mut game_registry = crate::games::GameRegistry::new();
     game_registry.register(Box::new(crate::games::lincoln::LincolnFactory));
     game_registry.register(Box::new(crate::games::texas_holdem::TexasHoldemFactory));
+    game_registry.register(Box::new(crate::games::werewolf::WerewolfFactory));
     let game_registry = Arc::new(game_registry);
 
     // 5. 初始化 Service 与 Supervisor

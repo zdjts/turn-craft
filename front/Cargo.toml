@@ -39,3 +39,6 @@ default = ["web"]
 web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
+
+[dev-dependencies]
+dioxus-ssr = "0.7.9"

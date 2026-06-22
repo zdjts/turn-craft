@@ -93,11 +93,18 @@ impl GameUIRegistry {
             icon: "🐺",
             lobby_card: crate::games::werewolf::WerewolfLobbyCard,
             game_component: crate::games::werewolf::WerewolfGame,
-            default_config: || DefaultGameConfig {
-                role_config: HashMap::new(),
-                my_role: "".to_string(),
-                max_round: 50,
-                game_config: None,
+            default_config: || {
+                let mut modes = HashMap::new();
+                modes.insert("Player1".to_string(), "human".to_string());
+                for i in 2..=7 {
+                    modes.insert(format!("Player{}", i), "ai".to_string());
+                }
+                DefaultGameConfig {
+                    role_config: modes,
+                    my_role: "Player1".to_string(),
+                    max_round: 50,
+                    game_config: None,
+                }
             },
             generate_slots: |configs| {
                 let mut s: Vec<String> = configs.keys().cloned().collect();

@@ -50,7 +50,10 @@ pub fn spawn_game_room(
                         Err(e) => {
                             warn!(room_id = %room_id, actor_id = %actor_id, error = %e, "动作执行失败");
                             if let Some(p) = peers.iter().find(|p| p.actor_id == actor_id) {
-                                let _ = p.tx.send(serde_json::json!({"error": e.to_string()}).to_string()).await;
+                                let _ = p
+                                    .tx
+                                    .send(serde_json::json!({"error": e.to_string()}).to_string())
+                                    .await;
                             }
                             continue;
                         }
@@ -113,7 +116,9 @@ pub fn spawn_game_room(
                     }
 
                     if let Some(p) = peers.iter().find(|p| p.actor_id == actor_id) {
-                        let _ = p.tx.send(engine.to_json_for_player(&actor_id).to_string()).await;
+                        let _ =
+                            p.tx.send(engine.to_json_for_player(&actor_id).to_string())
+                                .await;
                     }
                 }
                 RoomCommand::Leave(actor_id) => {

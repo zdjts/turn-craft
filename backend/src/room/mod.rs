@@ -112,20 +112,28 @@ impl RoomService {
                         snapshot,
                         tools,
                     } => {
-                        if let Ok(config) = ai_repo.get(&room_id, &actor_id).await {
-                            if let Some(room_tx) = active_rooms.get(&room_id) {
-                                let reply_tx = room_tx.clone();
-                                let _ = ai_tx
-                                    .send(AiTask {
-                                        room_id: room_id.clone(),
-                                        actor_id,
-                                        snapshot,
-                                        ai_config: config,
-                                        tools,
-                                        retries: 0,
-                                        reply_tx,
-                                    })
-                                    .await;
+                        tracing::info!(room_id = %room_id, actor_id = %actor_id, "收到 TriggerAi 事件，准备获取 AI 配置");
+                        match ai_repo.get(&room_id, &actor_id).await {
+                            Ok(config) => {
+                                if let Some(room_tx) = active_rooms.get(&room_id) {
+                                    let reply_tx = room_tx.clone();
+                                    let _ = ai_tx
+                                        .send(AiTask {
+                                            room_id: room_id.clone(),
+                                            actor_id,
+                                            snapshot,
+                                            ai_config: config,
+                                            tools,
+                                            retries: 0,
+                                            reply_tx,
+                                        })
+                                        .await;
+                                } else {
+                                    tracing::warn!(room_id = %room_id, "找不到活跃房间，放弃发送 AI 任务");
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!(room_id = %room_id, actor_id = %actor_id, error = ?e, "获取 AI 配置失败，无法触发 AI");
                             }
                         }
                     }

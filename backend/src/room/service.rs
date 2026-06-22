@@ -48,7 +48,8 @@ impl RoomService {
         // 5. 启动 RoomActor + side effect handler
         let (effect_tx, effect_rx) = mpsc::channel::<SideEffect>(64);
         let room_tx = spawn_game_room(room_id.clone(), engine, effect_tx);
-        self.spawn_effect_handler(room_id.clone(), effect_rx);
+        self.spawn_effect_handler(room_id.clone(), effect_rx, room_tx.clone());
+        let _ = room_tx.send(RoomCommand::Bootstrap).await;
         self.active_rooms.insert(room_id.clone(), room_tx);
 
         Ok(CreateRoomOutput {
@@ -57,7 +58,7 @@ impl RoomService {
         })
     }
 
-    fn spawn_effect_handler(&self, room_id: String, mut rx: mpsc::Receiver<SideEffect>) {
+    fn spawn_effect_handler(&self, room_id: String, mut rx: mpsc::Receiver<SideEffect>, room_tx: mpsc::Sender<RoomCommand>) {
         let repo = self.room_repo.clone();
         let ai_repo = self.ai_config_repo.clone();
         let ai_tx = self.ai_worker_tx.clone();
@@ -75,7 +76,7 @@ impl RoomService {
                                 ai_config: config,
                                 tools: None,
                                 retries: 0,
-                                reply_tx: /* 需要 Room Actor 的 tx */ todo!(),
+                                reply_tx: room_tx.clone(),
                             })
                                 .await;
                         }

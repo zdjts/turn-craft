@@ -1,0 +1,746 @@
+use std::collections::{HashMap, HashSet};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::traits::{ActionKind, EngineEvent, GameEngine};
+use crate::error::EngineError;
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Copy, Serialize, Deserialize)]
+pub enum WerewolfRole {
+    Werewolf,
+    Seer,
+    Witch,
+    Hunter,
+    Villager,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct WerewolfPlayer {
+    pub id: String,
+    pub kind: String, // "Human" | "Ai"
+    pub role: WerewolfRole,
+    pub is_alive: bool,
+    pub can_shoot: bool, // For hunter
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum Phase {
+    Init,
+    NightWolf,
+    NightSeer,
+    NightWitch,
+    DayAnnounce,
+    DaySpeech,
+    DayVote,
+    DayHunterShoot(String, String), // shooter_id, next_phase ("DaySpeech" | "NightWolf")
+    GameOver(String), // winner faction: "Wolves" | "Good"
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HistoryEvent {
+    pub day: usize,
+    pub phase: String,
+    pub actor_id: Option<String>,
+    pub action_type: String,
+    pub target: Option<String>,
+    pub content: Option<String>,
+    pub visibility: String, // "public", "wolves", "seer", "witch", "private"
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WerewolfEngine {
+    pub room_id: String,
+    pub players: Vec<WerewolfPlayer>,
+    pub phase: Phase,
+    pub day: usize,
+    pub history: Vec<HistoryEvent>,
+    
+    // Night temp state
+    pub wolf_votes: HashMap<String, String>, // voter -> target
+    pub night_kill_target: Option<String>,
+    pub night_poison_target: Option<String>,
+    pub witch_has_save: bool,
+    pub witch_has_poison: bool,
+    
+    // Day temp state
+    pub speakers: Vec<String>,
+    pub current_speaker_idx: usize,
+    pub day_votes: HashMap<String, Option<String>>, // voter -> target
+    pub pk_players: Option<Vec<String>>, // if tie
+    pub last_dead: Vec<String>, // to determine start of speech
+}
+
+impl WerewolfEngine {
+    pub fn new(room_id: String) -> Self {
+        Self {
+            room_id,
+            players: Vec::new(),
+            phase: Phase::Init,
+            day: 1,
+            history: Vec::new(),
+            
+            wolf_votes: HashMap::new(),
+            night_kill_target: None,
+            night_poison_target: None,
+            witch_has_save: true,
+            witch_has_poison: true,
+            
+            speakers: Vec::new(),
+            current_speaker_idx: 0,
+            day_votes: HashMap::new(),
+            pk_players: None,
+            last_dead: Vec::new(),
+        }
+    }
+
+    pub fn add_actor(&mut self, id: String, kind: ActionKind, role: WerewolfRole) {
+        self.players.push(WerewolfPlayer {
+            id,
+            kind: match kind {
+                ActionKind::Ai => "Ai".to_string(),
+                ActionKind::Human => "Human".to_string(),
+            },
+            role,
+            is_alive: true,
+            can_shoot: role == WerewolfRole::Hunter,
+        });
+    }
+
+    pub fn start(&mut self) -> Vec<EngineEvent> {
+        self.phase = Phase::NightWolf;
+        self.history.push(HistoryEvent {
+            day: self.day,
+            phase: "system".to_string(),
+            actor_id: None,
+            action_type: "start_game".to_string(),
+            target: None,
+            content: Some("游戏开始，天黑请闭眼。狼人请睁眼。".to_string()),
+            visibility: "public".to_string(),
+        });
+        self.trigger_next()
+    }
+
+    fn check_win(&self) -> Option<String> {
+        let alive_wolves = self.players.iter().filter(|p| p.is_alive && p.role == WerewolfRole::Werewolf).count();
+        if alive_wolves == 0 {
+            return Some("Good".to_string());
+        }
+        let alive_good = self.players.iter().filter(|p| p.is_alive && p.role != WerewolfRole::Werewolf).count();
+        if alive_good == 0 {
+            return Some("Wolves".to_string());
+        }
+        None
+    }
+
+    fn get_alive_players(&self) -> Vec<String> {
+        self.players.iter().filter(|p| p.is_alive).map(|p| p.id.clone()).collect()
+    }
+
+    fn die(&mut self, target: &str, is_poison: bool) {
+        if let Some(p) = self.players.iter_mut().find(|p| p.id == target) {
+            p.is_alive = false;
+            if is_poison {
+                p.can_shoot = false; // poison denies shoot
+            }
+            self.last_dead.push(target.to_string());
+        }
+    }
+
+    fn next_night_phase(&mut self) -> Vec<EngineEvent> {
+        if let Some(winner) = self.check_win() {
+            self.phase = Phase::GameOver(winner);
+            return vec![EngineEvent::GameOver];
+        }
+
+        match self.phase {
+            Phase::NightWolf => {
+                let seer = self.players.iter().find(|p| p.role == WerewolfRole::Seer);
+                if seer.map_or(false, |p| p.is_alive) {
+                    self.phase = Phase::NightSeer;
+                } else {
+                    self.phase = Phase::NightSeer; 
+                    return self.next_night_phase(); 
+                }
+            }
+            Phase::NightSeer => {
+                let witch = self.players.iter().find(|p| p.role == WerewolfRole::Witch);
+                if witch.map_or(false, |p| p.is_alive) {
+                    self.phase = Phase::NightWitch;
+                } else {
+                    self.phase = Phase::NightWitch;
+                    return self.next_night_phase(); 
+                }
+            }
+            Phase::NightWitch => {
+                self.phase = Phase::DayAnnounce;
+                return self.resolve_night();
+            }
+            _ => {}
+        }
+        self.trigger_next()
+    }
+
+    fn resolve_night(&mut self) -> Vec<EngineEvent> {
+        self.last_dead.clear();
+        
+        let killed = self.night_kill_target.clone();
+        let poisoned = self.night_poison_target.clone();
+        
+        let mut dead_this_night = Vec::new();
+
+        if let Some(target) = killed {
+            self.die(&target, false);
+            dead_this_night.push(target);
+        }
+        
+        if let Some(target) = poisoned {
+            if !dead_this_night.contains(&target) {
+                self.die(&target, true);
+                dead_this_night.push(target);
+            }
+        }
+
+        let msg = if dead_this_night.is_empty() {
+            "昨夜平安夜。".to_string()
+        } else {
+            format!("昨夜死亡的玩家是：{}", dead_this_night.join(", "))
+        };
+
+        self.history.push(HistoryEvent {
+            day: self.day,
+            phase: "DayAnnounce".to_string(),
+            actor_id: None,
+            action_type: "announce".to_string(),
+            target: None,
+            content: Some(msg),
+            visibility: "public".to_string(),
+        });
+
+        if let Some(winner) = self.check_win() {
+            self.phase = Phase::GameOver(winner);
+            return vec![EngineEvent::GameOver];
+        }
+
+        self.speakers = self.get_alive_players();
+        self.current_speaker_idx = 0;
+
+        if self.check_hunter_shoot("DaySpeech") {
+            return self.trigger_next();
+        }
+
+        self.phase = Phase::DaySpeech;
+        
+        self.trigger_next()
+    }
+
+    fn trigger_next(&self) -> Vec<EngineEvent> {
+        let mut events = Vec::new();
+        match &self.phase {
+            Phase::NightWolf => {
+                for p in &self.players {
+                    if p.is_alive && p.role == WerewolfRole::Werewolf && p.kind == "Ai" {
+                        events.push(EngineEvent::TriggerAi(p.id.clone()));
+                    }
+                }
+            }
+            Phase::NightSeer => {
+                if let Some(p) = self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Seer && p.kind == "Ai") {
+                    events.push(EngineEvent::TriggerAi(p.id.clone()));
+                }
+            }
+            Phase::NightWitch => {
+                if let Some(p) = self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Witch && p.kind == "Ai") {
+                    events.push(EngineEvent::TriggerAi(p.id.clone()));
+                }
+            }
+            Phase::DaySpeech => {
+                if self.current_speaker_idx < self.speakers.len() {
+                    let id = &self.speakers[self.current_speaker_idx];
+                    if let Some(p) = self.players.iter().find(|p| p.id == *id && p.kind == "Ai") {
+                        events.push(EngineEvent::TriggerAi(p.id.clone()));
+                    }
+                }
+            }
+            Phase::DayVote => {
+                for p in &self.players {
+                    if p.is_alive && p.kind == "Ai" {
+                        if let Some(pk) = &self.pk_players {
+                            if pk.contains(&p.id) {
+                                events.push(EngineEvent::TriggerAi(p.id.clone()));
+                            } else {
+                                events.push(EngineEvent::TriggerAi(p.id.clone()));
+                            }
+                        } else {
+                            events.push(EngineEvent::TriggerAi(p.id.clone()));
+                        }
+                    }
+                }
+            }
+            Phase::DayHunterShoot(id, _) => {
+                if let Some(p) = self.players.iter().find(|p| p.id == *id && p.kind == "Ai") {
+                    events.push(EngineEvent::TriggerAi(p.id.clone()));
+                }
+            }
+            Phase::GameOver(_) => {
+                events.push(EngineEvent::GameOver);
+            }
+            _ => {}
+        }
+        events
+    }
+
+    fn check_hunter_shoot(&mut self, next_phase: &str) -> bool {
+        for dead_id in &self.last_dead {
+            if let Some(p) = self.players.iter().find(|p| p.id == *dead_id) {
+                if p.role == WerewolfRole::Hunter && p.can_shoot {
+                    self.phase = Phase::DayHunterShoot(p.id.clone(), next_phase.to_string());
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
+impl GameEngine for WerewolfEngine {
+    fn game_type(&self) -> &str {
+        "werewolf"
+    }
+
+    fn step(&mut self, actor_id: &str, action: Value) -> Result<Vec<EngineEvent>, EngineError> {
+        let parsed_action = if let Some(tool_calls) = action.get("tool_calls").and_then(|v| v.as_array()) {
+            if let Some(first_call) = tool_calls.first() {
+                let args_str = first_call
+                    .get("function")
+                    .and_then(|f| f.get("arguments"))
+                    .and_then(|a| a.as_str())
+                    .unwrap_or("{}");
+                serde_json::from_str::<Value>(args_str).unwrap_or(action.clone())
+            } else {
+                action.clone()
+            }
+        } else {
+            action.clone()
+        };
+
+        let action_type = parsed_action.get("action_type").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let target = parsed_action.get("target").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let content = parsed_action.get("content").or_else(|| action.get("content")).and_then(|v| v.as_str()).map(|s| s.to_string());
+
+        let actor = self.players.iter().find(|p| p.id == actor_id).cloned().ok_or(EngineError("Unknown actor".into()))?;
+
+        if !actor.is_alive && !matches!(self.phase, Phase::DayHunterShoot(ref id, _) if id == actor_id) {
+            return Err(EngineError("Dead players cannot act".into()));
+        }
+
+        if action_type == "explode" && actor.role == WerewolfRole::Werewolf {
+            if matches!(self.phase, Phase::DaySpeech | Phase::DayVote) {
+                self.history.push(HistoryEvent {
+                    day: self.day,
+                    phase: "Day".to_string(),
+                    actor_id: Some(actor_id.to_string()),
+                    action_type: "explode".to_string(),
+                    target: None,
+                    content: Some("自爆".to_string()),
+                    visibility: "public".to_string(),
+                });
+                
+                self.die(actor_id, false);
+                
+                if let Some(winner) = self.check_win() {
+                    self.phase = Phase::GameOver(winner);
+                    return Ok(vec![EngineEvent::GameOver]);
+                }
+                
+                if self.check_hunter_shoot("DaySpeech") {
+                    return Ok(self.trigger_next());
+                } else {
+                    self.day += 1;
+                    self.phase = Phase::NightWolf;
+                    return Ok(self.trigger_next());
+                }
+            }
+        }
+
+        let current_phase = self.phase.clone();
+        match current_phase {
+            Phase::Init => {
+                if action_type == "start" {
+                    self.phase = Phase::NightWolf;
+                    self.history.push(HistoryEvent {
+                        day: self.day,
+                        phase: "Init".to_string(),
+                        actor_id: Some(actor_id.to_string()),
+                        action_type: "start".to_string(),
+                        target: None,
+                        content: Some("游戏开始，天黑请闭眼。狼人请行动。".to_string()),
+                        visibility: "public".to_string(),
+                    });
+                    return Ok(self.trigger_next());
+                }
+            }
+            Phase::NightWolf => {
+                if actor.role != WerewolfRole::Werewolf {
+                    return Err(EngineError("Not your turn".into()));
+                }
+                if action_type != "kill" {
+                    return Err(EngineError("Invalid action".into()));
+                }
+                let t = target.ok_or(EngineError("Missing target".into()))?;
+                self.wolf_votes.insert(actor_id.to_string(), t);
+                
+                let alive_wolves = self.players.iter().filter(|p| p.is_alive && p.role == WerewolfRole::Werewolf).count();
+                if self.wolf_votes.len() == alive_wolves {
+                    let final_target = self.wolf_votes.values().next().cloned();
+                    self.night_kill_target = final_target.clone();
+                    
+                    self.history.push(HistoryEvent {
+                        day: self.day,
+                        phase: "NightWolf".to_string(),
+                        actor_id: None,
+                        action_type: "wolf_kill".to_string(),
+                        target: final_target,
+                        content: None,
+                        visibility: "wolves".to_string(),
+                    });
+                    
+                    self.wolf_votes.clear();
+                    return Ok(self.next_night_phase());
+                }
+            }
+            Phase::NightSeer => {
+                if actor.role != WerewolfRole::Seer {
+                    return Err(EngineError("Not your turn".into()));
+                }
+                if action_type != "check" && action_type != "skip" {
+                    return Err(EngineError("Invalid action".into()));
+                }
+                if action_type == "check" {
+                    let t = target.ok_or(EngineError("Missing target".into()))?;
+                    let target_role = self.players.iter().find(|p| p.id == t).map(|p| p.role);
+                    let is_wolf = target_role == Some(WerewolfRole::Werewolf);
+                    
+                    self.history.push(HistoryEvent {
+                        day: self.day,
+                        phase: "NightSeer".to_string(),
+                        actor_id: Some(actor_id.to_string()),
+                        action_type: "check_result".to_string(),
+                        target: Some(t),
+                        content: Some(if is_wolf { "狼人".to_string() } else { "好人".to_string() }),
+                        visibility: "seer".to_string(),
+                    });
+                }
+                return Ok(self.next_night_phase());
+            }
+            Phase::NightWitch => {
+                if actor.role != WerewolfRole::Witch {
+                    return Err(EngineError("Not your turn".into()));
+                }
+                if action_type == "save" {
+                    if !self.witch_has_save { return Err(EngineError("No save potion".into())); }
+                    if let Some(kt) = &self.night_kill_target {
+                        if kt == actor_id { return Err(EngineError("Cannot save self".into())); }
+                    }
+                    self.night_kill_target = None;
+                    self.witch_has_save = false;
+                    self.history.push(HistoryEvent {
+                        day: self.day, phase: "NightWitch".to_string(), actor_id: Some(actor_id.to_string()),
+                        action_type: "save".to_string(), target: None, content: None, visibility: "witch".to_string(),
+                    });
+                } else if action_type == "poison" {
+                    if !self.witch_has_poison { return Err(EngineError("No poison potion".into())); }
+                    let t = target.ok_or(EngineError("Missing target".into()))?;
+                    self.night_poison_target = Some(t.clone());
+                    self.witch_has_poison = false;
+                    self.history.push(HistoryEvent {
+                        day: self.day, phase: "NightWitch".to_string(), actor_id: Some(actor_id.to_string()),
+                        action_type: "poison".to_string(), target: Some(t), content: None, visibility: "witch".to_string(),
+                    });
+                } else if action_type == "skip" {
+                    self.history.push(HistoryEvent {
+                        day: self.day, phase: "NightWitch".to_string(), actor_id: Some(actor_id.to_string()),
+                        action_type: "skip".to_string(), target: None, content: None, visibility: "witch".to_string(),
+                    });
+                } else {
+                    return Err(EngineError("Invalid action".into()));
+                }
+                return Ok(self.next_night_phase());
+            }
+            Phase::DaySpeech => {
+                if self.speakers.get(self.current_speaker_idx) != Some(&actor_id.to_string()) {
+                    return Err(EngineError("Not your turn to speak".into()));
+                }
+                if action_type != "speak" && action_type != "speech" {
+                    return Err(EngineError("You must speak".into()));
+                }
+                self.history.push(HistoryEvent {
+                    day: self.day,
+                    phase: "DaySpeech".to_string(),
+                    actor_id: Some(actor_id.to_string()),
+                    action_type: "speak".to_string(),
+                    target: None,
+                    content: content.clone(),
+                    visibility: "public".to_string(),
+                });
+                
+                self.current_speaker_idx += 1;
+                if self.current_speaker_idx >= self.speakers.len() {
+                    self.phase = Phase::DayVote;
+                    self.day_votes.clear();
+                }
+                return Ok(self.trigger_next());
+            }
+            Phase::DayVote => {
+                if action_type != "vote" && action_type != "skip" {
+                    return Err(EngineError("Must vote or skip".into()));
+                }
+                self.day_votes.insert(actor_id.to_string(), if action_type == "vote" { target.clone() } else { None });
+                
+                let alive_count = self.players.iter().filter(|p| p.is_alive).count();
+                if self.day_votes.len() == alive_count {
+                    let mut vote_counts = HashMap::new();
+                    for t in self.day_votes.values().flatten() {
+                        *vote_counts.entry(t.clone()).or_insert(0) += 1;
+                    }
+                    
+                    self.history.push(HistoryEvent {
+                        day: self.day,
+                        phase: "DayVote".to_string(),
+                        actor_id: None,
+                        action_type: "vote_result".to_string(),
+                        target: None,
+                        content: Some(serde_json::to_string(&self.day_votes).unwrap_or_default()),
+                        visibility: "public".to_string(),
+                    });
+
+                    let mut max_votes = 0;
+                    let mut max_targets = Vec::new();
+                    for (t, count) in vote_counts {
+                        if count > max_votes {
+                            max_votes = count;
+                            max_targets = vec![t];
+                        } else if count == max_votes {
+                            max_targets.push(t);
+                        }
+                    }
+
+                    if max_targets.len() == 1 {
+                        let out_id = max_targets[0].clone();
+                        self.history.push(HistoryEvent {
+                            day: self.day,
+                            phase: "DayVote".to_string(),
+                            actor_id: None,
+                            action_type: "voted_out".to_string(),
+                            target: Some(out_id.clone()),
+                            content: None,
+                            visibility: "public".to_string(),
+                        });
+                        self.last_dead.clear();
+                        self.die(&out_id, false);
+                        self.pk_players = None;
+                        
+                        if let Some(winner) = self.check_win() {
+                            self.phase = Phase::GameOver(winner);
+                            return Ok(vec![EngineEvent::GameOver]);
+                        }
+                        
+                        if self.check_hunter_shoot("NightWolf") {
+                            return Ok(self.trigger_next());
+                        }
+                    } else if max_targets.len() > 1 {
+                        if self.pk_players.is_some() {
+                            self.history.push(HistoryEvent {
+                                day: self.day,
+                                phase: "DayVote".to_string(),
+                                actor_id: None,
+                                action_type: "tie_no_out".to_string(),
+                                target: None,
+                                content: None,
+                                visibility: "public".to_string(),
+                            });
+                            self.pk_players = None;
+                        } else {
+                            self.pk_players = Some(max_targets.clone());
+                            self.speakers = max_targets.clone();
+                            self.current_speaker_idx = 0;
+                            self.phase = Phase::DaySpeech;
+                            self.history.push(HistoryEvent {
+                                day: self.day,
+                                phase: "DayVote".to_string(),
+                                actor_id: None,
+                                action_type: "pk_start".to_string(),
+                                target: None,
+                                content: Some(max_targets.join(", ")),
+                                visibility: "public".to_string(),
+                            });
+                            return Ok(self.trigger_next());
+                        }
+                    } else {
+                        self.pk_players = None;
+                    }
+                    
+                    self.day += 1;
+                    self.phase = Phase::NightWolf;
+                    return Ok(self.trigger_next());
+                }
+            }
+            Phase::DayHunterShoot(shooter, next_phase) => {
+                if shooter != actor_id {
+                    return Err(EngineError("Not your turn to shoot".into()));
+                }
+                if action_type == "shoot" {
+                    let t = target.ok_or(EngineError("Missing target".into()))?;
+                    self.last_dead.clear();
+                    self.die(&t, false);
+                    self.history.push(HistoryEvent {
+                        day: self.day,
+                        phase: "DayHunterShoot".to_string(),
+                        actor_id: Some(actor_id.to_string()),
+                        action_type: "shoot".to_string(),
+                        target: Some(t),
+                        content: None,
+                        visibility: "public".to_string(),
+                    });
+                    
+                    if let Some(p) = self.players.iter_mut().find(|p| p.id == *actor_id) {
+                        p.can_shoot = false;
+                    }
+                    
+                    if let Some(winner) = self.check_win() {
+                        self.phase = Phase::GameOver(winner);
+                        return Ok(vec![EngineEvent::GameOver]);
+                    }
+                } else if action_type == "skip" {
+                    self.history.push(HistoryEvent {
+                        day: self.day,
+                        phase: "DayHunterShoot".to_string(),
+                        actor_id: Some(actor_id.to_string()),
+                        action_type: "skip_shoot".to_string(),
+                        target: None,
+                        content: None,
+                        visibility: "public".to_string(),
+                    });
+                } else {
+                    return Err(EngineError("Invalid action".into()));
+                }
+                
+                if next_phase == "DaySpeech" {
+                    self.phase = Phase::DaySpeech;
+                } else {
+                    self.day += 1;
+                    self.phase = Phase::NightWolf;
+                }
+                return Ok(self.trigger_next());
+            }
+            Phase::GameOver(_) => {
+                return Err(EngineError("Game is over".into()));
+            }
+            _ => {}
+        }
+        Ok(vec![])
+    }
+
+    fn to_json(&self) -> Value {
+        let mut v = serde_json::to_value(self).unwrap_or(Value::Null);
+        if let Some(obj) = v.as_object_mut() {
+            obj.insert("game_type".to_string(), Value::String(self.game_type().to_string()));
+            obj.insert("active_actor".to_string(), serde_json::to_value(self.current_actor()).unwrap_or(Value::Null));
+        }
+        v
+    }
+
+    fn to_json_for_player(&self, actor_id: &str) -> Value {
+        let mut v = self.to_json();
+        let role = self.players.iter().find(|p| p.id == actor_id).map(|p| p.role);
+        
+        if let Some(history) = v.get_mut("history").and_then(|h| h.as_array_mut()) {
+            history.retain(|evt| {
+                let vis = evt.get("visibility").and_then(|v| v.as_str()).unwrap_or("public");
+                match vis {
+                    "public" => true,
+                    "wolves" => role == Some(WerewolfRole::Werewolf),
+                    "seer" => role == Some(WerewolfRole::Seer),
+                    "witch" => role == Some(WerewolfRole::Witch),
+                    "private" => {
+                        evt.get("actor_id").and_then(|a| a.as_str()) == Some(actor_id)
+                    }
+                    _ => false,
+                }
+            });
+        }
+        
+        if let Some(players) = v.get_mut("players").and_then(|p| p.as_array_mut()) {
+            for p in players.iter_mut() {
+                let id = p.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                if id != actor_id {
+                    let is_wolf = role == Some(WerewolfRole::Werewolf);
+                    let target_role = p.get("role").and_then(|v| v.as_str()).unwrap_or("");
+                    let target_alive = p.get("is_alive").and_then(|v| v.as_bool()).unwrap_or(true);
+                    
+                    if target_alive {
+                        if is_wolf && target_role == "Werewolf" {
+                        } else {
+                            p.as_object_mut().unwrap().remove("role");
+                        }
+                    } else {
+                        p.as_object_mut().unwrap().remove("role");
+                    }
+                }
+            }
+        }
+        
+        v
+    }
+
+    fn current_actor(&self) -> Option<String> {
+        match &self.phase {
+            Phase::NightWolf => self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Werewolf).map(|p| p.id.clone()),
+            Phase::NightSeer => self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Seer).map(|p| p.id.clone()),
+            Phase::NightWitch => self.players.iter().find(|p| p.is_alive && p.role == WerewolfRole::Witch).map(|p| p.id.clone()),
+            Phase::DaySpeech => {
+                if self.current_speaker_idx < self.speakers.len() {
+                    Some(self.speakers[self.current_speaker_idx].clone())
+                } else {
+                    None
+                }
+            }
+            Phase::DayHunterShoot(id, _) => Some(id.clone()),
+            _ => None,
+        }
+    }
+
+    fn is_finished(&self) -> bool {
+        matches!(self.phase, Phase::GameOver(_))
+    }
+
+    fn tools(&self) -> Option<serde_json::Value> {
+        Some(serde_json::json!([
+            {
+                "type": "function",
+                "function": {
+                    "name": "werewolf_action",
+                    "description": "执行狼人杀动作",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "action_type": {
+                                "type": "string",
+                                "enum": ["kill", "skip_kill", "check", "save", "poison", "skip_poison", "skip_save", "voted_out", "shoot", "skip_shoot", "explode"],
+                                "description": "要执行的动作"
+                            },
+                            "target": {
+                                "type": "string",
+                                "description": "目标玩家ID（如果有目标）"
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "发言内容或行动说明"
+                            }
+                        },
+                        "required": ["action_type"]
+                    }
+                }
+            }
+        ]))
+    }
+}

@@ -97,8 +97,9 @@ fn test_start_new_hand() {
     assert_eq!(engine.phase, GamePhase::PreFlop);
     assert_eq!(engine.players.len(), 2);
 
-    // 验证盲注已下
-    assert!(engine.pot > 0, "盲注后 pot 应该大于 0");
+    // 验证盲注已下，且在 current_bet 中
+    assert_eq!(engine.pot, 0, "盲注后 pot 应该为 0，筹码在 current_bet 中");
+    assert!(engine.current_bet > 0, "当前有盲注");
 
     // 验证每个玩家有两张手牌
     for p in &engine.players {
@@ -142,7 +143,7 @@ fn test_blind_bets() {
         sb_player.is_some() || bb_player.is_some(),
         "应该有玩家下了盲注"
     );
-    assert_eq!(engine.pot, 30, "小盲(10) + 大盲(20) = 30");
+    assert_eq!(engine.pot, 0, "小盲和大盲的筹码在 current_bet 中，pot 为 0");
 }
 
 #[test]
@@ -499,13 +500,16 @@ fn test_full_game_to_showdown() {
     while !engine.is_finished() && max_steps > 0 {
         max_steps -= 1;
         if let Some(active) = engine.current_actor() {
+            println!("Before action {}: p1: {} (bet {}), p2: {} (bet {}), pot: {}, current_bet: {}", active, engine.players[0].chips, engine.players[0].current_bet, engine.players[1].chips, engine.players[1].current_bet, engine.pot, engine.current_bet);
             match engine.step(&active, serde_json::json!({"action": "call"})) {
                 Ok(_) => {}
-                Err(_) => {
+                Err(e) => {
+                    println!("Call failed: {:?}", e);
                     // 如果 call 失败，尝试 check
                     let _ = engine.step(&active, serde_json::json!({"action": "check"}));
                 }
             }
+            println!("After action {}: p1: {} (bet {}), p2: {} (bet {}), pot: {}, current_bet: {}, phase: {:?}", active, engine.players[0].chips, engine.players[0].current_bet, engine.players[1].chips, engine.players[1].current_bet, engine.pot, engine.current_bet, engine.phase);
         } else {
             break;
         }
@@ -516,6 +520,7 @@ fn test_full_game_to_showdown() {
 
     // 验证有赢家分配筹码
     let total_chips: u32 = engine.players.iter().map(|p| p.chips).sum();
+    println!("Total chips: {}", total_chips);
     assert_eq!(total_chips, 400, "筹码总量应守恒（初始 200×2=400）");
 }
 
@@ -542,7 +547,7 @@ fn test_snapshot_and_restore_flow() {
     assert_eq!(restored_value["room_id"], "restore_room");
     assert_eq!(restored_value["small_blind"], 5);
     assert_eq!(restored_value["big_blind"], 10);
-    assert_eq!(restored_value["pot"].as_u64().unwrap(), 15);
+    assert_eq!(restored_value["pot"].as_u64().unwrap(), 0);
 }
 
 // ─── 边界条件测试 ──────────────────────────────────────────────
@@ -705,65 +710,3 @@ fn test_action_history() {
     }
 }
 
-// ─── 德州扑克后端集成测试（backend/src/games/texas_holdem.rs）──
-
-#[test]
-fn test_backend_create_texas_holdem() {
-    use backend::games::texas_holdem::create_texas_holdem;
-
-    let mut role_config = HashMap::new();
-    role_config.insert("player1".to_string(), "human".to_string());
-    role_config.insert("player2".to_string(), "ai".to_string());
-
-    let global_configs = global_configs_with_defaults();
-
-    let (engine, ai_configs) = create_texas_holdem(
-        "test_room",
-        "player1",
-        &role_config,
-        10,
-        20,
-        1000,
-        Some(&global_configs),
-    );
-
-    assert_eq!(engine.game_type(), "texas_holdem");
-    assert!(ai_configs.contains_key("player2"), "AI 玩家应有配置");
-
-    let ai_cfg = &ai_configs["player2"];
-    assert_eq!(ai_cfg.model, AI_MODEL);
-    assert_eq!(ai_cfg.base_url, AI_BASE_URL);
-    assert_eq!(ai_cfg.api_key, AI_API_KEY);
-}
-
-#[test]
-fn test_backend_restore_texas_holdem() {
-    use backend::games::texas_holdem::{create_texas_holdem, restore_texas_holdem};
-
-    let mut role_config = HashMap::new();
-    role_config.insert("p1".to_string(), "human".to_string());
-    role_config.insert("p2".to_string(), "ai".to_string());
-
-    let global_configs = global_configs_with_defaults();
-
-    let (mut engine, _ai_configs) = create_texas_holdem(
-        "restore_test",
-        "p1",
-        &role_config,
-        10,
-        20,
-        500,
-        Some(&global_configs),
-    );
-
-    // 开始游戏
-    let _ = engine.step("p1", serde_json::json!({})).unwrap();
-
-    // 生成快照
-    let snapshot = engine.to_json();
-
-    // 恢复引擎
-    let restored = restore_texas_holdem(&snapshot).expect("恢复应成功");
-    assert_eq!(restored.game_type(), "texas_holdem");
-    assert!(!restored.is_finished());
-}

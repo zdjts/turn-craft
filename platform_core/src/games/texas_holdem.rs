@@ -459,7 +459,6 @@ impl TexasHoldemEngine {
         }
 
         self.current_bet = bb_amount;
-        self.pot = sb_amount + bb_amount;
 
         // Pre-flop: 从大盲注后一位开始行动
         self.active_index = self.next_active_player(bb_index).unwrap_or(bb_index);
