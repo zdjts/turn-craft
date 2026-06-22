@@ -420,6 +420,12 @@
   border: 1px solid rgba(244, 63, 94, 0.15);
 }
 
+.bubble-content.sys-msg {
+  background: rgba(148, 163, 184, 0.05);
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  font-style: italic;
+}
+
 /* Empty / Sync states */
 .timeline-empty {
   flex: 1;

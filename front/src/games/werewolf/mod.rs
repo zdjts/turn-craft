@@ -144,9 +144,48 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                     }
                 }
 
-                if is_finished {
-                    div { class: "text-red-400 text-center font-bold text-xl my-4", "🏆 游戏结束！" }
-                } else {
+                {
+                    let players = state.get("players").and_then(|p| p.as_array()).cloned().unwrap_or_default();
+                    rsx! {
+                        div { class: "players-status-bar", style: "display: flex; gap: 8px; padding: 10px 20px; flex-wrap: wrap; background: var(--bg-card); border-bottom: 1px solid var(--border-subtle);",
+                            for p in players.iter() {
+                                {
+                                    let id = p.get("id").and_then(|i| i.as_str()).unwrap_or("");
+                                    let alive = p.get("is_alive").and_then(|a| a.as_bool()).unwrap_or(false);
+                                    let known_role = p.get("role").and_then(|r| r.as_str());
+                                    
+                                    let op = if alive { "1.0" } else { "0.4" };
+                                    let txt_color = if alive { "var(--text-primary)" } else { "var(--text-muted)" };
+                                    let mut bg = if alive { "var(--accent-dim)" } else { "transparent" };
+                                    
+                                    // Highlight self or known wolf teammates
+                                    if id == my_id {
+                                        bg = "rgba(255, 215, 0, 0.2)"; // Gold for self
+                                    } else if known_role == Some("Werewolf") {
+                                        bg = "rgba(255, 50, 50, 0.2)"; // Red for wolf teammates
+                                    }
+
+                                    rsx! {
+                                        div {
+                                            key: "{id}",
+                                            style: "padding: 4px 10px; border-radius: 12px; font-size: 0.85em; opacity: {op}; color: {txt_color}; background: {bg}; border: 1px solid var(--border-subtle); transition: all 0.3s; display: flex; align-items: center; gap: 4px;",
+                                            if !alive { "💀 " } else { "👤 " }
+                                            "{id}"
+                                            if known_role == Some("Werewolf") {
+                                                span { style: "font-size: 1.1em;", "🐺" }
+                                            } else if let Some(r) = known_role {
+                                                // Just in case other roles are exposed later
+                                                span { style: "font-size: 1.1em; opacity: 0.7;", "[{r}]" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !is_finished {
                     div { class: "text-center text-sm mb-4", style: "color: var(--accent);",
                         {
                             let alive_text = if my_alive { "存活" } else { "已阵亡" };
@@ -154,6 +193,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                         }
                     }
                 }
+
 
                 // 历史流水
                 if let Some(history) = state.get("history").and_then(|h| h.as_array()) {
@@ -176,8 +216,63 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                                                     span { class: "bubble-name", if is_sys { "系统播报" } else { "{actor}" } }
                                                     span { class: "bubble-tag", "Day {d}" }
                                                 }
-                                                div { class: "bubble-content",
+                                                div { class: if is_sys { "bubble-content sys-msg" } else { "bubble-content" },
                                                     "{content}"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if is_finished {
+                    div { class: "showdown-panel", style: "margin-top: 20px;",
+                        div { class: "showdown-title", 
+                            if let Some(winner) = state.get("phase").and_then(|p| p.get("GameOver")).and_then(|g| g.as_str()) {
+                                if winner == "Wolves" { "🐺 狼人阵营胜利！" } else { "🧑‍🌾 好人阵营胜利！" }
+                            } else {
+                                "🏆 游戏结束！"
+                            }
+                        }
+                        div { class: "showdown-cards",
+                            {
+                                let players = state.get("players").and_then(|p| p.as_array()).cloned().unwrap_or_default();
+                                rsx! {
+                                    for p in players.iter() {
+                                        {
+                                            let id = p.get("id").and_then(|i| i.as_str()).unwrap_or("");
+                                            let role = p.get("role").and_then(|r| r.as_str()).unwrap_or("未知");
+                                            let alive = p.get("is_alive").and_then(|a| a.as_bool()).unwrap_or(false);
+                                            let winner_side = state.get("phase").and_then(|ph| ph.get("GameOver")).and_then(|g| g.as_str()).unwrap_or("");
+                                            
+                                            let is_wolf = role == "Werewolf";
+                                            let is_winner = (winner_side == "Wolves" && is_wolf) || (winner_side == "Humans" && !is_wolf);
+                                            
+                                            rsx! {
+                                                div {
+                                                    class: if is_winner { "showdown-player winner" } else { "showdown-player" },
+                                                    key: "{id}",
+                                                    div { class: "showdown-name", "{id}" }
+                                                    div { class: "showdown-hand", style: "font-size: 1.5em; margin: 10px 0;",
+                                                        match role {
+                                                            "Werewolf" => "🐺",
+                                                            "Seer" => "👁️",
+                                                            "Witch" => "🧪",
+                                                            "Hunter" => "🔫",
+                                                            "Villager" => "🧑‍🌾",
+                                                            _ => "❓",
+                                                        }
+                                                    }
+                                                    div { class: "showdown-rank", 
+                                                        "{role}"
+                                                        if !alive { " (阵亡)" }
+                                                    }
+                                                    if is_winner {
+                                                        div { class: "showdown-winner-badge", "🏆" }
+                                                    }
                                                 }
                                             }
                                         }

@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -16,16 +17,36 @@ use crate::ai::listener::AiWorker;
 use crate::app::{AppState, build_router};
 use crate::config::CONFIG;
 use crate::room::model::AiTask;
+fn init_tracing() {
+    let env_filter =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
+
+    // 控制台图层
+    let stdout_layer = tracing_subscriber::fmt::layer().with_writer(std::io::stdout);
+
+    // 文件图层
+    let file = File::options()
+        .create(true)
+        .append(true)
+        .open("app.log")
+        .expect("无法创建日志文件");
+
+    // 使用 Arc 让文件流可以在线程间安全共享（tracing 的要求）
+    let file_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(false) // 写入文件时通常禁用 ANSI 彩色字符，避免乱码
+        .with_writer(Arc::new(file));
+
+    // 注册所有图层
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(stdout_layer)
+        .with(file_layer)
+        .init();
+}
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-
+    init_tracing();
     tracing::info!("🚀 大模型高并发辩论游戏服务器正在初始化核心基建...");
 
     // 1. AI 任务队列通道与 Worker 后台线程

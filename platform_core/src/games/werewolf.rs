@@ -573,13 +573,23 @@ impl GameEngine for WerewolfEngine {
                         *vote_counts.entry(t.clone()).or_insert(0) += 1;
                     }
 
+                    let mut vote_details = Vec::new();
+                    for (voter, target) in &self.day_votes {
+                        if let Some(t) = target {
+                            vote_details.push(format!("{} 投票给 {}", voter, t));
+                        } else {
+                            vote_details.push(format!("{} 弃权", voter));
+                        }
+                    }
+                    let vote_str = vote_details.join("，");
+
                     self.history.push(HistoryEvent {
                         day: self.day,
                         phase: "DayVote".to_string(),
                         actor_id: None,
                         action_type: "vote_result".to_string(),
                         target: None,
-                        content: Some(serde_json::to_string(&self.day_votes).unwrap_or_default()),
+                        content: Some(format!("投票明细：{}", vote_str)),
                         visibility: "public".to_string(),
                     });
 
@@ -716,6 +726,10 @@ impl GameEngine for WerewolfEngine {
         let mut v = serde_json::to_value(self).unwrap_or(Value::Null);
         if let Some(obj) = v.as_object_mut() {
             obj.insert(
+                "finished".to_string(),
+                Value::Bool(self.is_finished()),
+            );
+            obj.insert(
                 "game_type".to_string(),
                 Value::String(self.game_type().to_string()),
             );
@@ -749,6 +763,8 @@ impl GameEngine for WerewolfEngine {
             .find(|p| p.id == actor_id)
             .map(|p| p.role);
 
+        let is_finished = self.is_finished();
+
         if let Some(history) = v.get_mut("history").and_then(|h| h.as_array_mut()) {
             history.retain(|evt| {
                 let vis = evt
@@ -766,21 +782,37 @@ impl GameEngine for WerewolfEngine {
             });
         }
 
+        if let Some(obj) = v.as_object_mut() {
+            obj.insert("your_id".to_string(), Value::String(actor_id.to_string()));
+            
+            if !is_finished {
+                if role != Some(WerewolfRole::Witch) {
+                    obj.remove("witch_has_save");
+                    obj.remove("witch_has_poison");
+                    obj.remove("night_poison_target");
+                }
+                if role != Some(WerewolfRole::Werewolf) {
+                    obj.remove("wolf_votes");
+                }
+                if role != Some(WerewolfRole::Witch) && role != Some(WerewolfRole::Werewolf) {
+                    obj.remove("night_kill_target");
+                }
+            }
+        }
+
         if let Some(players) = v.get_mut("players").and_then(|p| p.as_array_mut()) {
             for p in players.iter_mut() {
-                let id = p.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                if id != actor_id {
-                    let is_wolf = role == Some(WerewolfRole::Werewolf);
-                    let target_role = p.get("role").and_then(|v| v.as_str()).unwrap_or("");
-                    let target_alive = p.get("is_alive").and_then(|v| v.as_bool()).unwrap_or(true);
+                if let Some(obj) = p.as_object_mut() {
+                    let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    if id != actor_id && !is_finished {
+                        obj.remove("can_shoot");
 
-                    if target_alive {
-                        if is_wolf && target_role == "Werewolf" {
-                        } else {
-                            p.as_object_mut().unwrap().remove("role");
+                        let is_wolf = role == Some(WerewolfRole::Werewolf);
+                        let target_role = obj.get("role").and_then(|v| v.as_str()).unwrap_or("");
+
+                        if !(is_wolf && target_role == "Werewolf") {
+                            obj.remove("role");
                         }
-                    } else {
-                        p.as_object_mut().unwrap().remove("role");
                     }
                 }
             }
