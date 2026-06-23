@@ -725,10 +725,7 @@ impl GameEngine for WerewolfEngine {
     fn to_json(&self) -> Value {
         let mut v = serde_json::to_value(self).unwrap_or(Value::Null);
         if let Some(obj) = v.as_object_mut() {
-            obj.insert(
-                "finished".to_string(),
-                Value::Bool(self.is_finished()),
-            );
+            obj.insert("finished".to_string(), Value::Bool(self.is_finished()));
             obj.insert(
                 "game_type".to_string(),
                 Value::String(self.game_type().to_string()),
@@ -784,7 +781,7 @@ impl GameEngine for WerewolfEngine {
 
         if let Some(obj) = v.as_object_mut() {
             obj.insert("your_id".to_string(), Value::String(actor_id.to_string()));
-            
+
             if !is_finished {
                 if role != Some(WerewolfRole::Witch) {
                     obj.remove("witch_has_save");
@@ -803,7 +800,11 @@ impl GameEngine for WerewolfEngine {
         if let Some(players) = v.get_mut("players").and_then(|p| p.as_array_mut()) {
             for p in players.iter_mut() {
                 if let Some(obj) = p.as_object_mut() {
-                    let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let id = obj
+                        .get("id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
                     if id != actor_id && !is_finished {
                         obj.remove("can_shoot");
 
@@ -819,6 +820,114 @@ impl GameEngine for WerewolfEngine {
         }
 
         v
+    }
+
+    fn to_ai_prompt(&self, actor_id: &str) -> String {
+        let is_finished = self.is_finished();
+        let role_opt = self
+            .players
+            .iter()
+            .find(|p| p.id == actor_id)
+            .map(|p| p.role.clone());
+
+        // 1. 分离 public 和 private history
+        let mut public_history = Vec::new();
+        let mut private_history = Vec::new();
+
+        for evt in &self.history {
+            if evt.visibility == "public" {
+                public_history.push(evt);
+            } else {
+                let is_visible = is_finished
+                    || match evt.visibility.as_str() {
+                        "wolves" => role_opt == Some(WerewolfRole::Werewolf),
+                        "seer" => role_opt == Some(WerewolfRole::Seer),
+                        "witch" => role_opt == Some(WerewolfRole::Witch),
+                        "private" => evt.actor_id.as_deref() == Some(actor_id),
+                        _ => false,
+                    };
+                if is_visible {
+                    private_history.push(evt);
+                }
+            }
+        }
+
+        // 2. 构造专属人设 (Role instruction)
+        let role_instruction = match role_opt {
+            Some(WerewolfRole::Werewolf) => {
+                "你是【狼人】。每晚你需要和另一只狼人队友统一意见杀人。白天如果局势不利，你可以选择'自爆'（直接结束白天进入黑夜）。请隐藏好自己的身份，发言时伪装成好人。"
+            }
+            Some(WerewolfRole::Seer) => {
+                "你是【预言家】。每晚你可以查验一名玩家的身份（好人或狼人）。白天你需要通过发言带领好人阵营投票出狼人。"
+            }
+            Some(WerewolfRole::Witch) => {
+                "你是【女巫】。你有一瓶解药和一瓶毒药，解药可救活今晚被狼杀的人，毒药可毒杀任意一人。每晚你只能使用其中一瓶。"
+            }
+            Some(WerewolfRole::Hunter) => {
+                "你是【猎人】。如果你被狼人杀害或白天被投票出局，你可以开枪带走任意一名存活玩家。但如果是被女巫毒死，你将无法开枪。"
+            }
+            Some(WerewolfRole::Villager) => {
+                "你是【平民】。你没有任何夜间技能，只能在白天认真听取大家发言，分辨谁是狼人并投票将其出局。"
+            }
+            None => "你是旁观者。",
+        };
+
+        // 3. 构建 private state
+        let mut safe_state = self.to_json_for_player(actor_id);
+        if let Some(obj) = safe_state.as_object_mut() {
+            obj.remove("history"); // 已经被提取出来，不需要重复
+            obj.insert(
+                "your_role_instruction".to_string(),
+                serde_json::Value::String(role_instruction.to_string()),
+            );
+            if let Some(ref r) = role_opt {
+                obj.insert(
+                    "your_role".to_string(),
+                    serde_json::Value::String(format!("{:?}", r)),
+                );
+            }
+        }
+
+        // 4. 剧本化格式化输出历史
+        let format_evt = |evt: &HistoryEvent| -> String {
+            let actor = evt.actor_id.as_deref().unwrap_or("(系统)");
+            let target = evt.target.as_deref().unwrap_or("");
+            let content = evt.content.as_deref().unwrap_or("");
+            let desc = match evt.action_type.as_str() {
+                "start" => format!("游戏开始：{}", content),
+                "speak" => format!("发言：\"{}\"", content),
+                "vote" => format!("投票给 {}", if target.is_empty() { "弃权" } else { target }),
+                "wolf_kill" => format!("投票击杀 {}", target),
+                "seer_check" => format!("查验了 {} 的身份，结果是：{}", target, content),
+                "witch_save" => format!("使用解药救活了 {}", target),
+                "witch_poison" => format!("使用毒药毒杀了 {}", target),
+                "witch_skip" => "放弃使用药水".to_string(),
+                "hunter_shoot" => format!("开枪带走了 {}", target),
+                "hunter_skip" => "放弃开枪".to_string(),
+                "announce" => format!("公告：{}", content),
+                "wolf_explode" => "自爆了！".to_string(),
+                _ => format!("执行了 {}", evt.action_type),
+            };
+            format!("[第{}天 | {}] {} {}", evt.day, evt.phase, actor, desc)
+        };
+
+        let public_str = public_history
+            .into_iter()
+            .map(format_evt)
+            .collect::<Vec<_>>()
+            .join("\n");
+        let private_str = private_history
+            .into_iter()
+            .map(format_evt)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        format!(
+            "=== PUBLIC HISTORY ===\n{}\n\n=== PRIVATE HISTORY ===\n{}\n\n=== PRIVATE STATE ===\n{}",
+            public_str,
+            private_str,
+            serde_json::to_string(&safe_state).unwrap_or_default()
+        )
     }
 
     fn current_actor(&self) -> Option<String> {

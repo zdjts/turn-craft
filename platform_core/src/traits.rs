@@ -80,6 +80,12 @@ pub trait GameEngine: Send + 'static {
         self.to_json()
     }
 
+    /// 专门为大模型生成的、经过 Prompt Caching 优化的快照格式
+    /// 默认实现为回退到 to_json_for_player
+    fn to_ai_prompt(&self, actor_id: &str) -> String {
+        self.to_json_for_player(actor_id).to_string()
+    }
+
     /// 当前应该行动的 actor_id
     fn current_actor(&self) -> Option<String>;
 

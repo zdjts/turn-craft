@@ -1108,6 +1108,58 @@ impl GameEngine for TexasHoldemEngine {
         result
     }
 
+    fn to_ai_prompt(&self, actor_id: &str) -> String {
+        let mut safe_state = self.to_json_for_player(actor_id);
+        if let Some(obj) = safe_state.as_object_mut() {
+            let history_val = obj.remove("history").unwrap_or(serde_json::Value::Null);
+            // 德州扑克的 players 包含部分公开信息（筹码、状态），以及手牌（针对非观察者已被过滤）
+            // 我们将 players 置于中间层，提升历史记录的绝对缓存率
+            let players = obj.remove("players").unwrap_or(serde_json::Value::Null);
+
+            let history_str = if let serde_json::Value::Array(arr) = history_val {
+                arr.into_iter()
+                    .filter_map(|v| serde_json::from_value::<ActionHistory>(v).ok())
+                    .map(|evt| {
+                        let action_desc = match evt.action {
+                            PlayerAction::Fold => "弃牌(Fold)".to_string(),
+                            PlayerAction::Check => "过牌(Check)".to_string(),
+                            PlayerAction::Call => "跟注(Call)".to_string(),
+                            PlayerAction::Raise(amount) => format!("加注(Raise)至 {}", amount),
+                            PlayerAction::AllIn => "全押(All-In)".to_string(),
+                        };
+                        let phase_desc = match evt.phase {
+                            GamePhase::PreFlop => "PreFlop",
+                            GamePhase::Flop => "Flop",
+                            GamePhase::Turn => "Turn",
+                            GamePhase::River => "River",
+                            _ => "Other",
+                        };
+                        format!(
+                            "[{}阶段] {} 执行了 {} (剩余筹码: {})",
+                            phase_desc, evt.actor_id, action_desc, evt.chips_after
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            } else {
+                "".to_string()
+            };
+
+            obj.insert(
+                "your_id".to_string(),
+                serde_json::Value::String(actor_id.to_string()),
+            );
+
+            return format!(
+                "=== PUBLIC HISTORY ===\n{}\n\n=== PLAYERS ===\n{}\n\n=== PRIVATE STATE ===\n{}",
+                history_str,
+                serde_json::to_string(&players).unwrap_or_default(),
+                serde_json::to_string(obj).unwrap_or_default()
+            );
+        }
+        safe_state.to_string()
+    }
+
     fn current_actor(&self) -> Option<String> {
         if self.phase == GamePhase::WaitingForPlayers
             || self.phase == GamePhase::Showdown

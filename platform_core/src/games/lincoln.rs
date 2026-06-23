@@ -172,6 +172,65 @@ impl GameEngine for LincolnEngine {
         })
     }
 
+    fn to_ai_prompt(&self, actor_id: &str) -> String {
+        let mut safe_state = self.to_json_for_player(actor_id);
+        if let Some(obj) = safe_state.as_object_mut() {
+            let history = obj.remove("history").unwrap_or(serde_json::Value::Null);
+            let actors = obj.remove("actors").unwrap_or(serde_json::Value::Null);
+
+            let history_str = if let serde_json::Value::Array(arr) = history {
+                arr.into_iter()
+                    .filter_map(|v| serde_json::from_value::<HistoryEntry>(v).ok())
+                    .map(|evt| {
+                        let role_name = match evt.role {
+                            DebateRole::Judge => "裁判",
+                            DebateRole::Pro => "正方",
+                            DebateRole::Con => "反方",
+                            DebateRole::Over => "系统",
+                        };
+                        format!("[{} | {}] \"{}\"", role_name, evt.actor_id, evt.content)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            } else {
+                "".to_string()
+            };
+
+            obj.insert(
+                "your_id".to_string(),
+                serde_json::Value::String(actor_id.to_string()),
+            );
+
+            // 为 Lincoln 游戏生成私人指引
+            if let Some(actor) = self.actors.iter().find(|a| a.id == actor_id) {
+                let role_instruction = match actor.role {
+                    DebateRole::Judge => {
+                        "你是【裁判】(Judge)。请给出辩题，听取双方论点后做出最终裁决。字数控制在300字以内。"
+                    }
+                    DebateRole::Pro => {
+                        "你是激进的立论家【正方】(Pro)。请针对裁判给出的辩题，发表具有说服力的论点。字数控制在200字以内。"
+                    }
+                    DebateRole::Con => {
+                        "你是沉稳的驳论家【反方】(Con)。请严密审视正方的发言，并进行针锋相对的反驳。字数控制在200字以内。"
+                    }
+                    DebateRole::Over => "游戏已结束。",
+                };
+                obj.insert(
+                    "your_role_instruction".to_string(),
+                    serde_json::Value::String(role_instruction.to_string()),
+                );
+            }
+
+            return format!(
+                "=== PUBLIC HISTORY ===\n{}\n\n=== ACTORS ===\n{}\n\n=== PRIVATE STATE ===\n{}",
+                history_str,
+                serde_json::to_string(&actors).unwrap_or_default(),
+                serde_json::to_string(obj).unwrap_or_default()
+            );
+        }
+        safe_state.to_string()
+    }
+
     fn current_actor(&self) -> Option<String> {
         self.actors
             .iter()
