@@ -34,7 +34,8 @@ impl AiWorker {
         let max_retries = 3;
         let config = task.ai_config.clone();
 
-        let mut messages_json: serde_json::Value = serde_json::from_str(&build_messages(&config, task.snapshot.clone())).unwrap();
+        let mut messages_json: serde_json::Value =
+            serde_json::from_str(&build_messages(&config, task.snapshot.clone())).unwrap();
 
         loop {
             tracing::info!(
@@ -44,38 +45,44 @@ impl AiWorker {
                 ">>> 发送给 AI 的完整内容"
             );
 
-            let ai_response =
-                match request_speech(&http, &config, messages_json.to_string(), task.tools.as_ref()).await {
-                    Ok(response) => {
-                        tracing::info!(
-                            actor_id = %task.actor_id,
-                            response = %response,
-                            "<<< AI 返回的完整回复"
-                        );
-                        response
-                    }
-                    Err(e) => {
-                        tracing::error!(actor_id = %task.actor_id, error = ?e, "请求 AI 接口发生错误");
-                        if task.retries < max_retries {
-                            task.retries += 1;
-                            if let Some(arr) = messages_json.as_array_mut() {
-                                arr.push(serde_json::json!({
+            let ai_response = match request_speech(
+                &http,
+                &config,
+                messages_json.to_string(),
+                task.tools.as_ref(),
+            )
+            .await
+            {
+                Ok(response) => {
+                    tracing::info!(
+                        actor_id = %task.actor_id,
+                        response = %response,
+                        "<<< AI 返回的完整回复"
+                    );
+                    response
+                }
+                Err(e) => {
+                    tracing::error!(actor_id = %task.actor_id, error = ?e, "请求 AI 接口发生错误");
+                    if task.retries < max_retries {
+                        task.retries += 1;
+                        if let Some(arr) = messages_json.as_array_mut() {
+                            arr.push(serde_json::json!({
                                     "role": "user",
                                     "content": format!("请求发生网络或调用错误: {:?}。请尝试重新输出。", e)
                                 }));
-                            }
-                            continue;
-                        } else {
-                            let command = RoomCommand::PlayerAction {
-                                actor_id: task.actor_id.clone(),
-                                action: serde_json::json!({"content": "[思考超时，未能发言]"}),
-                                feedback_tx: None,
-                            };
-                            let _ = task.reply_tx.send(command).await;
-                            return Err(format!("{:?}", e));
                         }
+                        continue;
+                    } else {
+                        let command = RoomCommand::PlayerAction {
+                            actor_id: task.actor_id.clone(),
+                            action: serde_json::json!({"content": "[思考超时，未能发言]"}),
+                            feedback_tx: None,
+                        };
+                        let _ = task.reply_tx.send(command).await;
+                        return Err(format!("{:?}", e));
                     }
-                };
+                }
+            };
 
             let (tx, rx) = tokio::sync::oneshot::channel();
 

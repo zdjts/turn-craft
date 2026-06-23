@@ -48,6 +48,13 @@ impl AiConfigRepository for SqliteAiConfigRepo {
     }
 
     async fn set(&self, room_id: &str, actor_id: &str, config: &AiConfig) -> Result<(), AiError> {
+        if room_id.starts_with("__defaults_") {
+            let _ = sqlx::query("INSERT OR IGNORE INTO rooms (room_id, owner_id, game_type, engine_state, actor_slots) VALUES (?, 'system', 'system', '{}', '{}')")
+                .bind(room_id)
+                .execute(&self.pool)
+                .await;
+        }
+
         sqlx::query(
             r#"
             INSERT OR REPLACE INTO ai_configs

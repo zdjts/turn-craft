@@ -4,6 +4,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::app::AppState;
+use crate::auth::middleware::AuthUser;
 use crate::error::AppError;
 
 /// GET /rooms/{room_id}/ai-config (薄 Handler - 读 SQLite)
@@ -51,6 +52,7 @@ pub struct UpdateAiConfigInput {
 /// PUT /rooms/{room_id}/ai-config/{actor_id} (薄 Handler - 写 SQLite)
 pub async fn update_ai_config(
     State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
     Path((room_id, actor_id)): Path<(String, String)>,
     Json(input): Json<UpdateAiConfigInput>,
 ) -> Result<Json<Value>, AppError> {
@@ -99,12 +101,15 @@ pub async fn update_ai_config(
         })
         .unwrap_or_else(|| actor_id.clone());
 
-    state
-        .ai_service
-        .config_repo
-        .set("__defaults__", &role_name, &config)
-        .await
-        .map_err(AppError::Ai)?;
+    if let Ok(Some(snapshot)) = state.room_service.get_room_snapshot(&room_id).await {
+        let defaults_room_id = format!("__defaults_{}__{}", user_id.0, snapshot.game_type);
+        state
+            .ai_service
+            .config_repo
+            .set(&defaults_room_id, &role_name, &config)
+            .await
+            .map_err(AppError::Ai)?;
+    }
 
     tracing::info!(room_id = %room_id, actor_id = %actor_id, "AI 配置已于 SQLite 更新（含全局默认）");
 

@@ -14,6 +14,7 @@ pub trait GameFactory: Send + Sync {
     async fn create(
         &self,
         room_id: &str,
+        owner_id: &crate::user::model::UserId,
         input: &CreateRoomInput,
         config_repo: &dyn AiConfigRepository,
     ) -> Result<(Box<dyn GameEngine>, HashMap<String, AiConfig>), AppError>;

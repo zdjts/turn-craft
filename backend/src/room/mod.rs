@@ -64,7 +64,7 @@ impl RoomService {
 
         // 2. 创建引擎和 AI 配置
         let (engine, ai_configs) = factory
-            .create(&room_id, &input, &*self.ai_config_repo)
+            .create(&room_id, &owner_id, &input, &*self.ai_config_repo)
             .await?;
 
         // 3. 保存房间

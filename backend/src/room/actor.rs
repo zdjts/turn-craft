@@ -96,7 +96,7 @@ pub fn spawn_game_room(
                             EngineEvent::TriggerAi(id) => {
                                 let _ = effect_tx
                                     .send(SideEffect::TriggerAi {
-                                        snapshot: engine.to_json_for_player(&id).to_string(),
+                                        snapshot: engine.to_ai_prompt(&id),
                                         actor_id: id,
                                         tools: engine.tools(),
                                     })

@@ -27,6 +27,7 @@ impl GameFactory for TexasHoldemFactory {
     async fn create(
         &self,
         room_id: &str,
+        owner_id: &crate::user::model::UserId,
         input: &CreateRoomInput,
         config_repo: &dyn AiConfigRepository,
     ) -> Result<(Box<dyn GameEngine>, HashMap<String, AiConfig>), AppError> {
@@ -45,8 +46,12 @@ impl GameFactory for TexasHoldemFactory {
             .unwrap_or(1000) as u32;
 
         let mut engine = TexasHoldemEngine::new(room_id.to_string(), small_blind, big_blind);
-        let default_prompt = "你是一位经验丰富的德州扑克 AI 玩家。请根据当前局面做出最优决策（fold/check/call/raise/all_in）。";
-        let global_defaults_key = "__defaults__";
+        let default_prompt = "你正在参与一场德州扑克游戏。你需要结合当前发给你的环境快照（包含公共历史、私有状态等），严格遵守德州扑克规则进行博弈和决策（fold/check/call/raise/all_in）。注意：你的底牌(your_hand)、你的ID(your_id)以及允许采取的动作将放在 user 提示词的最末尾（PRIVATE STATE 中）。";
+        let global_defaults_key = format!("__defaults_{}__{}", owner_id.0, self.game_type());
+        let all_defaults = config_repo
+            .get_all_for_room(&global_defaults_key)
+            .await
+            .unwrap_or_default();
         let mut ai_configs = HashMap::new();
 
         for (player_id, player_type) in &input.slot_configs {
@@ -56,29 +61,44 @@ impl GameFactory for TexasHoldemFactory {
                 }
                 "ai" => {
                     engine.add_player(player_id.clone(), ActionKind::Ai, starting_chips);
+                    let mut chars = player_id.chars();
+                    let capitalized = match chars.next() {
+                        Some(c) => format!("{}{}", c.to_uppercase(), chars.as_str()),
+                        None => player_id.clone(),
+                    };
 
-                    // 优先从 SQLite 配置仓储获取默认全局配置
-                    let saved = config_repo.get(global_defaults_key, player_id).await.ok();
+                    let saved = all_defaults.get(&capitalized);
 
                     let config = match saved {
                         Some(s) => AiConfig {
-                            api_key: s.api_key,
-                            base_url: s.base_url,
-                            model: s.model,
+                            api_key: s.api_key.clone(),
+                            base_url: s.base_url.clone(),
+                            model: s.model.clone(),
                             max_tokens: s.max_tokens,
                             prompt: if s.prompt.is_empty() {
                                 default_prompt.to_string()
                             } else {
-                                s.prompt
+                                s.prompt.clone()
                             },
                         },
-                        None => AiConfig {
-                            api_key: crate::config::CONFIG.default_ai_api_key.clone(),
-                            base_url: crate::config::CONFIG.default_ai_base_url.clone(),
-                            model: crate::config::CONFIG.default_ai_model.clone(),
-                            prompt: default_prompt.to_string(),
-                            max_tokens: crate::config::CONFIG.default_ai_max_tokens,
-                        },
+                        None => {
+                            let fallback = all_defaults.values().next();
+                            AiConfig {
+                                api_key: fallback.map(|f| f.api_key.clone()).unwrap_or_else(|| {
+                                    crate::config::CONFIG.default_ai_api_key.clone()
+                                }),
+                                base_url: fallback.map(|f| f.base_url.clone()).unwrap_or_else(
+                                    || crate::config::CONFIG.default_ai_base_url.clone(),
+                                ),
+                                model: fallback.map(|f| f.model.clone()).unwrap_or_else(|| {
+                                    crate::config::CONFIG.default_ai_model.clone()
+                                }),
+                                prompt: default_prompt.to_string(),
+                                max_tokens: fallback
+                                    .map(|f| f.max_tokens)
+                                    .unwrap_or(crate::config::CONFIG.default_ai_max_tokens),
+                            }
+                        }
                     };
 
                     ai_configs.insert(player_id.clone(), config);

@@ -34,6 +34,7 @@ impl GameFactory for LincolnFactory {
     async fn create(
         &self,
         room_id: &str,
+        owner_id: &crate::user::model::UserId,
         input: &CreateRoomInput,
         config_repo: &dyn AiConfigRepository,
     ) -> Result<(Box<dyn GameEngine>, HashMap<String, AiConfig>), AppError> {
@@ -45,22 +46,19 @@ impl GameFactory for LincolnFactory {
             ("Con", DebateRole::Con),
         ]);
 
+        let global_system_prompt = "你正在参与一场林肯-道格拉斯辩论。你需要结合当前发给你的环境快照（包含公共历史发言、当前阶段等），严格遵守辩论规则进行发言或裁决。注意：你的真实身份（正方/反方/裁判）和专属要求将放在 user 提示词的最末尾（PRIVATE STATE 中）。";
+
         let default_prompts: HashMap<&str, &str> = HashMap::from([
-            (
-                "Judge",
-                "你是一位公正的辩论裁判。请给出辩题，听取双方论点后做出最终裁决。字数控制在300字以内。",
-            ),
-            (
-                "Pro",
-                "你现在是激进的立论家。请作为正方，针对裁判给出的辩题，发表具有说服力的论点。字数控制在200字以内。",
-            ),
-            (
-                "Con",
-                "你现在是沉稳的驳论家。请作为反方，严密审视正方的发言，并进行针锋相对的反驳。字数控制在200字以内。",
-            ),
+            ("Judge", global_system_prompt),
+            ("Pro", global_system_prompt),
+            ("Con", global_system_prompt),
         ]);
 
-        let global_defaults_key = "__defaults__";
+        let global_defaults_key = format!("__defaults_{}__{}", owner_id.0, self.game_type());
+        let all_defaults = config_repo
+            .get_all_for_room(&global_defaults_key)
+            .await
+            .unwrap_or_default();
         let mut ai_configs = HashMap::new();
 
         for (role_name, role_type) in &input.slot_configs {
@@ -82,37 +80,48 @@ impl GameFactory for LincolnFactory {
                 "ai" => {
                     let actor_id = format!("ai_{}", role_name.to_lowercase());
                     engine.add_actor(actor_id.clone(), ActionKind::Ai, debate_role);
+                    let mut chars = role_name.chars();
+                    let capitalized = match chars.next() {
+                        Some(c) => format!("{}{}", c.to_uppercase(), chars.as_str()),
+                        None => role_name.clone(),
+                    };
 
-                    // 优先从 SQLite 配置仓储获取默认全局配置
-                    let saved = config_repo
-                        .get(global_defaults_key, &capitalized)
-                        .await
-                        .ok();
-
+                    let saved = all_defaults.get(&capitalized);
                     let default_prompt = default_prompts
-                        .get(capitalized.as_str())
+                        .get(role_name.as_str())
                         .unwrap_or(&"")
                         .to_string();
 
                     let config = match saved {
                         Some(s) => AiConfig {
-                            api_key: s.api_key,
-                            base_url: s.base_url,
-                            model: s.model,
+                            api_key: s.api_key.clone(),
+                            base_url: s.base_url.clone(),
+                            model: s.model.clone(),
                             max_tokens: s.max_tokens,
                             prompt: if s.prompt.is_empty() {
                                 default_prompt
                             } else {
-                                s.prompt
+                                s.prompt.clone()
                             },
                         },
-                        None => AiConfig {
-                            api_key: crate::config::CONFIG.default_ai_api_key.clone(),
-                            base_url: crate::config::CONFIG.default_ai_base_url.clone(),
-                            model: crate::config::CONFIG.default_ai_model.clone(),
-                            prompt: default_prompt,
-                            max_tokens: crate::config::CONFIG.default_ai_max_tokens,
-                        },
+                        None => {
+                            let fallback = all_defaults.values().next();
+                            AiConfig {
+                                api_key: fallback.map(|f| f.api_key.clone()).unwrap_or_else(|| {
+                                    crate::config::CONFIG.default_ai_api_key.clone()
+                                }),
+                                base_url: fallback.map(|f| f.base_url.clone()).unwrap_or_else(
+                                    || crate::config::CONFIG.default_ai_base_url.clone(),
+                                ),
+                                model: fallback.map(|f| f.model.clone()).unwrap_or_else(|| {
+                                    crate::config::CONFIG.default_ai_model.clone()
+                                }),
+                                prompt: default_prompt,
+                                max_tokens: fallback
+                                    .map(|f| f.max_tokens)
+                                    .unwrap_or(crate::config::CONFIG.default_ai_max_tokens),
+                            }
+                        }
                     };
 
                     ai_configs.insert(actor_id, config);
