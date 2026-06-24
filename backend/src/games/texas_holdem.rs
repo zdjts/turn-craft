@@ -55,7 +55,11 @@ impl GameFactory for TexasHoldemFactory {
         let mut ai_configs = HashMap::new();
 
         for player_id in &input.slots {
-            let player_type = input.slot_configs.get(player_id).map(|s| s.as_str()).unwrap_or("ai");
+            let player_type = input
+                .slot_configs
+                .get(player_id)
+                .map(|s| s.as_str())
+                .unwrap_or("ai");
             match player_type {
                 "human" => {
                     engine.add_player(player_id.clone(), ActionKind::Human, starting_chips);

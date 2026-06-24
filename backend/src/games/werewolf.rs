@@ -72,7 +72,11 @@ impl GameFactory for WerewolfFactory {
 
         // Iterate over `input.slots` so players are added to `engine.players` in the correct seat order
         for slot_name in &input.slots {
-            let role_type = input.slot_configs.get(slot_name).map(|s| s.as_str()).unwrap_or("ai");
+            let role_type = input
+                .slot_configs
+                .get(slot_name)
+                .map(|s| s.as_str())
+                .unwrap_or("ai");
             let role = roles_pool.pop().unwrap_or(WerewolfRole::Villager);
 
             match role_type {

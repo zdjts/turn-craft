@@ -104,6 +104,14 @@ impl AiWorker {
                 }
                 Ok(Err(game_error)) => {
                     tracing::warn!(actor_id = %task.actor_id, error = %game_error, "AI 动作被游戏引擎拒绝");
+                    if game_error == "Game is over" {
+                        tracing::error!("游戏已结束，放弃 AI 动作");
+                        return Err("Game is over".into());
+                    }
+                    if game_error.contains("Not your turn") || game_error.contains("Dead players cannot act") || game_error.contains("游戏还未开始") {
+                        tracing::warn!("引擎状态已变化，不再重试: {}", game_error);
+                        return Err(game_error);
+                    }
                     if task.retries < max_retries {
                         task.retries += 1;
                         if let Some(arr) = messages_json.as_array_mut() {

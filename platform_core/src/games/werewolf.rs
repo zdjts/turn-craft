@@ -57,6 +57,8 @@ pub struct WerewolfEngine {
 
     // Night temp state
     pub wolf_votes: HashMap<String, String>, // voter -> target
+    #[serde(default)]
+    pub wolf_chat_count: usize,
     pub night_kill_target: Option<String>,
     pub night_poison_target: Option<String>,
     pub witch_has_save: bool,
@@ -80,6 +82,7 @@ impl WerewolfEngine {
             history: Vec::new(),
 
             wolf_votes: HashMap::new(),
+            wolf_chat_count: 0,
             night_kill_target: None,
             night_poison_target: None,
             witch_has_save: true,
@@ -108,6 +111,7 @@ impl WerewolfEngine {
 
     pub fn start(&mut self) -> Vec<EngineEvent> {
         self.phase = Phase::NightWolf;
+        self.wolf_chat_count = 0;
         self.history.push(HistoryEvent {
             day: self.day,
             phase: "system".to_string(),
@@ -352,6 +356,7 @@ impl GameEngine for WerewolfEngine {
 
         if action_type == "start" && self.phase == Phase::Init {
             self.phase = Phase::NightWolf;
+            self.wolf_chat_count = 0;
             self.history.push(HistoryEvent {
                 day: self.day,
                 phase: "Init".to_string(),
@@ -411,6 +416,7 @@ impl GameEngine for WerewolfEngine {
                 } else {
                     self.day += 1;
                     self.phase = Phase::NightWolf;
+                    self.wolf_chat_count = 0;
                     return Ok(self.trigger_next());
                 }
             }
@@ -426,19 +432,79 @@ impl GameEngine for WerewolfEngine {
                 if actor.role != WerewolfRole::Werewolf {
                     return Err(EngineError("Not your turn".into()));
                 }
-                if action_type != "kill" {
-                    return Err(EngineError("Invalid action".into()));
-                }
-                let t = target.ok_or(EngineError("Missing target".into()))?;
-                self.wolf_votes.insert(actor_id.to_string(), t);
 
                 let alive_wolves = self
                     .players
                     .iter()
                     .filter(|p| p.is_alive && p.role == WerewolfRole::Werewolf)
                     .count();
+
+                if action_type == "speak" {
+                    if alive_wolves <= 1 {
+                        return Err(EngineError("只剩一匹狼时不需要沟通，请直接选择击杀目标".into()));
+                    }
+                    if let Some(msg) = content {
+                        self.history.push(HistoryEvent {
+                            day: self.day,
+                            phase: "NightWolf".to_string(),
+                            actor_id: Some(actor_id.to_string()),
+                            action_type: "speak".to_string(),
+                            target: None,
+                            content: Some(msg),
+                            visibility: "wolves".to_string(),
+                        });
+                        self.wolf_chat_count += 1;
+                    }
+                } else if action_type == "kill" {
+                    let t = target.ok_or(EngineError("Missing target".into()))?;
+                    self.wolf_votes.insert(actor_id.to_string(), t);
+
+                    if let Some(msg) = content {
+                        self.history.push(HistoryEvent {
+                            day: self.day,
+                            phase: "NightWolf".to_string(),
+                            actor_id: Some(actor_id.to_string()),
+                            action_type: "speak".to_string(),
+                            target: None,
+                            content: Some(msg),
+                            visibility: "wolves".to_string(),
+                        });
+                    }
+                    self.wolf_chat_count += 1;
+                } else {
+                    return Err(EngineError("Invalid action".into()));
+                }
+
+                let max_wolf_chat = 15;
+                let mut should_advance = false;
+                let mut final_target = None;
+
                 if self.wolf_votes.len() == alive_wolves {
-                    let final_target = self.wolf_votes.values().next().cloned();
+                    // Check consensus
+                    let mut targets: Vec<&String> = self.wolf_votes.values().collect();
+                    targets.sort();
+                    targets.dedup();
+                    if targets.len() == 1 {
+                        should_advance = true;
+                        final_target = Some(targets[0].clone());
+                    }
+                }
+
+                if !should_advance && self.wolf_chat_count >= max_wolf_chat {
+                    should_advance = true;
+                    use rand::seq::IteratorRandom;
+                    let mut rng = rand::thread_rng();
+                    if !self.wolf_votes.is_empty() {
+                        final_target = self.wolf_votes.values().choose(&mut rng).cloned();
+                    } else {
+                        final_target = self.players.iter()
+                            .filter(|p| p.is_alive)
+                            .map(|p| p.id.clone())
+                            .choose(&mut rng);
+                    }
+                }
+
+                if should_advance {
                     self.night_kill_target = final_target.clone();
 
                     self.history.push(HistoryEvent {
@@ -452,7 +518,16 @@ impl GameEngine for WerewolfEngine {
                     });
 
                     self.wolf_votes.clear();
+                    self.wolf_chat_count = 0;
                     return Ok(self.next_night_phase());
+                } else {
+                    let mut events = Vec::new();
+                    for p in &self.players {
+                        if p.is_alive && p.role == WerewolfRole::Werewolf && p.kind == "Ai" && p.id != actor_id {
+                            events.push(EngineEvent::TriggerAi(p.id.clone()));
+                        }
+                    }
+                    return Ok(events);
                 }
             }
             Phase::NightSeer => {
@@ -491,6 +566,7 @@ impl GameEngine for WerewolfEngine {
                     if !self.witch_has_save {
                         return Err(EngineError("No save potion".into()));
                     }
+                    let saved_target = self.night_kill_target.clone();
                     self.night_kill_target = None;
                     self.witch_has_save = false;
                     self.history.push(HistoryEvent {
@@ -498,7 +574,7 @@ impl GameEngine for WerewolfEngine {
                         phase: "NightWitch".to_string(),
                         actor_id: Some(actor_id.to_string()),
                         action_type: "witch_save".to_string(),
-                        target: None,
+                        target: saved_target,
                         content: None,
                         visibility: "witch".to_string(),
                     });
@@ -665,6 +741,7 @@ impl GameEngine for WerewolfEngine {
 
                     self.day += 1;
                     self.phase = Phase::NightWolf;
+                    self.wolf_chat_count = 0;
                     return Ok(self.trigger_next());
                 }
             }
@@ -715,6 +792,7 @@ impl GameEngine for WerewolfEngine {
                 } else {
                     self.day += 1;
                     self.phase = Phase::NightWolf;
+                    self.wolf_chat_count = 0;
                 }
                 return Ok(self.trigger_next());
             }
@@ -859,7 +937,7 @@ impl GameEngine for WerewolfEngine {
         // 2. 构造专属人设 (Role instruction)
         let role_instruction = match role_opt {
             Some(WerewolfRole::Werewolf) => {
-                "你是【狼人】。每晚你需要和另一只狼人队友统一意见杀人。白天如果局势不利，你可以选择'自爆'（直接结束白天进入黑夜）。请隐藏好自己的身份，发言时伪装成好人。"
+                "你是【狼人】。每晚你可以使用`speak`动作和另一只狼人队友在隐秘的狼队频道进行战术交流。商量好后，所有狼人必须使用`kill`动作投票给*同一个人*才能达成一致进行击杀（或者你们也可以在一次`kill`中顺便使用`content`字段附带交流信息）。如果长时间无法达成一致，系统将强制随机选定一人。白天如果局势不利，你可以选择'自爆'（直接结束白天进入黑夜）。请隐藏好自己的身份，发言时伪装成好人。"
             }
             Some(WerewolfRole::Seer) => {
                 "你是【预言家】。每晚你可以查验一名玩家的身份（好人或狼人）。白天你需要通过发言带领好人阵营投票出狼人。"

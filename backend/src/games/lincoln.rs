@@ -62,7 +62,11 @@ impl GameFactory for LincolnFactory {
         let mut ai_configs = HashMap::new();
 
         for role_name in &input.slots {
-            let role_type = input.slot_configs.get(role_name).map(|s| s.as_str()).unwrap_or("ai");
+            let role_type = input
+                .slot_configs
+                .get(role_name)
+                .map(|s| s.as_str())
+                .unwrap_or("ai");
             let capitalized = capitalize(role_name);
             let debate_role = match role_map.get(capitalized.as_str()) {
                 Some(r) => *r,

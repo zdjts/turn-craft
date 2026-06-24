@@ -285,7 +285,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
             }
 
             // ── 操作面板 ──
-            div { class: if (is_my_turn && !is_finished) || phase_name == "Init" || (phase_name == "DayVote" && my_alive) { "action-console" } else { "action-console locked" },
+            div { class: if (is_my_turn && !is_finished) || phase_name == "Init" || (phase_name == "DayVote" && my_alive) || (phase_name == "NightWolf" && my_role == "Werewolf" && my_alive) { "action-console" } else { "action-console locked" },
                 if phase_name == "Init" {
                     div { class: "console-row", style: "justify-content: center;",
                         button {
@@ -361,15 +361,43 @@ pub fn WerewolfActionPanel(
     rsx! {
         div { class: "console-row", style: "flex-wrap: wrap; gap: 10px;",
             if phase_name == "NightWolf" && my_role == "Werewolf" {
-                span { class: "console-hint", "🐺 选择击杀目标: " }
-                for target in alive_players {
-                    button {
-                        class: "console-submit",
-                        style: "background: var(--red);",
-                        onclick: move |_| {
-                            on_action.call(serde_json::json!({ "action_type": "kill", "target": target }));
-                        },
-                        "杀 {target}"
+                textarea {
+                    class: "console-textarea",
+                    placeholder: "狼队频道：输入战术沟通（按回车发送，或输入后直接点击下方杀人按钮同时发送）...",
+                    value: "{text_input}",
+                    style: "width: 100%; margin-bottom: 10px;",
+                    oninput: move |e| text_input.set(e.value()),
+                    onkeydown: move |e: Event<KeyboardData>| {
+                        if e.key() == Key::Enter {
+                            if e.modifiers().ctrl() {
+                                text_input.write().push('\n');
+                            } else {
+                                let content = text_input.read().trim().to_string();
+                                if !content.is_empty() {
+                                    on_action.call(serde_json::json!({ "action_type": "speak", "content": content }));
+                                    text_input.write().clear();
+                                }
+                            }
+                        }
+                    },
+                }
+                div { style: "width: 100%; display: flex; flex-wrap: wrap; gap: 10px;",
+                    span { class: "console-hint", "🐺 选择击杀目标: " }
+                    for target in alive_players {
+                        button {
+                            class: "console-submit",
+                            style: "background: var(--red);",
+                            onclick: move |_| {
+                                let content = text_input.read().trim().to_string();
+                                if content.is_empty() {
+                                    on_action.call(serde_json::json!({ "action_type": "kill", "target": target }));
+                                } else {
+                                    on_action.call(serde_json::json!({ "action_type": "kill", "target": target, "content": content }));
+                                    text_input.write().clear();
+                                }
+                            },
+                            "杀 {target}"
+                        }
                     }
                 }
             } else if phase_name == "NightSeer" && my_role == "Seer" {
