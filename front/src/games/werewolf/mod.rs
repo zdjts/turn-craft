@@ -153,11 +153,11 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                                     let id = p.get("id").and_then(|i| i.as_str()).unwrap_or("");
                                     let alive = p.get("is_alive").and_then(|a| a.as_bool()).unwrap_or(false);
                                     let known_role = p.get("role").and_then(|r| r.as_str());
-                                    
+
                                     let op = if alive { "1.0" } else { "0.4" };
                                     let txt_color = if alive { "var(--text-primary)" } else { "var(--text-muted)" };
                                     let mut bg = if alive { "var(--accent-dim)" } else { "transparent" };
-                                    
+
                                     // Highlight self or known wolf teammates
                                     if id == my_id {
                                         bg = "rgba(255, 215, 0, 0.2)"; // Gold for self
@@ -230,7 +230,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
 
                 if is_finished {
                     div { class: "showdown-panel", style: "margin-top: 20px;",
-                        div { class: "showdown-title", 
+                        div { class: "showdown-title",
                             if let Some(winner) = state.get("phase").and_then(|p| p.get("GameOver")).and_then(|g| g.as_str()) {
                                 if winner == "Wolves" { "🐺 狼人阵营胜利！" } else { "🧑‍🌾 好人阵营胜利！" }
                             } else {
@@ -247,10 +247,10 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                                             let role = p.get("role").and_then(|r| r.as_str()).unwrap_or("未知");
                                             let alive = p.get("is_alive").and_then(|a| a.as_bool()).unwrap_or(false);
                                             let winner_side = state.get("phase").and_then(|ph| ph.get("GameOver")).and_then(|g| g.as_str()).unwrap_or("");
-                                            
+
                                             let is_wolf = role == "Werewolf";
                                             let is_winner = (winner_side == "Wolves" && is_wolf) || (winner_side == "Humans" && !is_wolf);
-                                            
+
                                             rsx! {
                                                 div {
                                                     class: if is_winner { "showdown-player winner" } else { "showdown-player" },
@@ -266,7 +266,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                                                             _ => "❓",
                                                         }
                                                     }
-                                                    div { class: "showdown-rank", 
+                                                    div { class: "showdown-rank",
                                                         "{role}"
                                                         if !alive { " (阵亡)" }
                                                     }

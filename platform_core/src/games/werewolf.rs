@@ -349,6 +349,21 @@ impl GameEngine for WerewolfEngine {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
+
+        if action_type == "start" && self.phase == Phase::Init {
+            self.phase = Phase::NightWolf;
+            self.history.push(HistoryEvent {
+                day: self.day,
+                phase: "Init".to_string(),
+                actor_id: Some(actor_id.to_string()),
+                action_type: "start".to_string(),
+                target: None,
+                content: Some("游戏开始，天黑请闭眼。狼人请行动。".to_string()),
+                visibility: "public".to_string(),
+            });
+            return Ok(self.trigger_next());
+        }
+
         let target = parsed_action
             .get("target")
             .and_then(|v| v.as_str())
@@ -378,7 +393,7 @@ impl GameEngine for WerewolfEngine {
                     day: self.day,
                     phase: "Day".to_string(),
                     actor_id: Some(actor_id.to_string()),
-                    action_type: "explode".to_string(),
+                    action_type: "wolf_explode".to_string(),
                     target: None,
                     content: Some("自爆".to_string()),
                     visibility: "public".to_string(),
@@ -404,19 +419,8 @@ impl GameEngine for WerewolfEngine {
         let current_phase = self.phase.clone();
         match current_phase {
             Phase::Init => {
-                if action_type == "start" {
-                    self.phase = Phase::NightWolf;
-                    self.history.push(HistoryEvent {
-                        day: self.day,
-                        phase: "Init".to_string(),
-                        actor_id: Some(actor_id.to_string()),
-                        action_type: "start".to_string(),
-                        target: None,
-                        content: Some("游戏开始，天黑请闭眼。狼人请行动。".to_string()),
-                        visibility: "public".to_string(),
-                    });
-                    return Ok(self.trigger_next());
-                }
+                // Should not happen since start is handled above, but if it does, return an error
+                return Err(EngineError("游戏还未开始，或者已经被开始".into()));
             }
             Phase::NightWolf => {
                 if actor.role != WerewolfRole::Werewolf {
@@ -467,7 +471,7 @@ impl GameEngine for WerewolfEngine {
                         day: self.day,
                         phase: "NightSeer".to_string(),
                         actor_id: Some(actor_id.to_string()),
-                        action_type: "check_result".to_string(),
+                        action_type: "seer_check".to_string(),
                         target: Some(t),
                         content: Some(if is_wolf {
                             "狼人".to_string()
@@ -493,7 +497,7 @@ impl GameEngine for WerewolfEngine {
                         day: self.day,
                         phase: "NightWitch".to_string(),
                         actor_id: Some(actor_id.to_string()),
-                        action_type: "save".to_string(),
+                        action_type: "witch_save".to_string(),
                         target: None,
                         content: None,
                         visibility: "witch".to_string(),
@@ -509,7 +513,7 @@ impl GameEngine for WerewolfEngine {
                         day: self.day,
                         phase: "NightWitch".to_string(),
                         actor_id: Some(actor_id.to_string()),
-                        action_type: "poison".to_string(),
+                        action_type: "witch_poison".to_string(),
                         target: Some(t),
                         content: None,
                         visibility: "witch".to_string(),
@@ -519,7 +523,7 @@ impl GameEngine for WerewolfEngine {
                         day: self.day,
                         phase: "NightWitch".to_string(),
                         actor_id: Some(actor_id.to_string()),
-                        action_type: "skip".to_string(),
+                        action_type: "witch_skip".to_string(),
                         target: None,
                         content: None,
                         visibility: "witch".to_string(),
@@ -676,7 +680,7 @@ impl GameEngine for WerewolfEngine {
                         day: self.day,
                         phase: "DayHunterShoot".to_string(),
                         actor_id: Some(actor_id.to_string()),
-                        action_type: "shoot".to_string(),
+                        action_type: "hunter_shoot".to_string(),
                         target: Some(t),
                         content: None,
                         visibility: "public".to_string(),
@@ -695,7 +699,7 @@ impl GameEngine for WerewolfEngine {
                         day: self.day,
                         phase: "DayHunterShoot".to_string(),
                         actor_id: Some(actor_id.to_string()),
-                        action_type: "skip_shoot".to_string(),
+                        action_type: "hunter_skip".to_string(),
                         target: None,
                         content: None,
                         visibility: "public".to_string(),

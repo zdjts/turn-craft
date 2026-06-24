@@ -134,6 +134,14 @@ pub fn use_ws_bridge(room_id: &str, actor_id: &str) -> WsBridge {
                                             }
                                         }
 
+                                        if let Some(err_msg) = v.get("error").and_then(|e| e.as_str()) {
+                                            warn!(target: "ws::downstream", error = err_msg, "收到动作执行失败错误");
+                                            if let Some(window) = web_sys::window() {
+                                                let _ = window.alert_with_message(&format!("操作失败: {}", err_msg));
+                                            }
+                                            continue;
+                                        }
+
                                         let game_type = v.get("game_type").and_then(|g| g.as_str()).unwrap_or("?");
                                         let players_count = v.get("players").and_then(|p| p.as_array()).map(|a| a.len()).unwrap_or(0);
                                         let active = v.get("active_player")
