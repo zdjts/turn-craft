@@ -65,10 +65,17 @@ impl GameFactory for WerewolfFactory {
             WerewolfRole::Villager,
         ];
 
-        for (slot_name, role_type) in &input.slot_configs {
+        // Shuffle the roles so they are randomly assigned
+        use rand::seq::SliceRandom;
+        let mut rng = rand::thread_rng();
+        roles_pool.shuffle(&mut rng);
+
+        // Iterate over `input.slots` so players are added to `engine.players` in the correct seat order
+        for slot_name in &input.slots {
+            let role_type = input.slot_configs.get(slot_name).map(|s| s.as_str()).unwrap_or("ai");
             let role = roles_pool.pop().unwrap_or(WerewolfRole::Villager);
 
-            match role_type.as_str() {
+            match role_type {
                 "human" => {
                     let actor_id = if slot_name == &input.my_slot {
                         input.my_slot.clone()

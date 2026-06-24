@@ -61,14 +61,15 @@ impl GameFactory for LincolnFactory {
             .unwrap_or_default();
         let mut ai_configs = HashMap::new();
 
-        for (role_name, role_type) in &input.slot_configs {
+        for role_name in &input.slots {
+            let role_type = input.slot_configs.get(role_name).map(|s| s.as_str()).unwrap_or("ai");
             let capitalized = capitalize(role_name);
             let debate_role = match role_map.get(capitalized.as_str()) {
                 Some(r) => *r,
                 None => continue,
             };
 
-            match role_type.as_str() {
+            match role_type {
                 "human" => {
                     let actor_id = if role_name == &input.my_slot {
                         input.my_slot.clone()
