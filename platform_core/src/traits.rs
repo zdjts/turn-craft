@@ -5,6 +5,21 @@ pub enum ActionKind {
     Human,
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Default, Clone, Debug)]
+pub struct TokenUsage {
+    pub prompt_tokens: u64,
+    pub completion_tokens: u64,
+    pub cached_tokens: u64,
+}
+
+impl TokenUsage {
+    pub fn accumulate(&mut self, other: &TokenUsage) {
+        self.prompt_tokens += other.prompt_tokens;
+        self.completion_tokens += other.completion_tokens;
+        self.cached_tokens += other.cached_tokens;
+    }
+}
+
 /// 游戏角色约束：可序列化 + 可比较 + 线程安全
 pub trait GameRole: serde::Serialize + Clone + Send + Sync + Eq + PartialEq {}
 

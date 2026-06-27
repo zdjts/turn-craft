@@ -25,7 +25,7 @@ pub async fn request_speech(
     config: &AiConfig,
     messages: String,
     tools: Option<&Value>,
-) -> Result<Value, AiClientError> {
+) -> Result<(Value, Option<platform_core::traits::TokenUsage>), AiClientError> {
     let messages_json: Value = serde_json::from_str(&messages).map_err(|e| {
         error!(error = %e, "入参 messages 字符串解析为 JSON 失败");
         AiClientError::Parse(format!("入参格式错误: {e}"))
@@ -89,11 +89,39 @@ pub async fn request_speech(
         })?
         .clone();
 
-    info!(
-        elapsed_ms = %elapsed_ms,
-        has_tool_calls = message.get("tool_calls").is_some(),
-        "AI 响应解析成功"
-    );
+    let usage_val = response.get("usage");
+    let token_usage = usage_val.map(|u| {
+        let prompt_tokens = u.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+        let completion_tokens = u.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+        
+        let cached_tokens = u.get("prompt_tokens_details")
+            .and_then(|d| d.get("cached_tokens"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
 
-    Ok(message)
+        platform_core::traits::TokenUsage {
+            prompt_tokens,
+            completion_tokens,
+            cached_tokens,
+        }
+    });
+
+    if let Some(usage) = &token_usage {
+        info!(
+            elapsed_ms = %elapsed_ms,
+            has_tool_calls = message.get("tool_calls").is_some(),
+            prompt_tokens = usage.prompt_tokens,
+            completion_tokens = usage.completion_tokens,
+            cached_tokens = usage.cached_tokens,
+            "AI 响应解析成功"
+        );
+    } else {
+        info!(
+            elapsed_ms = %elapsed_ms,
+            has_tool_calls = message.get("tool_calls").is_some(),
+            "AI 响应解析成功（未获取到 Token 信息）"
+        );
+    }
+
+    Ok((message, token_usage))
 }

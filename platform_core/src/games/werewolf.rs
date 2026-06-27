@@ -70,6 +70,8 @@ pub struct WerewolfEngine {
     pub day_votes: HashMap<String, Option<String>>, // voter -> target
     pub pk_players: Option<Vec<String>>,            // if tie
     pub last_dead: Vec<String>,                     // to determine start of speech
+    #[serde(default)]
+    pub token_usage: crate::traits::TokenUsage,
 }
 
 impl WerewolfEngine {
@@ -93,6 +95,7 @@ impl WerewolfEngine {
             day_votes: HashMap::new(),
             pk_players: None,
             last_dead: Vec::new(),
+            token_usage: Default::default(),
         }
     }
 
@@ -144,6 +147,26 @@ impl WerewolfEngine {
         None
     }
 
+    fn apply_game_over(&mut self, winner: String) {
+        self.phase = Phase::GameOver(winner.clone());
+        let summary = format!(
+            "游戏结束！{} 阵营获胜。本局 AI 消耗总计: Prompt Tokens: {}, Completion Tokens: {}, Cached Tokens: {}",
+            if winner == "Wolves" { "狼人" } else { "好人" },
+            self.token_usage.prompt_tokens,
+            self.token_usage.completion_tokens,
+            self.token_usage.cached_tokens
+        );
+        self.history.push(HistoryEvent {
+            day: self.day,
+            phase: "GameOver".to_string(),
+            actor_id: None,
+            action_type: "game_over".to_string(),
+            target: None,
+            content: Some(summary),
+            visibility: "public".to_string(),
+        });
+    }
+
     fn get_alive_players(&self) -> Vec<String> {
         self.players
             .iter()
@@ -164,7 +187,7 @@ impl WerewolfEngine {
 
     fn next_night_phase(&mut self) -> Vec<EngineEvent> {
         if let Some(winner) = self.check_win() {
-            self.phase = Phase::GameOver(winner);
+            self.apply_game_over(winner);
             return vec![EngineEvent::GameOver];
         }
 
@@ -233,7 +256,7 @@ impl WerewolfEngine {
         });
 
         if let Some(winner) = self.check_win() {
-            self.phase = Phase::GameOver(winner);
+            self.apply_game_over(winner);
             return vec![EngineEvent::GameOver];
         }
 
@@ -407,7 +430,7 @@ impl GameEngine for WerewolfEngine {
                 self.die(actor_id, false);
 
                 if let Some(winner) = self.check_win() {
-                    self.phase = Phase::GameOver(winner);
+                    self.apply_game_over(winner);
                     return Ok(vec![EngineEvent::GameOver]);
                 }
 
@@ -423,6 +446,13 @@ impl GameEngine for WerewolfEngine {
         }
 
         let current_phase = self.phase.clone();
+        
+        if let Some(usage_val) = action.get("_token_usage") {
+            if let Ok(usage) = serde_json::from_value::<crate::traits::TokenUsage>(usage_val.clone()) {
+                self.token_usage.accumulate(&usage);
+            }
+        }
+
         match current_phase {
             Phase::Init => {
                 // Should not happen since start is handled above, but if it does, return an error
@@ -512,8 +542,8 @@ impl GameEngine for WerewolfEngine {
                         phase: "NightWolf".to_string(),
                         actor_id: None,
                         action_type: "wolf_kill".to_string(),
-                        target: final_target,
-                        content: None,
+                        target: final_target.clone(),
+                        content: Some(format!("最终决议：击杀 {}", final_target.as_deref().unwrap_or("无"))),
                         visibility: "wolves".to_string(),
                     });
 
@@ -574,8 +604,8 @@ impl GameEngine for WerewolfEngine {
                         phase: "NightWitch".to_string(),
                         actor_id: Some(actor_id.to_string()),
                         action_type: "witch_save".to_string(),
-                        target: saved_target,
-                        content: None,
+                        target: saved_target.clone(),
+                        content: Some(format!("使用了【解药】救活 {}", saved_target.as_deref().unwrap_or("无"))),
                         visibility: "witch".to_string(),
                     });
                 } else if action_type == "poison" {
@@ -590,8 +620,8 @@ impl GameEngine for WerewolfEngine {
                         phase: "NightWitch".to_string(),
                         actor_id: Some(actor_id.to_string()),
                         action_type: "witch_poison".to_string(),
-                        target: Some(t),
-                        content: None,
+                        target: Some(t.clone()),
+                        content: Some(format!("使用了【毒药】毒杀 {}", t)),
                         visibility: "witch".to_string(),
                     });
                 } else if action_type == "skip" {
@@ -601,7 +631,7 @@ impl GameEngine for WerewolfEngine {
                         actor_id: Some(actor_id.to_string()),
                         action_type: "witch_skip".to_string(),
                         target: None,
-                        content: None,
+                        content: Some("放弃使用药水".to_string()),
                         visibility: "witch".to_string(),
                     });
                 } else {
@@ -661,7 +691,27 @@ impl GameEngine for WerewolfEngine {
                             vote_details.push(format!("{} 弃权", voter));
                         }
                     }
-                    let vote_str = vote_details.join("，");
+                    let mut max_votes = 0;
+                    let mut max_targets = Vec::new();
+                    for (t, count) in &vote_counts {
+                        if *count > max_votes {
+                            max_votes = *count;
+                            max_targets = vec![t.clone()];
+                        } else if *count == max_votes {
+                            max_targets.push(t.clone());
+                        }
+                    }
+
+                    let mut vote_str = vote_details.join("，");
+                    if max_votes > 0 {
+                        if max_targets.len() == 1 {
+                            vote_str.push_str(&format!("。结果：{} 被投出（{}票）", max_targets[0], max_votes));
+                        } else {
+                            vote_str.push_str(&format!("。结果：{} 平票（各{}票）", max_targets.join(" 与 "), max_votes));
+                        }
+                    } else {
+                        vote_str.push_str("。结果：全员弃权");
+                    }
 
                     self.history.push(HistoryEvent {
                         day: self.day,
@@ -672,17 +722,6 @@ impl GameEngine for WerewolfEngine {
                         content: Some(format!("投票明细：{}", vote_str)),
                         visibility: "public".to_string(),
                     });
-
-                    let mut max_votes = 0;
-                    let mut max_targets = Vec::new();
-                    for (t, count) in vote_counts {
-                        if count > max_votes {
-                            max_votes = count;
-                            max_targets = vec![t];
-                        } else if count == max_votes {
-                            max_targets.push(t);
-                        }
-                    }
 
                     if max_targets.len() == 1 {
                         let out_id = max_targets[0].clone();
@@ -700,7 +739,7 @@ impl GameEngine for WerewolfEngine {
                         self.pk_players = None;
 
                         if let Some(winner) = self.check_win() {
-                            self.phase = Phase::GameOver(winner);
+                            self.apply_game_over(winner);
                             return Ok(vec![EngineEvent::GameOver]);
                         }
 
@@ -715,7 +754,7 @@ impl GameEngine for WerewolfEngine {
                                 actor_id: None,
                                 action_type: "tie_no_out".to_string(),
                                 target: None,
-                                content: None,
+                                content: Some("经过 PK 投票依然平票，本轮无人出局。".to_string()),
                                 visibility: "public".to_string(),
                             });
                             self.pk_players = None;
@@ -758,8 +797,8 @@ impl GameEngine for WerewolfEngine {
                         phase: "DayHunterShoot".to_string(),
                         actor_id: Some(actor_id.to_string()),
                         action_type: "hunter_shoot".to_string(),
-                        target: Some(t),
-                        content: None,
+                        target: Some(t.clone()),
+                        content: Some(format!("开枪带走了 {}", t)),
                         visibility: "public".to_string(),
                     });
 
@@ -768,7 +807,7 @@ impl GameEngine for WerewolfEngine {
                     }
 
                     if let Some(winner) = self.check_win() {
-                        self.phase = Phase::GameOver(winner);
+                        self.apply_game_over(winner);
                         return Ok(vec![EngineEvent::GameOver]);
                     }
                 } else if action_type == "skip" {
@@ -778,7 +817,7 @@ impl GameEngine for WerewolfEngine {
                         actor_id: Some(actor_id.to_string()),
                         action_type: "hunter_skip".to_string(),
                         target: None,
-                        content: None,
+                        content: Some("选择不发动技能，压枪不射".to_string()),
                         visibility: "public".to_string(),
                     });
                 } else {
@@ -830,6 +869,7 @@ impl GameEngine for WerewolfEngine {
             if !phase_hint.is_empty() {
                 obj.insert("phase_hint".to_string(), Value::String(phase_hint));
             }
+            obj.insert("token_usage".to_string(), serde_json::to_value(&self.token_usage).unwrap_or(Value::Null));
         }
         v
     }

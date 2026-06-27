@@ -53,12 +53,17 @@ impl AiWorker {
             )
             .await
             {
-                Ok(response) => {
+                Ok((mut response, token_usage)) => {
                     tracing::info!(
                         actor_id = %task.actor_id,
                         response = %response,
                         "<<< AI 返回的完整回复"
                     );
+                    if let Some(usage) = token_usage {
+                        if let Some(obj) = response.as_object_mut() {
+                            obj.insert("_token_usage".to_string(), serde_json::to_value(usage).unwrap_or_default());
+                        }
+                    }
                     response
                 }
                 Err(e) => {
