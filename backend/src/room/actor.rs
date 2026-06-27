@@ -19,6 +19,12 @@ pub enum SideEffect {
     RoomEmpty,
     /// 有玩家加入（可能为重连）
     PeerJoined,
+    /// AI 流式输出的增量片段 — 由 AiWorker 发送
+    StreamChunk {
+        actor_id: String,
+        content: String,
+        is_done: bool,
+    },
 }
 
 /// 启动房间 Actor — 纯游戏循环
@@ -141,11 +147,26 @@ pub fn spawn_game_room(
                     }
                 }
                 RoomCommand::Shutdown => {
-                    info!(room_id = %room_id, "收到 Shutdown 命令");
-                    for p in &peers {
-                        let _ = p.tx.send(r#"{"event":"room_closed"}"#.to_string()).await;
-                    }
+                    tracing::info!(room_id = %room_id, "房间已主动销毁 (空闲超时)");
                     break;
+                }
+                RoomCommand::BroadcastStreamChunk { actor_id, content, is_done } => {
+                    let msg = if is_done {
+                        serde_json::json!({
+                            "type": "stream_done",
+                            "actor_id": actor_id,
+                        })
+                    } else {
+                        serde_json::json!({
+                            "type": "stream_chunk",
+                            "actor_id": actor_id,
+                            "content": content,
+                        })
+                    };
+                    let msg_str = msg.to_string();
+                    for p in &peers {
+                        let _ = p.tx.send(msg_str.clone()).await;
+                    }
                 }
             }
         }

@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use super::GamePluginProps;
+use crate::services::websocket::WsBridge;
 use crate::games::registry::GameConfigProps;
 
 #[component]
@@ -225,6 +226,40 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                                 }
                             }
                         }
+                    }
+                }
+
+                // ── 流式输出气泡 (AI 正在发言中) ──
+                {
+                    let bridge = use_context::<WsBridge>();
+                    let streaming = bridge.streaming_text.read();
+                    let active_actor = state.get("active_actor").and_then(|v| v.as_str());
+                    let streaming_entry = active_actor
+                        .and_then(|active_id| {
+                            streaming.get(active_id).map(|text| (active_id.to_string(), text.clone()))
+                        });
+                    if let Some((active_id, text)) = streaming_entry {
+                        if !text.is_empty() {
+                            rsx! {
+                                div { class: "bubble-row streaming-bubble",
+                                    div { class: "bubble-avatar pro", "👤" }
+                                    div { class: "bubble-body",
+                                        div { class: "bubble-meta",
+                                            span { class: "bubble-name", "{active_id}" }
+                                            span { class: "streaming-indicator", "⏳ 生成中..." }
+                                        }
+                                        div { class: "bubble-content",
+                                            "{text}"
+                                            span { class: "cursor-blink", "█" }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            rsx! {}
+                        }
+                    } else {
+                        rsx! {}
                     }
                 }
 

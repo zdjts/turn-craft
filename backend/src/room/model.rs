@@ -24,6 +24,12 @@ pub enum RoomCommand {
     Join(Peer),
     Leave(String),
     Shutdown,
+    /// 广播流式 chunk 到所有已连接的 WebSocket peer
+    BroadcastStreamChunk {
+        actor_id: String,
+        content: String,
+        is_done: bool,
+    },
 }
 
 impl std::fmt::Debug for RoomCommand {
@@ -40,6 +46,11 @@ impl std::fmt::Debug for RoomCommand {
             Self::Join(arg0) => f.debug_tuple("Join").field(arg0).finish(),
             Self::Leave(arg0) => f.debug_tuple("Leave").field(arg0).finish(),
             Self::Shutdown => write!(f, "Shutdown"),
+            Self::BroadcastStreamChunk { actor_id, is_done, .. } => f
+                .debug_struct("BroadcastStreamChunk")
+                .field("actor_id", actor_id)
+                .field("is_done", is_done)
+                .finish(),
         }
     }
 }
@@ -53,6 +64,8 @@ pub struct AiTask {
     pub ai_config: AiConfig,
     pub tools: Option<Value>,
     pub retries: u32,
+    /// SideEffect 通道 — 用于从 AiWorker 发送流式 chunk 到 EffectHandler
+    pub effect_tx: mpsc::Sender<super::actor::SideEffect>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -2,8 +2,9 @@ use reqwest::Client;
 use tracing::error;
 
 use crate::{
-    ai::client::request_speech,
+    ai::client::{request_speech, request_speech_stream, StreamDelta},
     room::model::{AiTask, RoomCommand},
+    room::actor::SideEffect,
 };
 
 use super::env::build_messages;
@@ -45,19 +46,57 @@ impl AiWorker {
                 ">>> 发送给 AI 的完整内容"
             );
 
-            let ai_response = match request_speech(
+            // 创建流式 delta 通道
+            let (delta_tx, mut delta_rx) = tokio::sync::mpsc::channel::<StreamDelta>(256);
+            let effect_tx = task.effect_tx.clone();
+            let actor_id_for_forwarder = task.actor_id.clone();
+
+            // 启动转发任务: StreamDelta → SideEffect::StreamChunk
+            let forwarder = tokio::spawn(async move {
+                while let Some(delta) = delta_rx.recv().await {
+                    match delta {
+                        StreamDelta::Content(text) => {
+                            let _ = effect_tx.send(SideEffect::StreamChunk {
+                                actor_id: actor_id_for_forwarder.clone(),
+                                content: text,
+                                is_done: false,
+                            }).await;
+                        }
+                        StreamDelta::ToolCallArgDelta(text) => {
+                            let _ = effect_tx.send(SideEffect::StreamChunk {
+                                actor_id: actor_id_for_forwarder.clone(),
+                                content: text,
+                                is_done: false,
+                            }).await;
+                        }
+                        StreamDelta::Done => {
+                            let _ = effect_tx.send(SideEffect::StreamChunk {
+                                actor_id: actor_id_for_forwarder.clone(),
+                                content: String::new(),
+                                is_done: true,
+                            }).await;
+                        }
+                    }
+                }
+            });
+
+            let ai_response = match request_speech_stream(
                 &http,
                 &config,
                 messages_json.to_string(),
                 task.tools.as_ref(),
+                delta_tx,
             )
             .await
             {
                 Ok((mut response, token_usage)) => {
+                    // 等待转发任务结束
+                    let _ = forwarder.await;
+
                     tracing::info!(
                         actor_id = %task.actor_id,
                         response = %response,
-                        "<<< AI 返回的完整回复"
+                        "<<< AI 返回的完整回复 (stream)"
                     );
                     if let Some(usage) = token_usage {
                         if let Some(obj) = response.as_object_mut() {
@@ -67,7 +106,16 @@ impl AiWorker {
                     response
                 }
                 Err(e) => {
-                    tracing::error!(actor_id = %task.actor_id, error = ?e, "请求 AI 接口发生错误");
+                    // 确保转发任务结束
+                    forwarder.abort();
+                    // 发送 stream_done 以便前端清理
+                    let _ = task.effect_tx.send(SideEffect::StreamChunk {
+                        actor_id: task.actor_id.clone(),
+                        content: String::new(),
+                        is_done: true,
+                    }).await;
+
+                    tracing::error!(actor_id = %task.actor_id, error = ?e, "请求 AI 接口发生错误 (stream)");
                     if task.retries < max_retries {
                         task.retries += 1;
                         if let Some(arr) = messages_json.as_array_mut() {

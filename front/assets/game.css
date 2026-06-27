@@ -555,3 +555,42 @@
   color: var(--text-muted);
   text-align: right;
 }
+
+/* ═══════════════ 流式输出效果 ═══════════════ */
+
+.streaming-bubble {
+    opacity: 0.95;
+}
+
+.streaming-bubble .bubble-content {
+    border-left: 3px solid var(--accent, #6366f1);
+    animation: streaming-pulse 2s ease-in-out infinite;
+}
+
+.streaming-indicator {
+    font-size: 0.75em;
+    color: var(--accent, #6366f1);
+    margin-left: 8px;
+    animation: streaming-fade 1.5s ease-in-out infinite;
+}
+
+.cursor-blink {
+    animation: blink 1s step-end infinite;
+    color: var(--accent, #6366f1);
+    font-weight: bold;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+@keyframes streaming-pulse {
+    0%, 100% { border-left-color: var(--accent, #6366f1); }
+    50% { border-left-color: transparent; }
+}
+
+@keyframes streaming-fade {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}

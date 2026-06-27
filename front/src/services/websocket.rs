@@ -11,6 +11,7 @@
 //!   fired through the WebSocket to Axum's `handle_socket` ingress loop.
 
 use dioxus::prelude::*;
+use std::collections::HashMap;
 use futures_util::{select, SinkExt, StreamExt};
 use gloo_net::websocket::{futures::WebSocket, Message};
 use serde_json::Value;
@@ -42,6 +43,9 @@ pub struct WsBridge {
 
     /// Coroutine handle for shooting commands upstream.
     pub tx: Coroutine<WsCommand>,
+    
+    /// 当前正在流式输出的文本 (key = actor_id, value = 已累积的文本)
+    pub streaming_text: Signal<HashMap<String, String>>,
 }
 
 impl WsBridge {
@@ -71,6 +75,7 @@ impl WsBridge {
 pub fn use_ws_bridge(room_id: &str, actor_id: &str) -> WsBridge {
     let mut connected = use_signal(|| false);
     let mut opaque_state = use_signal(|| Value::Null);
+    let mut streaming_text: Signal<HashMap<String, String>> = use_signal(|| HashMap::new());
 
     let room = room_id.to_owned();
     let actor = actor_id.to_owned();
@@ -118,20 +123,38 @@ pub fn use_ws_bridge(room_id: &str, actor_id: &str) -> WsBridge {
                             Some(Ok(Message::Text(text))) => {
                                 match serde_json::from_str::<Value>(&text) {
                                     Ok(v) => {
+                                        let msg_type = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
                                         // 检查是否是私密消息（如手牌）
-                                        if let Some(msg_type) = v.get("type").and_then(|t| t.as_str()) {
-                                            if msg_type == "your_hand" {
-                                                // 将手牌信息合并到当前状态
-                                                if let Some(hand) = v.get("hand") {
-                                                    let mut current = opaque_state.read().clone();
-                                                    if current.is_object() {
-                                                        current["your_hand"] = hand.clone();
-                                                        let _ = opaque_state.set(current);
-                                                        info!(target: "ws::downstream", "收到手牌私密消息，已合并到状态");
-                                                    }
+                                        if msg_type == "your_hand" {
+                                            // 将手牌信息合并到当前状态
+                                            if let Some(hand) = v.get("hand") {
+                                                let mut current = opaque_state.read().clone();
+                                                if current.is_object() {
+                                                    current["your_hand"] = hand.clone();
+                                                    let _ = opaque_state.set(current);
+                                                    info!(target: "ws::downstream", "收到手牌私密消息，已合并到状态");
                                                 }
-                                                continue;
                                             }
+                                            continue;
+                                        }
+
+                                        // 流式 chunk 处理
+                                        if msg_type == "stream_chunk" {
+                                            if let Some(actor_id) = v.get("actor_id").and_then(|a| a.as_str()) {
+                                                if let Some(content) = v.get("content").and_then(|c| c.as_str()) {
+                                                    streaming_text.write()
+                                                        .entry(actor_id.to_string())
+                                                        .or_default()
+                                                        .push_str(content);
+                                                }
+                                            }
+                                            continue;
+                                        }
+                                        if msg_type == "stream_done" {
+                                            if let Some(actor_id) = v.get("actor_id").and_then(|a| a.as_str()) {
+                                                debug!(target: "ws::downstream", actor_id = actor_id, "流式输出完成");
+                                            }
+                                            continue;
                                         }
 
                                         if let Some(err_msg) = v.get("error").and_then(|e| e.as_str()) {
@@ -150,6 +173,8 @@ pub fn use_ws_bridge(room_id: &str, actor_id: &str) -> WsBridge {
                                             .unwrap_or("?");
                                         info!(target: "ws::downstream", game_type, players_count, active, "收到状态快照");
                                         opaque_state.set(v);
+                                        // 完整状态到达后清除流式文本（已被 history 替代）
+                                        streaming_text.write().clear();
                                     }
                                     Err(e) => {
                                         // 可能是 error JSON 或 room_closed 事件
@@ -211,6 +236,7 @@ pub fn use_ws_bridge(room_id: &str, actor_id: &str) -> WsBridge {
         connected,
         opaque_state,
         tx,
+        streaming_text,
     };
     use_context_provider(|| bridge);
     bridge

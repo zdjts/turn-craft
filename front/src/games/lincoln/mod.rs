@@ -5,6 +5,7 @@ use tracing::{debug, info, warn};
 
 pub mod actions;
 use super::GamePluginProps;
+use crate::services::websocket::WsBridge;
 use actions::submit_litigation;
 
 // ═══════════════════════════════════════════════════════
@@ -107,6 +108,52 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
                             entry: entry.clone(),
                             is_ai: s.actors.iter().any(|a| a.id == entry.actor_id && a.kind.to_lowercase() == "ai"),
                             show_ai_content: *show_ai_content.read(),
+                        }
+                    }
+
+                    // ── 流式输出气泡 (AI 正在生成中) ──
+                    {
+                        let bridge = use_context::<WsBridge>();
+                        let streaming = bridge.streaming_text.read();
+                        // 找到当前 active_actor 是否有流式内容
+                        let streaming_entry = s.active_actor.as_ref()
+                            .and_then(|active_id| {
+                                streaming.get(active_id).map(|text| (active_id.clone(), text.clone()))
+                            });
+                        if let Some((active_id, text)) = streaming_entry {
+                            if !text.is_empty() {
+                                // 找到该 actor 的角色信息
+                                let actor_info = s.actors.iter().find(|a| a.id == active_id);
+                                let role_str = actor_info.map(|a| a.role.as_str()).unwrap_or("?");
+                                let (role_cls, icon, label) = match role_str {
+                                    "Judge" => ("judge", "👑", "裁判"),
+                                    "Pro" => ("pro", "🟢", "正方"),
+                                    "Con" => ("con", "🔴", "反方"),
+                                    _ => ("", "❓", "未知"),
+                                };
+                                rsx! {
+                                    div { class: "bubble-row streaming-bubble",
+                                        div { class: "bubble-avatar {role_cls}",
+                                            "{icon}"
+                                        }
+                                        div { class: "bubble-body",
+                                            div { class: "bubble-meta",
+                                                span { class: "bubble-name", "{active_id}" }
+                                                span { class: "bubble-tag {role_cls}", "{label}" }
+                                                span { class: "streaming-indicator", "⏳ 生成中..." }
+                                            }
+                                            div { class: "bubble-content {role_cls}",
+                                                "{text}"
+                                                span { class: "cursor-blink", "█" }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                rsx! {}
+                            }
+                        } else {
+                            rsx! {}
                         }
                     }
 

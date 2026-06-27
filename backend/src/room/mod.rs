@@ -94,8 +94,9 @@ impl RoomService {
 
         // 5. 启动 RoomActor + side effect handler
         let (effect_tx, effect_rx) = mpsc::channel::<SideEffect>(64);
+        let effect_tx_for_handler = effect_tx.clone();
         let room_tx = spawn_game_room(room_id.clone(), engine, effect_tx);
-        self.spawn_effect_handler(room_id.clone(), effect_rx);
+        self.spawn_effect_handler(room_id.clone(), effect_tx_for_handler, effect_rx);
         self.active_rooms.insert(room_id.clone(), room_tx);
 
         Ok(CreateRoomOutput {
@@ -104,7 +105,8 @@ impl RoomService {
         })
     }
 
-    fn spawn_effect_handler(&self, room_id: String, mut rx: mpsc::Receiver<SideEffect>) {
+    /// 启动单个房间的异步副作用处理任务 (保存历史、触发 AI)
+    fn spawn_effect_handler(&self, room_id: String, effect_tx: mpsc::Sender<SideEffect>, mut rx: mpsc::Receiver<SideEffect>) {
         let repo = self.room_repo.clone();
         let ai_repo = self.ai_config_repo.clone();
         let ai_tx = self.ai_worker_tx.clone();
@@ -133,6 +135,7 @@ impl RoomService {
                                             tools,
                                             retries: 0,
                                             reply_tx,
+                                            effect_tx: effect_tx.clone(),
                                         })
                                         .await;
                                 } else {
@@ -159,6 +162,15 @@ impl RoomService {
                     SideEffect::PeerJoined => {
                         tracing::info!(room_id = %room_id, "玩家加入/重连，停止保活监控");
                         supervisor.release(&room_id).await;
+                    }
+                    SideEffect::StreamChunk { actor_id, content, is_done } => {
+                        if let Some(room_tx) = active_rooms.get(&room_id) {
+                            let _ = room_tx.send(crate::room::model::RoomCommand::BroadcastStreamChunk {
+                                actor_id,
+                                content,
+                                is_done,
+                            }).await;
+                        }
                     }
                 }
             }
@@ -248,8 +260,9 @@ impl RoomService {
                     }
                 };
                 let (effect_tx, effect_rx) = mpsc::channel::<SideEffect>(64);
+                let effect_tx_for_handler = effect_tx.clone();
                 let room_tx = spawn_game_room(snap.room_id.clone(), engine, effect_tx);
-                self.spawn_effect_handler(snap.room_id.clone(), effect_rx);
+                self.spawn_effect_handler(snap.room_id.clone(), effect_tx_for_handler, effect_rx);
                 self.active_rooms
                     .insert(snap.room_id.clone(), room_tx.clone());
 

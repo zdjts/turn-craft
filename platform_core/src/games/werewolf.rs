@@ -667,14 +667,17 @@ impl GameEngine for WerewolfEngine {
                 if action_type != "vote" && action_type != "skip" {
                     return Err(EngineError("Must vote or skip".into()));
                 }
-                self.day_votes.insert(
-                    actor_id.to_string(),
-                    if action_type == "vote" {
-                        target.clone()
-                    } else {
-                        None
-                    },
-                );
+                let mut sanitized_target = None;
+                if action_type == "vote" {
+                    if let Some(t) = target {
+                        if t != "skip" && t != "none" && t != "null" && t != "" {
+                            if self.players.iter().any(|p| p.id == *t && p.is_alive) {
+                                sanitized_target = Some(t.clone());
+                            }
+                        }
+                    }
+                }
+                self.day_votes.insert(actor_id.to_string(), sanitized_target);
 
                 let alive_count = self.players.iter().filter(|p| p.is_alive).count();
                 if self.day_votes.len() == alive_count {
