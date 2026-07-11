@@ -2,7 +2,7 @@
    Turn Craft — Replay Page Styles
    ═══════════════════════════════════════════════════════ */
 
-.replay-container {
+.pg-replay {
   max-width: 900px;
   width: 100%;
   margin: 0 auto;
@@ -12,7 +12,7 @@
   gap: 28px;
 }
 
-.replay-details-layout {
+.pg-replay-detail {
   border-radius: 16px;
   padding: 32px;
   background: var(--glass-bg);
@@ -25,7 +25,7 @@
   gap: 28px;
 }
 
-.replay-meta-header {
+.pg-replay-meta-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -34,7 +34,7 @@
   border-bottom: 1px solid var(--border-dim);
 }
 
-.replay-meta-header .meta-badge {
+.pg-replay-meta-header .pg-replay-meta-badge {
   font-size: 13.5px;
   font-weight: 700;
   color: var(--accent);
@@ -44,13 +44,13 @@
   padding: 6px 14px;
 }
 
-.replay-meta-header .meta-item {
+.pg-replay-meta-header .pg-replay-meta-item {
   font-size: 13.5px;
   color: var(--text-secondary);
   font-family: "JetBrains Mono", monospace;
 }
 
-.replay-body {
+.pg-replay-body {
   flex: 1;
 }
 
@@ -61,14 +61,15 @@
   gap: 20px;
 }
 
-.replay-round-indicator {
+.pg-replay-round {
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-.replay-timeline {
+.pg-replay-timeline {
   max-height: 500px;
+  overflow-y: auto;
   border: 1px solid var(--border-dim);
   background: rgba(0, 0, 0, 0.1);
   border-radius: 12px;
@@ -88,7 +89,7 @@
   gap: 20px;
 }
 
-.texas-replay-stats .stat-card {
+.texas-replay-stats .pg-replay-stat {
   padding: 20px;
   border-radius: 12px;
   display: flex;
@@ -197,7 +198,7 @@
   gap: 10px;
 }
 
-.showdown-item {
+.pg-replay-showdown {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -209,7 +210,7 @@
   transition: var(--transition-smooth);
 }
 
-.showdown-item.winner {
+.pg-replay-showdown.winner {
   border-color: rgba(16, 185, 129, 0.35);
   background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%);
 }

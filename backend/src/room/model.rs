@@ -46,7 +46,9 @@ impl std::fmt::Debug for RoomCommand {
             Self::Join(arg0) => f.debug_tuple("Join").field(arg0).finish(),
             Self::Leave(arg0) => f.debug_tuple("Leave").field(arg0).finish(),
             Self::Shutdown => write!(f, "Shutdown"),
-            Self::BroadcastStreamChunk { actor_id, is_done, .. } => f
+            Self::BroadcastStreamChunk {
+                actor_id, is_done, ..
+            } => f
                 .debug_struct("BroadcastStreamChunk")
                 .field("actor_id", actor_id)
                 .field("is_done", is_done)

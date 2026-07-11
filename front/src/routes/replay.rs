@@ -32,29 +32,29 @@ pub fn Replay(room_id: String) -> Element {
     });
 
     rsx! {
-        div { class: "replay-container animate-fade-in",
+        div { class: "pg-replay animate-fade-in",
             div { class: "page-header",
                 div { class: "header-left",
                     h1 { "🎞️ 对局回放记录" }
                     p { "这里是该房间历史状态与局内对话的静态复盘记录。" }
                 }
                 button {
-                    class: "back-btn glass-panel-subtle",
+                    class: "pg-replay-back g-card-subtle",
                     onclick: move |_| { nav.push(super::Route::History {}); },
                     "⬅️ 返回历史列表"
                 }
             }
 
             if *loading.read() {
-                div { class: "loading-canvas glass-panel",
-                    span { class: "spinner" }
+                div { class: "pg-arena-loading g-card",
+                    span { class: "g-spinner" }
                     p { "正在读取对局记录..." }
                 }
             } else if let Some(ref r) = *room_data.read() {
-                div { class: "replay-details-layout glass-panel",
+                div { class: "pg-replay-detail g-card",
                     // Header Meta
-                    div { class: "replay-meta-header",
-                        div { class: "meta-badge",
+                    div { class: "pg-replay-meta-header",
+                        div { class: "pg-replay-meta-badge",
                             if let Some(game_def) = REGISTRY.get(&r.game_type) {
                                 "{game_def.icon} {game_def.name}"
                             } else {
@@ -67,7 +67,7 @@ pub fn Replay(room_id: String) -> Element {
                     }
 
                     // Body
-                    div { class: "replay-body",
+                    div { class: "pg-replay-body",
                         if r.game_type == "lincoln" {
                             LincolnReplayView { engine_state: r.engine_state.clone() }
                         } else if r.game_type == "texas_holdem" {
@@ -80,7 +80,7 @@ pub fn Replay(room_id: String) -> Element {
                     }
                 }
             } else {
-                div { class: "error-canvas glass-panel",
+                div { class: "pg-replay-error g-card",
                     p { "未能加载到该对局数据。" }
                 }
             }
@@ -98,10 +98,10 @@ fn LincolnReplayView(engine_state: Value) -> Element {
         div { class: "lincoln-replay-view",
             if let Some(ref s) = *state.read() {
                 div { class: "lincoln-replay-inner",
-                    div { class: "replay-round-indicator",
+                    div { class: "pg-replay-round",
                         span { "🏛️ 林肯辩论历史辩词 (共 {s.round} 轮)" }
                         button {
-                            class: "glass-panel-subtle toggle-ai-btn",
+                            class: "g-card-subtle gm-ai-toggle",
                             style: "margin-left: 15px; font-size: 0.85em; padding: 4px 12px; cursor: pointer;",
                             onclick: move |_| {
                                 let cur = *show_ai_content.read();
@@ -110,7 +110,7 @@ fn LincolnReplayView(engine_state: Value) -> Element {
                             if *show_ai_content.read() { "👀 隐藏 AI 发言" } else { "🙈 显示 AI 发言" }
                         }
                     }
-                    div { class: "timeline-scroll replay-timeline",
+                    div { class: "timeline-scroll pg-replay-timeline",
                         if s.history.is_empty() {
                             p { style: "color: var(--text-muted); text-align: center; padding: 20px;", "没有发言记录" }
                         } else {
@@ -153,14 +153,14 @@ fn LincolnHistoryBubble(props: LincolnHistoryBubbleProps) -> Element {
     let should_hide = props.is_ai && !props.show_ai_content;
 
     rsx! {
-        div { key: "{entry.actor_id}:{entry.content.len()}", class: "bubble-row",
-            div { class: "bubble-avatar {role_cls}", "{icon}" }
-            div { class: "bubble-body",
-                div { class: "bubble-meta",
-                    span { class: "bubble-name", "{entry.actor_id}" }
-                    span { class: "bubble-tag {role_cls}", "{label}" }
+        div { key: "{entry.actor_id}:{entry.content.len()}", class: "gm-timeline-item",
+            div { class: "gm-timeline-avatar {role_cls}", "{icon}" }
+            div { class: "gm-timeline-body",
+                div { class: "gm-timeline-meta",
+                    span { class: "gm-timeline-author", "{entry.actor_id}" }
+                    span { class: "gm-timeline-tag {role_cls}", "{label}" }
                 }
-                div { class: "bubble-content {role_cls}",
+                div { class: "gm-timeline-content {role_cls}",
                     if should_hide {
                         span { class: "hidden-content-hint", style: "color: #888; font-style: italic;", "🤖 AI 发言已隐藏" }
                     } else {
@@ -205,11 +205,11 @@ fn TexasHoldemReplayView(engine_state: Value) -> Element {
     rsx! {
         div { class: "texas-replay-view",
             div { class: "texas-replay-stats",
-                div { class: "stat-card glass-panel-subtle",
+                div { class: "pg-replay-stat g-card-subtle",
                     div { class: "stat-val", "💰 {pot}" }
                     div { class: "stat-lbl", "总奖池" }
                 }
-                div { class: "stat-card glass-panel-subtle",
+                div { class: "pg-replay-stat g-card-subtle",
                     div { class: "stat-val", "{phase}" }
                     div { class: "stat-lbl", "最后阶段" }
                 }
@@ -277,7 +277,7 @@ fn ShowdownReplayItem(res: Value) -> Element {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     rsx! {
-        div { class: if winner { "showdown-item winner glass-panel-subtle" } else { "showdown-item" },
+        div { class: if winner { "pg-replay-showdown winner g-card-subtle" } else { "pg-replay-showdown" },
             span { class: "showdown-winner-icon", if winner { "👑" } else { "👤" } }
             span { class: "showdown-player", "{p_id}" }
             span { class: "showdown-rank", "{rank_desc}" }

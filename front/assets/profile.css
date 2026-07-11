@@ -2,7 +2,7 @@
    Turn Craft — Profile Page Styles
    ═══════════════════════════════════════════════════════ */
 
-.profile-container {
+.pg-profile {
   max-width: 1000px;
   width: 100%;
   margin: 0 auto;
@@ -12,19 +12,19 @@
   gap: 28px;
 }
 
-.profile-grid-top {
+.pg-profile-header {
   display: grid;
   grid-template-columns: 1.2fr 1.8fr;
   gap: 24px;
 }
 
 @media (max-width: 768px) {
-  .profile-grid-top {
+  .pg-profile-header {
     grid-template-columns: 1fr;
   }
 }
 
-.profile-user-card {
+.pg-profile-user {
   border-radius: 16px;
   padding: 32px;
   background: var(--glass-bg);
@@ -40,7 +40,7 @@
   gap: 20px;
 }
 
-.avatar-wrapper {
+.avatar-pg-profile-stats-wrapper {
   width: 96px;
   height: 96px;
   border-radius: 50%;
@@ -52,19 +52,19 @@
   border: 3px solid rgba(255, 255, 255, 0.1);
 }
 
-.avatar-emoji {
+.pg-profile-avatar-emoji {
   font-size: 44px;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
 }
 
-.user-info-section h2 {
+.pg-profile-info h2 {
   font-size: 22px;
   font-weight: 800;
   color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
-.profile-stats-card {
+.pg-profile-stats {
   border-radius: 16px;
   padding: 32px;
   background: var(--glass-bg);
@@ -77,8 +77,8 @@
   gap: 24px;
 }
 
-.profile-stats-card h3,
-.profile-recent-section h3 {
+.pg-profile-stats h3,
+.pg-profile-recent h3 {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
@@ -89,13 +89,13 @@
   padding-left: 8px;
 }
 
-.stats-metric-grid {
+.pg-profile-metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }
 
-.metric-item {
+.pg-profile-metric {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-dim);
   border-radius: 12px;
@@ -107,32 +107,32 @@
   transition: var(--transition-smooth);
 }
 
-.metric-item:hover {
+.pg-profile-metric:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-.metric-num {
+.pg-profile-metric-num {
   font-size: 28px;
   font-weight: 800;
   color: var(--text-primary);
   font-family: "JetBrains Mono", monospace;
 }
 
-.metric-label {
+.pg-profile-metric-label {
   font-size: 11.5px;
   color: var(--text-muted);
   font-weight: 600;
 }
 
 /* Win Rate section */
-.win-rate-section {
+.pg-profile-winrate {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.win-rate-header {
+.pg-profile-winrate-hdr {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -141,20 +141,20 @@
   color: var(--text-secondary);
 }
 
-.win-rate-num {
+.pg-profile-winrate-num {
   font-family: "JetBrains Mono", monospace;
   font-weight: 700;
   color: var(--accent);
 }
 
-.win-rate-track {
+.pg-profile-winrate-track {
   height: 8px;
   background: var(--border-dim);
   border-radius: 4px;
   overflow: hidden;
 }
 
-.win-rate-bar {
+.pg-profile-winrate-bar {
   height: 100%;
   background: linear-gradient(90deg, #059669 0%, var(--accent) 100%);
   border-radius: 4px;
@@ -162,7 +162,7 @@
 }
 
 /* Recent matches section */
-.profile-recent-section {
+.pg-profile-recent {
   border-radius: 16px;
   padding: 32px;
   background: var(--glass-bg);
@@ -175,20 +175,20 @@
   gap: 20px;
 }
 
-.profile-empty-recent {
+.pg-profile-empty {
   padding: 40px;
   text-align: center;
   color: var(--text-muted);
   font-size: 14px;
 }
 
-.recent-matches-list {
+.pg-profile-matches {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.recent-match-row {
+.pg-profile-match {
   display: grid;
   grid-template-columns: 1.2fr 1.8fr 1.5fr;
   gap: 16px;
@@ -197,41 +197,41 @@
   border-radius: 12px;
 }
 
-.recent-match-left {
+.pg-profile-match-left {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.recent-icon {
+.pg-profile-match-icon {
   font-size: 20px;
 }
 
-.recent-game-name {
+.pg-profile-match-game {
   font-size: 14.5px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-.recent-room-id {
+.pg-profile-match-id {
   font-size: 13px;
   color: var(--text-secondary);
   font-family: "JetBrains Mono", monospace;
 }
 
-.recent-match-right {
+.pg-profile-match-right {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 16px;
 }
 
-.recent-time {
+.pg-profile-match-time {
   font-size: 12.5px;
   color: var(--text-muted);
 }
 
-.match-status-won {
+.pg-profile-status {
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;

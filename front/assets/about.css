@@ -2,7 +2,7 @@
    Turn Craft — About Page Styles
    ═══════════════════════════════════════════════════════ */
 
-.about-container {
+.pg-about {
   max-width: 1000px;
   width: 100%;
   margin: 0 auto;
@@ -12,19 +12,19 @@
   gap: 28px;
 }
 
-.about-grid {
+.pg-about-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
 }
 
 @media (max-width: 768px) {
-  .about-grid {
+  .pg-about-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.about-card {
+.pg-about-card {
   border-radius: 16px;
   padding: 32px;
   background: var(--glass-bg);
@@ -37,17 +37,17 @@
   gap: 16px;
 }
 
-.about-card.span-two {
+.pg-about-card.span-two {
   grid-column: span 2;
 }
 
 @media (max-width: 768px) {
-  .about-card.span-two {
+  .pg-about-card.span-two {
     grid-column: span 1;
   }
 }
 
-.about-card h3 {
+.pg-about-card h3 {
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
@@ -58,14 +58,14 @@
   padding-left: 8px;
 }
 
-.about-card p {
+.pg-about-card p {
   font-size: 14.5px;
   line-height: 1.7;
   color: var(--text-secondary);
   margin: 0;
 }
 
-.tech-list {
+.pg-about-tech {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -74,14 +74,14 @@
   gap: 12px;
 }
 
-.tech-list li {
+.pg-about-tech li {
   font-size: 14px;
   color: var(--text-secondary);
   position: relative;
   padding-left: 20px;
 }
 
-.tech-list li::before {
+.pg-about-tech li::before {
   content: "⚡";
   position: absolute;
   left: 0;
@@ -90,7 +90,7 @@
   font-size: 12px;
 }
 
-.about-game-features {
+.pg-about-games {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
@@ -98,12 +98,12 @@
 }
 
 @media (max-width: 768px) {
-  .about-game-features {
+  .pg-about-games {
     grid-template-columns: 1fr;
   }
 }
 
-.feature-item {
+.pg-about-feature {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-dim);
   border-radius: 12px;
@@ -114,25 +114,25 @@
   transition: var(--transition-smooth);
 }
 
-.feature-item:hover {
+.pg-about-feature:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.1);
   transform: translateY(-2px);
 }
 
-.feature-icon {
+.pg-about-feature-icon {
   font-size: 32px;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
 }
 
-.feature-item h4 {
+.pg-about-feature h4 {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
 
-.feature-item p {
+.pg-about-feature p {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-secondary);

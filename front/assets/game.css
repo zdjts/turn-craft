@@ -2,7 +2,7 @@
    Turn Craft — Game Arena & Lincoln Debate Styles
    ═══════════════════════════════════════════════════════ */
 
-.arena-shell {
+.pg-arena {
   display: flex;
   width: 100%;
   height: 100%;
@@ -12,7 +12,7 @@
 
 /* ── Arena Left Sidebar ──────────────────────────────── */
 
-.arena-sidebar {
+.pg-arena-sidebar {
   width: 300px;
   min-width: 300px;
   height: 100%;
@@ -25,7 +25,7 @@
   z-index: 10;
 }
 
-.arena-room-card {
+.pg-arena-info {
   padding: 24px;
   border-bottom: 1px solid var(--border-dim);
   display: flex;
@@ -33,13 +33,13 @@
   gap: 12px;
 }
 
-.room-row-top {
+.pg-arena-room-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.room-label {
+.pg-arena-room-label {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -60,7 +60,7 @@
   user-select: all;
 }
 
-.connection-status-row {
+.pg-arena-conn {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -68,12 +68,12 @@
 }
 
 /* Settings jump */
-.sidebar-actions-panel {
+.pg-arena-actions {
   padding: 12px 24px;
   border-bottom: 1px solid var(--border-dim);
 }
 
-.jump-settings-btn {
+.pg-arena-jump {
   width: 100%;
   padding: 10px 14px;
   font-size: 13px;
@@ -84,7 +84,7 @@
   transition: var(--transition-smooth);
 }
 
-.jump-settings-btn:hover {
+.pg-arena-jump:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
   border-color: rgba(52, 211, 153, 0.3);
@@ -92,7 +92,7 @@
 }
 
 /* Roster List */
-.arena-roster-section {
+.pg-arena-roster {
   flex: 1;
   padding: 24px;
   display: flex;
@@ -101,20 +101,20 @@
   overflow-y: auto;
 }
 
-.roster-list {
+.pg-arena-roster-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.empty-roster-msg {
+.pg-arena-empty {
   font-size: 13px;
   color: var(--text-muted);
   text-align: center;
   padding: 20px 0;
 }
 
-.player-roster-card {
+.gm-roster-player {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -125,13 +125,13 @@
   transition: var(--transition-smooth);
 }
 
-.player-roster-card.active {
+.gm-roster-player.is-active {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.02) 100%);
   border-color: rgba(16, 185, 129, 0.4);
   box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
 }
 
-.player-avatar-mini {
+.pg-arena-player-avatar {
   width: 36px;
   height: 36px;
   border-radius: 10px;
@@ -144,29 +144,29 @@
   flex-shrink: 0;
 }
 
-.player-avatar-mini.role-judge {
+.pg-arena-player-avatar.role-judge {
   border-color: rgba(245, 158, 11, 0.4);
   background: rgba(245, 158, 11, 0.1);
 }
 
-.player-avatar-mini.role-pro {
+.pg-arena-player-avatar.role-pro {
   border-color: rgba(16, 185, 129, 0.4);
   background: rgba(16, 185, 129, 0.1);
 }
 
-.player-avatar-mini.role-con {
+.pg-arena-player-avatar.role-con {
   border-color: rgba(244, 63, 94, 0.4);
   background: rgba(244, 63, 94, 0.1);
 }
 
-.player-roster-details {
+.pg-arena-player-details {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.player-name-lbl {
+.pg-arena-player-name {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
@@ -175,18 +175,18 @@
   text-overflow: ellipsis;
 }
 
-.player-role-lbl {
+.pg-arena-player-role {
   font-size: 11px;
   color: var(--text-secondary);
 }
 
 /* Bottom Controls */
-.sidebar-bottom-controls {
+.pg-arena-controls {
   padding: 20px 24px;
   border-top: 1px solid var(--border-dim);
 }
 
-.leave-arena-btn {
+.pg-arena-leave {
   width: 100%;
   padding: 12px;
   border-radius: 10px;
@@ -199,7 +199,7 @@
   transition: var(--transition-smooth);
 }
 
-.leave-arena-btn:hover {
+.pg-arena-leave:hover {
   background: var(--red);
   color: #ffffff;
   border-color: var(--red);
@@ -208,7 +208,7 @@
 
 /* ── Arena Viewport ─────────────────────────────────── */
 
-.arena-viewport {
+.pg-arena-viewport {
   flex: 1;
   height: 100%;
   overflow: hidden;
@@ -256,7 +256,7 @@
 
 /* ── Lincoln Debate Timeline ────────────────────────── */
 
-.lincoln-shell {
+.pg-lincoln {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -264,7 +264,7 @@
   background: transparent;
 }
 
-.timeline-scroll {
+.gm-timeline {
   flex: 1;
   overflow-y: auto;
   padding: 32px;
@@ -273,7 +273,7 @@
   gap: 24px;
 }
 
-.timeline-header {
+.gm-phase {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -281,7 +281,7 @@
   border-bottom: 1px solid var(--border-dim);
 }
 
-.timeline-title {
+.gm-phase-title {
   font-size: 20px;
   font-weight: 800;
   color: var(--text-primary);
@@ -290,7 +290,7 @@
   gap: 10px;
 }
 
-.timeline-round {
+.gm-phase-round {
   font-size: 13px;
   font-weight: 700;
   color: var(--accent);
@@ -302,7 +302,7 @@
 }
 
 /* History Bubble layout */
-.bubble-row {
+.gm-timeline-item {
   display: flex;
   gap: 16px;
   align-items: flex-start;
@@ -320,7 +320,7 @@
 }
 
 /* Align Pro/Con left/right or different colors */
-.bubble-avatar {
+.gm-timeline-avatar {
   width: 42px;
   height: 42px;
   border-radius: 50%;
@@ -333,40 +333,40 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
-.bubble-avatar.judge {
+.gm-timeline-avatar.judge {
   background: rgba(245, 158, 11, 0.15);
   border-color: rgba(245, 158, 11, 0.4);
 }
 
-.bubble-avatar.pro {
+.gm-timeline-avatar.pro {
   background: rgba(16, 185, 129, 0.15);
   border-color: rgba(16, 185, 129, 0.4);
 }
 
-.bubble-avatar.con {
+.gm-timeline-avatar.con {
   background: rgba(244, 63, 94, 0.15);
   border-color: rgba(244, 63, 94, 0.4);
 }
 
-.bubble-body {
+.gm-timeline-body {
   flex: 1;
   min-width: 0;
 }
 
-.bubble-meta {
+.gm-timeline-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
 }
 
-.bubble-name {
+.gm-timeline-author {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-.bubble-tag {
+.gm-timeline-tag {
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
@@ -375,25 +375,25 @@
   border-radius: 6px;
 }
 
-.bubble-tag.judge {
+.gm-timeline-tag.judge {
   color: var(--amber);
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
-.bubble-tag.pro {
+.gm-timeline-tag.pro {
   color: var(--accent);
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
-.bubble-tag.con {
+.gm-timeline-tag.con {
   color: var(--red);
   background: rgba(244, 63, 94, 0.12);
   border: 1px solid rgba(244, 63, 94, 0.25);
 }
 
-.bubble-content {
+.gm-timeline-content {
   font-size: 14.5px;
   line-height: 1.7;
   color: var(--text-primary);
@@ -405,29 +405,29 @@
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
-.bubble-content.judge {
+.gm-timeline-content.judge {
   background: rgba(245, 158, 11, 0.06);
   border: 1px solid rgba(245, 158, 11, 0.15);
 }
 
-.bubble-content.pro {
+.gm-timeline-content.pro {
   background: rgba(16, 185, 129, 0.05);
   border: 1px solid rgba(16, 185, 129, 0.15);
 }
 
-.bubble-content.con {
+.gm-timeline-content.con {
   background: rgba(244, 63, 94, 0.05);
   border: 1px solid rgba(244, 63, 94, 0.15);
 }
 
-.bubble-content.sys-msg {
+.gm-timeline-content.sys-msg {
   background: rgba(148, 163, 184, 0.05);
   border: 1px dashed rgba(148, 163, 184, 0.3);
   font-style: italic;
 }
 
 /* Empty / Sync states */
-.timeline-empty {
+.gm-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -438,17 +438,17 @@
   color: var(--text-muted);
 }
 
-.timeline-empty-icon {
+.gm-empty-icon {
   font-size: 56px;
   opacity: 0.3;
 }
 
-.timeline-empty-text {
+.gm-empty-text {
   font-size: 15px;
   font-weight: 500;
 }
 
-.timeline-syncing {
+.gm-syncing {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -469,7 +469,7 @@
 
 /* ── Action Console ─────────────────────────────────── */
 
-.action-console {
+.gm-action-bar {
   border-top: 1px solid var(--glass-border);
   padding: 20px 32px;
   background: rgba(15, 23, 42, 0.85);
@@ -480,18 +480,18 @@
   gap: 12px;
 }
 
-.action-console.locked {
+.gm-action-bar.locked {
   opacity: 0.4;
   pointer-events: none;
 }
 
-.console-row {
+.gm-action-row {
   display: flex;
   gap: 16px;
   align-items: flex-end;
 }
 
-.console-textarea {
+.gm-action-input {
   flex: 1;
   background: var(--bg-card);
   color: var(--text-primary);
@@ -507,17 +507,17 @@
   transition: var(--transition-smooth);
 }
 
-.console-textarea:focus {
+.gm-action-input:focus {
   border-color: var(--accent);
   background: var(--bg-surface);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
-.console-textarea::placeholder {
+.gm-action-input::placeholder {
   color: var(--text-muted);
 }
 
-.console-submit {
+.gm-action-submit {
   height: 52px;
   padding: 0 28px;
   background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
@@ -533,16 +533,16 @@
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 }
 
-.console-submit:hover {
+.gm-action-submit:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
 }
 
-.console-submit:active {
+.gm-action-submit:active {
   transform: translateY(0);
 }
 
-.console-submit:disabled {
+.gm-action-submit:disabled {
   background: var(--border-subtle);
   color: var(--text-muted);
   cursor: not-allowed;
@@ -550,7 +550,7 @@
   box-shadow: none;
 }
 
-.console-hint {
+.gm-action-hint {
   font-size: 12px;
   color: var(--text-muted);
   text-align: right;
@@ -558,25 +558,25 @@
 
 /* ═══════════════ 流式输出效果 ═══════════════ */
 
-.streaming-bubble {
+.gm-streaming {
     opacity: 0.95;
 }
 
-.streaming-bubble .bubble-content {
-    border-left: 3px solid var(--accent, #6366f1);
+.gm-streaming .gm-timeline-content {
+    border-left: 3px solid var(--accent);
     animation: streaming-pulse 2s ease-in-out infinite;
 }
 
-.streaming-indicator {
+.gm-streaming-indicator {
     font-size: 0.75em;
-    color: var(--accent, #6366f1);
+    color: var(--accent);
     margin-left: 8px;
     animation: streaming-fade 1.5s ease-in-out infinite;
 }
 
-.cursor-blink {
+.gm-streaming-cursor {
     animation: blink 1s step-end infinite;
-    color: var(--accent, #6366f1);
+    color: var(--accent);
     font-weight: bold;
 }
 
@@ -586,7 +586,7 @@
 }
 
 @keyframes streaming-pulse {
-    0%, 100% { border-left-color: var(--accent, #6366f1); }
+    0%, 100% { border-left-color: var(--accent); }
     50% { border-left-color: transparent; }
 }
 

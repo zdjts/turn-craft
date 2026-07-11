@@ -96,11 +96,11 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
     });
 
     rsx! {
-        div { class: "arena-shell",
+        div { class: "pg-arena",
             // ── Left Side Glass Control Panel ──
-            div { class: "arena-sidebar glass-panel",
+            div { class: "pg-arena-sidebar g-card",
                 // Room Info Header
-                div { class: "arena-room-card",
+                div { class: "pg-arena-info",
                     div { class: "room-row-top",
                         span { class: "room-label", "游戏房间" }
                         button {
@@ -113,7 +113,7 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                     div { class: "room-id-mono", "{room_id}" }
 
                     // Connection Status
-                    div { class: "connection-status-row",
+                    div { class: "pg-arena-conn",
                         div {
                             class: if *connected.read() { "status-dot online" } else { "status-dot offline" }
                         }
@@ -124,7 +124,7 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                 }
 
                 // AI Configuration jumps
-                div { class: "sidebar-actions-panel",
+                div { class: "pg-arena-actions",
                     h4 { class: "roster-title", "⚙️ AI 助手配置" }
                     div { class: "ai-config-buttons-list",
                         {
@@ -148,7 +148,7 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                                             rsx! {
                                                 button {
                                                     key: "{aid}",
-                                                    class: "jump-settings-btn glass-panel-subtle",
+                                                    class: "pg-arena-jump g-card-subtle",
                                                     style: "margin-bottom: 8px;",
                                                     onclick: move |_| {
                                                         nav.push(super::Route::Settings { room_id: rid.clone(), actor_id: aid.clone() });
@@ -165,11 +165,11 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                 }
 
                 // Player Roster
-                div { class: "arena-roster-section",
+                div { class: "pg-arena-roster",
                     h4 { class: "roster-title", "👥 对局参与者" }
-                    div { class: "roster-list",
+                    div { class: "pg-arena-roster-list",
                         if roster_slots().is_empty() {
-                            div { class: "empty-roster-msg", "等待玩家信息..." }
+                            div { class: "pg-arena-empty", "等待玩家信息..." }
                         } else {
                             for (id, role, kind) in roster_slots().iter() {
                                 {
@@ -184,13 +184,13 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                                     rsx! {
                                         div {
                                             key: "{id}",
-                                            class: if is_active { "player-roster-card active" } else { "player-roster-card" },
-                                            div { class: "player-avatar-mini {role_class}",
+                                            class: if is_active { "gm-roster-player is-active" } else { "gm-roster-player" },
+                                            div { class: "pg-arena-player-avatar {role_class}",
                                                 if is_ai { "🤖" } else { "🤵" }
                                             }
-                                            div { class: "player-roster-details",
-                                                div { class: "player-name-lbl", "{id}" }
-                                                div { class: "player-role-lbl", "{role}" }
+                                            div { class: "pg-arena-player-details",
+                                                div { class: "pg-arena-player-name", "{id}" }
+                                                div { class: "pg-arena-player-role", "{role}" }
                                             }
                                         }
                                     }
@@ -201,9 +201,9 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                 }
 
                 // Bottom Control / Return
-                div { class: "sidebar-bottom-controls",
+                div { class: "pg-arena-controls",
                     button {
-                        class: "leave-arena-btn",
+                        class: "pg-arena-leave",
                         onclick: move |_| {
                             nav.push(super::Route::Lobby {});
                         },
@@ -213,22 +213,22 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
             }
 
             // ── Right Viewport ──
-            div { class: "arena-viewport",
+            div { class: "pg-arena-viewport",
                 if !*connected.read() {
-                    div { class: "loading-canvas glass-panel",
-                        span { class: "spinner" }
+                    div { class: "loading-canvas g-card",
+                        span { class: "g-spinner" }
                         h3 { "正在建立网络连接" }
                         p { "正在通过 WebSocket 连接至对局服务器..." }
                     }
                 } else if state.read().is_null() {
-                    div { class: "loading-canvas glass-panel",
+                    div { class: "loading-canvas g-card",
                         div { class: "skeleton-canvas animate-pulse" }
                         h3 { "正在获取对局快照" }
                         p { "已连接，正在同步初始状态数据..." }
                     }
                 } else {
                     // Dynamically hand off to child game plugin
-                    div { class: "game-plugin-container glass-panel",
+                    div { class: "game-plugin-container g-card",
                         GamePluginManager {
                             game_type: game_type(),
                             props: GamePluginProps {

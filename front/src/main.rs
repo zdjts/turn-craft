@@ -16,10 +16,10 @@ const PROFILE_CSS: Asset = asset!("/assets/profile.css");
 const ABOUT_CSS: Asset = asset!("/assets/about.css");
 const PUBLIC_CSS: Asset = asset!("/assets/public.css");
 const POKER_CSS: Asset = asset!("/assets/poker.css");
-const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 
 mod api;
 mod games;
+mod icons;
 mod routes;
 mod services;
 
@@ -47,7 +47,6 @@ fn App() -> Element {
         document::Link { rel: "stylesheet", href: ABOUT_CSS }
         document::Link { rel: "stylesheet", href: PUBLIC_CSS }
         document::Link { rel: "stylesheet", href: POKER_CSS }
-        document::Link { rel: "stylesheet", href: TAILWIND_CSS }
 
         Router::<routes::Route> {}
     }

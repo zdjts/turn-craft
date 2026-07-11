@@ -150,7 +150,11 @@ pub fn spawn_game_room(
                     tracing::info!(room_id = %room_id, "房间已主动销毁 (空闲超时)");
                     break;
                 }
-                RoomCommand::BroadcastStreamChunk { actor_id, content, is_done } => {
+                RoomCommand::BroadcastStreamChunk {
+                    actor_id,
+                    content,
+                    is_done,
+                } => {
                     let msg = if is_done {
                         serde_json::json!({
                             "type": "stream_done",

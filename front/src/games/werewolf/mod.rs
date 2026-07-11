@@ -1,10 +1,9 @@
 use dioxus::prelude::*;
 use serde_json::Value;
-use std::collections::HashMap;
 
 use super::GamePluginProps;
-use crate::services::websocket::WsBridge;
 use crate::games::registry::GameConfigProps;
+use crate::services::websocket::WsBridge;
 
 #[component]
 pub fn WerewolfLobbyCard(props: GameConfigProps) -> Element {
@@ -26,7 +25,7 @@ pub fn WerewolfLobbyCard(props: GameConfigProps) -> Element {
     });
 
     rsx! {
-        div { class: "form-field",
+        div { class: "g-field",
             label { "游戏模式" }
             div { class: "mode-toggle",
                 button {
@@ -36,14 +35,15 @@ pub fn WerewolfLobbyCard(props: GameConfigProps) -> Element {
                         let mut modes = std::collections::HashMap::new();
                         modes.insert("Player1".to_string(), "human".to_string());
                         for i in 2..=7 {
-                            modes.insert(format!("Player{}", i), "ai".to_string());
+                            let prev = role_config.read().get(&format!("Player{}", i)).cloned().unwrap_or_else(|| "ai".to_string());
+                            modes.insert(format!("Player{}", i), prev);
                         }
                         my_role.set("Player1".to_string());
                         role_config.set(modes);
                     },
                     div { class: "mode-icon", "🎮" }
                     div { class: "mode-label", "亲自上阵" }
-                    div { class: "mode-desc", "您将作为 Player1 参与游戏，其余为 AI" }
+                    div { class: "mode-desc", "你可以设置多个座位为真人联机" }
                 }
                 button {
                     class: if *spectator_mode.read() { "mode-btn selected" } else { "mode-btn" },
@@ -58,7 +58,65 @@ pub fn WerewolfLobbyCard(props: GameConfigProps) -> Element {
                     },
                     div { class: "mode-icon", "👀" }
                     div { class: "mode-label", "观战模式" }
-                    div { class: "mode-desc", "观看 7 个 AI 之间的对局" }
+                    div { class: "mode-desc", "观看全 AI 之间的对局" }
+                }
+            }
+        }
+
+        if !*spectator_mode.read() {
+            div { class: "g-field",
+                label { "联机席位配置" }
+                div { class: "seats-toggle-grid",
+                    for i in 2..=7 {
+                        {
+                            let slot_name = format!("Player{}", i);
+                            let is_human = role_config.read().get(&slot_name).map(|s| s.as_str()) == Some("human");
+                            rsx! {
+                                button {
+                                    key: "{slot_name}",
+                                    class: if is_human { "seat-btn human" } else { "seat-btn ai" },
+                                    onclick: move |_| {
+                                        let mut modes = role_config.read().clone();
+                                        if modes.get(&slot_name).map(|s| s.as_str()) == Some("human") {
+                                            modes.insert(slot_name.clone(), "ai".to_string());
+                                        } else {
+                                            modes.insert(slot_name.clone(), "human".to_string());
+                                        }
+                                        role_config.set(modes);
+                                    },
+                                    div { class: "seat-icon", if is_human { "👤" } else { "🤖" } }
+                                    div { class: "seat-label", "Player {i}" }
+                                    div { class: "seat-status", if is_human { "开放联机" } else { "AI 接管" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        div { class: "g-field",
+            label { "角色配置 (7人局)" }
+            div { class: "role-grid",
+                for i in 1..=7 {
+                    {
+                        let rn = format!("Player{}", i);
+                        let is_self = *my_role.read() == rn;
+                        rsx! {
+                            div {
+                                class: if is_self { "role-card selected" } else { "role-card" },
+                                div { class: "role-card-header",
+                                    span {
+                                        class: "role-card-name",
+                                        if is_self { "👉 " }
+                                        "{rn}"
+                                        if is_self { " (我的角色)" }
+                                    }
+                                }
+                                div { class: "role-card-desc", if is_self { "你的席位" } else { "玩家槽位" } }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -123,19 +181,19 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
     let mut show_ai_content = use_signal(|| true);
 
     rsx! {
-        div { class: "lincoln-shell",
+        div { class: "pg-lincoln",
             // ── 时间轴区域 ──
-            div { class: "timeline-scroll",
+            div { class: "gm-timeline",
                 // 顶部信息栏
-                div { class: "timeline-header",
-                    div { class: "timeline-title",
+                div { class: "gm-phase",
+                    div { class: "gm-phase-title",
                         "🐺 狼人杀 — 7人标准局"
                     }
-                    div { class: "timeline-round",
+                    div { class: "gm-phase-round",
                         "第 {day} 天 — {phase_name}"
                     }
                     button {
-                        class: "glass-panel-subtle toggle-ai-btn",
+                        class: "g-card-subtle gm-ai-toggle",
                         style: "margin-left: auto; font-size: 0.85em; padding: 4px 12px; cursor: pointer;",
                         onclick: move |_| {
                             let cur = *show_ai_content.read();
@@ -208,16 +266,16 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                                     let d = evt.get("day").and_then(|v| v.as_u64()).unwrap_or(0);
 
                                     rsx! {
-                                        div { class: "bubble-row", key: "{idx}",
-                                            div { class: if is_sys { "bubble-avatar" } else { "bubble-avatar pro" },
+                                        div { class: "gm-timeline-item", key: "{idx}",
+                                            div { class: if is_sys { "gm-timeline-avatar" } else { "gm-timeline-avatar pro" },
                                                 if is_sys { "⚖️" } else { "👤" }
                                             }
-                                            div { class: "bubble-body",
-                                                div { class: "bubble-meta",
-                                                    span { class: "bubble-name", if is_sys { "系统播报" } else { "{actor}" } }
-                                                    span { class: "bubble-tag", "Day {d}" }
+                                            div { class: "gm-timeline-body",
+                                                div { class: "gm-timeline-meta",
+                                                    span { class: "gm-timeline-author", if is_sys { "系统播报" } else { "{actor}" } }
+                                                    span { class: "gm-timeline-tag", "Day {d}" }
                                                 }
-                                                div { class: if is_sys { "bubble-content sys-msg" } else { "bubble-content" },
+                                                div { class: if is_sys { "gm-timeline-content sys-msg" } else { "gm-timeline-content" },
                                                     "{content}"
                                                 }
                                             }
@@ -241,14 +299,14 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                     if let Some((active_id, text)) = streaming_entry {
                         if !text.is_empty() {
                             rsx! {
-                                div { class: "bubble-row streaming-bubble",
-                                    div { class: "bubble-avatar pro", "👤" }
-                                    div { class: "bubble-body",
-                                        div { class: "bubble-meta",
-                                            span { class: "bubble-name", "{active_id}" }
-                                            span { class: "streaming-indicator", "⏳ 生成中..." }
+                                div { class: "gm-timeline-item gm-streaming",
+                                    div { class: "gm-timeline-avatar pro", "👤" }
+                                    div { class: "gm-timeline-body",
+                                        div { class: "gm-timeline-meta",
+                                            span { class: "gm-timeline-author", "{active_id}" }
+                                            span { class: "gm-streaming-indicator", "⏳ 生成中..." }
                                         }
-                                        div { class: "bubble-content",
+                                        div { class: "gm-timeline-content",
                                             "{text}"
                                             span { class: "cursor-blink", "█" }
                                         }
@@ -320,11 +378,11 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
             }
 
             // ── 操作面板 ──
-            div { class: if (is_my_turn && !is_finished) || phase_name == "Init" || (phase_name == "DayVote" && my_alive) || (phase_name == "NightWolf" && my_role == "Werewolf" && my_alive) { "action-console" } else { "action-console locked" },
+            div { class: if (is_my_turn && !is_finished) || phase_name == "Init" || (phase_name == "DayVote" && my_alive) || (phase_name == "NightWolf" && my_role == "Werewolf" && my_alive) { "gm-action-bar" } else { "gm-action-bar locked" },
                 if phase_name == "Init" {
-                    div { class: "console-row", style: "justify-content: center;",
+                    div { class: "gm-action-row", style: "justify-content: center;",
                         button {
-                            class: "console-submit",
+                            class: "gm-action-submit",
                             style: "background: var(--accent); color: white; padding: 12px 24px; font-size: 1.1em;",
                             onclick: move |_| {
                                 props.on_action.call(serde_json::json!({
@@ -344,9 +402,9 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                         }
                     }
                 } else if !is_finished && my_alive && my_role == "Werewolf" && (phase_name == "DaySpeech" || phase_name == "DayVote") {
-                    div { class: "console-row", style: "justify-content: flex-end;",
+                    div { class: "gm-action-row", style: "justify-content: flex-end;",
                         button {
-                            class: "console-submit",
+                            class: "gm-action-submit",
                             style: "background: var(--red); color: white;",
                             onclick: move |_| {
                                 props.on_action.call(serde_json::json!({
@@ -357,9 +415,9 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                         }
                     }
                 } else if !is_finished {
-                    div { class: "console-hint", "等待其他玩家行动..." }
+                    div { class: "gm-action-hint", "等待其他玩家行动..." }
                 } else {
-                    div { class: "console-hint", "游戏已结束" }
+                    div { class: "gm-action-hint", "游戏已结束" }
                 }
             }
         }
@@ -394,10 +452,10 @@ pub fn WerewolfActionPanel(
         .unwrap_or_default();
 
     rsx! {
-        div { class: "console-row", style: "flex-wrap: wrap; gap: 10px;",
+        div { class: "gm-action-row", style: "flex-wrap: wrap; gap: 10px;",
             if phase_name == "NightWolf" && my_role == "Werewolf" {
                 textarea {
-                    class: "console-textarea",
+                    class: "gm-action-input",
                     placeholder: "狼队频道：输入战术沟通（按回车发送，或输入后直接点击下方杀人按钮同时发送）...",
                     value: "{text_input}",
                     style: "width: 100%; margin-bottom: 10px;",
@@ -417,10 +475,10 @@ pub fn WerewolfActionPanel(
                     },
                 }
                 div { style: "width: 100%; display: flex; flex-wrap: wrap; gap: 10px;",
-                    span { class: "console-hint", "🐺 选择击杀目标: " }
+                    span { class: "gm-action-hint", "🐺 选择击杀目标: " }
                     for target in alive_players {
                         button {
-                            class: "console-submit",
+                            class: "gm-action-submit",
                             style: "background: var(--red);",
                             onclick: move |_| {
                                 let content = text_input.read().trim().to_string();
@@ -436,10 +494,10 @@ pub fn WerewolfActionPanel(
                     }
                 }
             } else if phase_name == "NightSeer" && my_role == "Seer" {
-                span { class: "console-hint", "👁️ 选择查验目标: " }
+                span { class: "gm-action-hint", "👁️ 选择查验目标: " }
                 for target in alive_players {
                     button {
-                        class: "console-submit",
+                        class: "gm-action-submit",
                         style: "background: #8b5cf6;",
                         onclick: move |_| {
                             on_action.call(serde_json::json!({ "action_type": "check", "target": target }));
@@ -448,10 +506,10 @@ pub fn WerewolfActionPanel(
                     }
                 }
             } else if phase_name == "NightWitch" && my_role == "Witch" {
-                span { class: "console-hint", "🧪 女巫行动: " }
+                span { class: "gm-action-hint", "🧪 女巫行动: " }
                 if state.get("witch_has_save").and_then(|v| v.as_bool()).unwrap_or(false) {
                     button {
-                        class: "console-submit",
+                        class: "gm-action-submit",
                         style: "background: #10b981;",
                         onclick: move |_| {
                             on_action.call(serde_json::json!({ "action_type": "save" }));
@@ -462,7 +520,7 @@ pub fn WerewolfActionPanel(
                 if state.get("witch_has_poison").and_then(|v| v.as_bool()).unwrap_or(false) {
                     for target in alive_players {
                         button {
-                            class: "console-submit",
+                            class: "gm-action-submit",
                             style: "background: var(--red);",
                             onclick: move |_| {
                                 on_action.call(serde_json::json!({ "action_type": "poison", "target": target }));
@@ -472,7 +530,7 @@ pub fn WerewolfActionPanel(
                     }
                 }
                 button {
-                    class: "console-submit",
+                    class: "gm-action-submit",
                     style: "background: #6b7280;",
                     onclick: move |_| {
                         on_action.call(serde_json::json!({ "action_type": "skip" }));
@@ -481,7 +539,7 @@ pub fn WerewolfActionPanel(
                 }
             } else if phase_name == "DaySpeech" {
                 textarea {
-                    class: "console-textarea",
+                    class: "gm-action-input",
                     placeholder: "请输入你的发言...",
                     value: "{text_input}",
                     oninput: move |e| text_input.set(e.value()),
@@ -500,7 +558,7 @@ pub fn WerewolfActionPanel(
                     },
                 }
                 button {
-                    class: "console-submit",
+                    class: "gm-action-submit",
                     onclick: move |_| {
                         let content = text_input.read().trim().to_string();
                         if !content.is_empty() {
@@ -511,10 +569,10 @@ pub fn WerewolfActionPanel(
                     "发送发言"
                 }
             } else if phase_name == "DayVote" {
-                span { class: "console-hint", "🗳️ 请投票: " }
+                span { class: "gm-action-hint", "🗳️ 请投票: " }
                 for target in alive_players {
                     button {
-                        class: "console-submit",
+                        class: "gm-action-submit",
                         onclick: move |_| {
                             on_action.call(serde_json::json!({ "action_type": "vote", "target": target }));
                         },
@@ -522,7 +580,7 @@ pub fn WerewolfActionPanel(
                     }
                 }
                 button {
-                    class: "console-submit",
+                    class: "gm-action-submit",
                     style: "background: #6b7280;",
                     onclick: move |_| {
                         on_action.call(serde_json::json!({ "action_type": "skip" }));
@@ -531,10 +589,10 @@ pub fn WerewolfActionPanel(
                 }
             } else if let Some(obj) = state.get("phase").and_then(|p| p.as_object()) {
                 if obj.contains_key("DayHunterShoot") && my_role == "Hunter" {
-                    span { class: "console-hint", "🔫 开枪带人: " }
+                    span { class: "gm-action-hint", "🔫 开枪带人: " }
                     for target in alive_players {
                         button {
-                            class: "console-submit",
+                            class: "gm-action-submit",
                             style: "background: var(--red);",
                             onclick: move |_| {
                                 on_action.call(serde_json::json!({ "action_type": "shoot", "target": target }));
@@ -543,7 +601,7 @@ pub fn WerewolfActionPanel(
                         }
                     }
                     button {
-                        class: "console-submit",
+                        class: "gm-action-submit",
                         style: "background: #6b7280;",
                         onclick: move |_| {
                             on_action.call(serde_json::json!({ "action_type": "skip" }));

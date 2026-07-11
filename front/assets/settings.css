@@ -2,7 +2,7 @@
    Turn Craft — AI Settings Page Styles
    ═══════════════════════════════════════════════════════ */
 
-.settings-container {
+.pg-settings {
   max-width: 800px;
   width: 100%;
   margin: 0 auto;
@@ -12,7 +12,7 @@
   gap: 28px;
 }
 
-.settings-layout {
+.pg-settings-layout {
   border-radius: 16px;
   padding: 32px;
   background: var(--glass-bg);
@@ -25,7 +25,7 @@
   gap: 24px;
 }
 
-.settings-section-title {
+.pg-settings-title {
   font-size: 18px;
   font-weight: 800;
   color: var(--text-primary);
@@ -34,32 +34,32 @@
   line-height: 1;
 }
 
-.settings-form {
+.pg-settings-form {
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
 
-.form-grid-two-cols {
+.pg-settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
 
 @media (max-width: 640px) {
-  .form-grid-two-cols {
+  .pg-settings-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.prompt-textarea {
+.pg-settings-prompt {
   resize: vertical;
   min-height: 180px;
   max-height: 400px;
   line-height: 1.6;
 }
 
-.settings-actions {
+.pg-settings-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -69,7 +69,7 @@
   border-top: 1px solid var(--border-dim);
 }
 
-.cancel-settings-btn {
+.pg-settings-cancel {
   padding: 12px 24px;
   font-size: 14.5px;
   font-weight: 600;
@@ -79,13 +79,13 @@
   transition: var(--transition-smooth);
 }
 
-.cancel-settings-btn:hover {
+.pg-settings-cancel:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-.save-settings-btn {
+.pg-settings-save {
   padding: 12px 28px;
   font-size: 14.5px;
   font-weight: 700;
@@ -101,23 +101,23 @@
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 }
 
-.save-settings-btn:hover:not(:disabled) {
+.pg-settings-save:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
 }
 
-.save-settings-btn:active:not(:disabled) {
+.pg-settings-save:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.save-settings-btn:disabled {
+.pg-settings-save:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
 /* ── AI Actor Switcher Tabs ────────────────────────── */
 
-.ai-actor-tabs {
+.pg-settings-tabs {
   display: flex;
   gap: 12px;
   border-bottom: 1px solid var(--border-dim);
@@ -125,7 +125,7 @@
   margin-bottom: 12px;
 }
 
-.ai-tab-btn {
+.pg-settings-tab {
   padding: 10px 20px;
   font-size: 14px;
   font-weight: 700;
@@ -137,13 +137,13 @@
   transition: var(--transition-smooth);
 }
 
-.ai-tab-btn:hover {
+.pg-settings-tab:hover {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-.ai-tab-btn.active {
+.pg-settings-tab.active {
   background: rgba(16, 185, 129, 0.15);
   border-color: var(--accent);
   color: var(--accent);

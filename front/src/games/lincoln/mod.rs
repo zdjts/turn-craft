@@ -78,20 +78,20 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
     let mut show_ai_content = use_signal(|| true);
 
     rsx! {
-        div { class: "lincoln-shell",
+        div { class: "pg-lincoln",
             // ── 时间轴区域 ──
-            div { class: "timeline-scroll",
+            div { class: "gm-timeline",
                 if let Some(ref s) = lincoln() {
                     // 顶部信息栏
-                    div { class: "timeline-header",
-                        div { class: "timeline-title",
+                    div { class: "gm-phase",
+                        div { class: "gm-phase-title",
                             "🏛️ 林肯 — 道格拉斯辩论"
                         }
-                        div { class: "timeline-round",
+                        div { class: "gm-phase-round",
                             "轮次 {s.round} / {s.max_round}"
                         }
                         button {
-                            class: "glass-panel-subtle toggle-ai-btn",
+                            class: "g-card-subtle gm-ai-toggle",
                             style: "margin-left: auto; font-size: 0.85em; padding: 4px 12px; cursor: pointer;",
                             onclick: move |_| {
                                 let cur = *show_ai_content.read();
@@ -132,19 +132,19 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
                                     _ => ("", "❓", "未知"),
                                 };
                                 rsx! {
-                                    div { class: "bubble-row streaming-bubble",
-                                        div { class: "bubble-avatar {role_cls}",
+                                    div { class: "gm-timeline-item gm-streaming",
+                                        div { class: "gm-timeline-avatar {role_cls}",
                                             "{icon}"
                                         }
-                                        div { class: "bubble-body",
-                                            div { class: "bubble-meta",
-                                                span { class: "bubble-name", "{active_id}" }
-                                                span { class: "bubble-tag {role_cls}", "{label}" }
-                                                span { class: "streaming-indicator", "⏳ 生成中..." }
+                                        div { class: "gm-timeline-body",
+                                            div { class: "gm-timeline-meta",
+                                                span { class: "gm-timeline-author", "{active_id}" }
+                                                span { class: "gm-timeline-tag {role_cls}", "{label}" }
+                                                span { class: "gm-streaming-indicator", "⏳ 生成中..." }
                                             }
-                                            div { class: "bubble-content {role_cls}",
+                                            div { class: "gm-timeline-content {role_cls}",
                                                 "{text}"
-                                                span { class: "cursor-blink", "█" }
+                                                span { class: "gm-streaming-cursor", "█" }
                                             }
                                         }
                                     }
@@ -159,16 +159,16 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
 
                     // 空状态
                     if s.history.is_empty() {
-                        div { class: "timeline-empty",
-                            div { class: "timeline-empty-icon", "⚖️" }
-                            p { class: "timeline-empty-text",
+                        div { class: "gm-empty",
+                            div { class: "gm-empty-icon", "⚖️" }
+                            p { class: "gm-empty-text",
                                 "等待裁判宣读辩题..."
                             }
                         }
                     }
                 } else {
-                    div { class: "timeline-syncing",
-                        div { class: "sync-spinner" }
+                    div { class: "gm-syncing",
+                        div { class: "sync-g-spinner" }
                         span { "正在同步对局状态..." }
                     }
                 }
@@ -177,13 +177,13 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
             // ── 行动舱 ──
             div {
                 class: if is_my_turn() {
-                    "action-console"
+                    "gm-action-bar"
                 } else {
-                    "action-console locked"
+                    "gm-action-bar locked"
                 },
-                div { class: "console-row",
+                div { class: "gm-action-row",
                     textarea {
-                        class: "console-textarea",
+                        class: "gm-action-input",
                         placeholder: if is_my_turn() {
                             "作为裁判，宣读你的辩题..."
                         } else {
@@ -198,7 +198,7 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
                                 } else {
                                     let content = draft.read().trim().to_string();
                                     if !content.is_empty() {
-                                        info!(target: "lincoln::action", content_len = content.len(), "裁判通过 Enter 发射发言");
+                                        info!(target: "lincoln::action", content_len = content.len(), "裁判通过 Enter 提交发言");
                                         on_action.call(serde_json::json!({"content": content}));
                                     }
                                     draft.write().clear();
@@ -207,13 +207,13 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
                         },
                     }
                     button {
-                        class: "console-submit",
+                        class: "gm-action-submit",
                         disabled: !is_my_turn(),
                         onclick: move |_| submit_litigation(draft, on_action, "button"),
-                        "发射"
+                        "提交"
                     }
                 }
-                div { class: "console-hint",
+                div { class: "gm-action-hint",
                     "Ctrl + Enter 快速发送"
                 }
             }
@@ -250,18 +250,18 @@ fn HistoryBubble(props: HistoryBubbleProps) -> Element {
     let should_hide = props.is_ai && !props.show_ai_content;
 
     rsx! {
-        div { class: "bubble-row",
-            div { class: "bubble-avatar {role_cls}",
+        div { class: "gm-timeline-item",
+            div { class: "gm-timeline-avatar {role_cls}",
                 "{icon}"
             }
-            div { class: "bubble-body",
-                div { class: "bubble-meta",
-                    span { class: "bubble-name", "{e.actor_id}" }
-                    span { class: "bubble-tag {role_cls}",
+            div { class: "gm-timeline-body",
+                div { class: "gm-timeline-meta",
+                    span { class: "gm-timeline-author", "{e.actor_id}" }
+                    span { class: "gm-timeline-tag {role_cls}",
                         "{label}"
                     }
                 }
-                div { class: "bubble-content {role_cls}",
+                div { class: "gm-timeline-content {role_cls}",
                     if should_hide {
                         span { class: "hidden-content-hint", style: "color: #888; font-style: italic;", "🤖 AI 发言已隐藏" }
                     } else {
@@ -321,7 +321,7 @@ pub fn LincolnLobbyCard(props: crate::games::registry::GameConfigProps) -> Eleme
     };
 
     rsx! {
-        div { class: "form-field",
+        div { class: "g-field",
             label { "角色配置" }
             div { class: "role-grid",
                 for (role_name, role_desc) in LINCOLN_ROLES.iter() {
@@ -346,7 +346,7 @@ pub fn LincolnLobbyCard(props: crate::games::registry::GameConfigProps) -> Eleme
                                         "{role_name} (我的角色)"
                                     }
                                     button {
-                                        class: if is_human { "role-badge human" } else { "role-badge ai" },
+                                        class: if is_human { "g-badge-success" } else { "g-badge-info" },
                                         style: "border: none; cursor: pointer;",
                                         onclick: move |e| {
                                             e.stop_propagation();
@@ -363,7 +363,7 @@ pub fn LincolnLobbyCard(props: crate::games::registry::GameConfigProps) -> Eleme
             }
         }
 
-        div { class: "form-field",
+        div { class: "g-field",
             label { "最大轮次" }
             input {
                 r#type: "number",

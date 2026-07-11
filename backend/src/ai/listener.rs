@@ -2,9 +2,9 @@ use reqwest::Client;
 use tracing::error;
 
 use crate::{
-    ai::client::{request_speech, request_speech_stream, StreamDelta},
-    room::model::{AiTask, RoomCommand},
+    ai::client::{StreamDelta, request_speech, request_speech_stream},
     room::actor::SideEffect,
+    room::model::{AiTask, RoomCommand},
 };
 
 use super::env::build_messages;
@@ -56,25 +56,31 @@ impl AiWorker {
                 while let Some(delta) = delta_rx.recv().await {
                     match delta {
                         StreamDelta::Content(text) => {
-                            let _ = effect_tx.send(SideEffect::StreamChunk {
-                                actor_id: actor_id_for_forwarder.clone(),
-                                content: text,
-                                is_done: false,
-                            }).await;
+                            let _ = effect_tx
+                                .send(SideEffect::StreamChunk {
+                                    actor_id: actor_id_for_forwarder.clone(),
+                                    content: text,
+                                    is_done: false,
+                                })
+                                .await;
                         }
                         StreamDelta::ToolCallArgDelta(text) => {
-                            let _ = effect_tx.send(SideEffect::StreamChunk {
-                                actor_id: actor_id_for_forwarder.clone(),
-                                content: text,
-                                is_done: false,
-                            }).await;
+                            let _ = effect_tx
+                                .send(SideEffect::StreamChunk {
+                                    actor_id: actor_id_for_forwarder.clone(),
+                                    content: text,
+                                    is_done: false,
+                                })
+                                .await;
                         }
                         StreamDelta::Done => {
-                            let _ = effect_tx.send(SideEffect::StreamChunk {
-                                actor_id: actor_id_for_forwarder.clone(),
-                                content: String::new(),
-                                is_done: true,
-                            }).await;
+                            let _ = effect_tx
+                                .send(SideEffect::StreamChunk {
+                                    actor_id: actor_id_for_forwarder.clone(),
+                                    content: String::new(),
+                                    is_done: true,
+                                })
+                                .await;
                         }
                     }
                 }
@@ -100,7 +106,10 @@ impl AiWorker {
                     );
                     if let Some(usage) = token_usage {
                         if let Some(obj) = response.as_object_mut() {
-                            obj.insert("_token_usage".to_string(), serde_json::to_value(usage).unwrap_or_default());
+                            obj.insert(
+                                "_token_usage".to_string(),
+                                serde_json::to_value(usage).unwrap_or_default(),
+                            );
                         }
                     }
                     response
@@ -109,11 +118,14 @@ impl AiWorker {
                     // 确保转发任务结束
                     forwarder.abort();
                     // 发送 stream_done 以便前端清理
-                    let _ = task.effect_tx.send(SideEffect::StreamChunk {
-                        actor_id: task.actor_id.clone(),
-                        content: String::new(),
-                        is_done: true,
-                    }).await;
+                    let _ = task
+                        .effect_tx
+                        .send(SideEffect::StreamChunk {
+                            actor_id: task.actor_id.clone(),
+                            content: String::new(),
+                            is_done: true,
+                        })
+                        .await;
 
                     tracing::error!(actor_id = %task.actor_id, error = ?e, "请求 AI 接口发生错误 (stream)");
                     if task.retries < max_retries {
@@ -161,7 +173,10 @@ impl AiWorker {
                         tracing::error!("游戏已结束，放弃 AI 动作");
                         return Err("Game is over".into());
                     }
-                    if game_error.contains("Not your turn") || game_error.contains("Dead players cannot act") || game_error.contains("游戏还未开始") {
+                    if game_error.contains("Not your turn")
+                        || game_error.contains("Dead players cannot act")
+                        || game_error.contains("游戏还未开始")
+                    {
                         tracing::warn!("引擎状态已变化，不再重试: {}", game_error);
                         return Err(game_error);
                     }

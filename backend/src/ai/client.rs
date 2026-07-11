@@ -46,9 +46,14 @@ pub async fn request_speech(
     }
 
     let start = Instant::now();
+    let base = config
+        .base_url
+        .trim_end_matches('/')
+        .trim_end_matches("/v1");
+    let api_url = format!("{base}/v1/chat/completions");
 
     let raw_response = http
-        .post(format!("{}/chat/completions", config.base_url))
+        .post(&api_url)
         .bearer_auth(&config.api_key)
         .json(&body)
         .send()
@@ -92,9 +97,13 @@ pub async fn request_speech(
     let usage_val = response.get("usage");
     let token_usage = usage_val.map(|u| {
         let prompt_tokens = u.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-        let completion_tokens = u.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-        
-        let cached_tokens = u.get("prompt_tokens_details")
+        let completion_tokens = u
+            .get("completion_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+
+        let cached_tokens = u
+            .get("prompt_tokens_details")
             .and_then(|d| d.get("cached_tokens"))
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
@@ -166,9 +175,14 @@ pub async fn request_speech_stream(
     }
 
     let start = std::time::Instant::now();
+    let base = config
+        .base_url
+        .trim_end_matches('/')
+        .trim_end_matches("/v1");
+    let api_url = format!("{base}/v1/chat/completions");
 
     let raw_response = http
-        .post(format!("{}/chat/completions", config.base_url))
+        .post(&api_url)
         .bearer_auth(&config.api_key)
         .json(&body)
         .send()
@@ -221,9 +235,14 @@ pub async fn request_speech_stream(
                     // 提取 usage（最后一个 chunk 通常包含）
                     if let Some(u) = event.get("usage") {
                         if u.is_object() && u.get("prompt_tokens").is_some() {
-                            let prompt_tokens = u.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-                            let completion_tokens = u.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-                            let cached_tokens = u.get("prompt_tokens_details")
+                            let prompt_tokens =
+                                u.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                            let completion_tokens = u
+                                .get("completion_tokens")
+                                .and_then(|v| v.as_u64())
+                                .unwrap_or(0);
+                            let cached_tokens = u
+                                .get("prompt_tokens_details")
                                 .and_then(|d| d.get("cached_tokens"))
                                 .and_then(|v| v.as_u64())
                                 .unwrap_or(0);
@@ -247,14 +266,17 @@ pub async fn request_speech_stream(
                             if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
                                 if !content.is_empty() {
                                     content_acc.push_str(content);
-                                    let _ = delta_tx.send(StreamDelta::Content(content.to_string())).await;
+                                    let _ = delta_tx
+                                        .send(StreamDelta::Content(content.to_string()))
+                                        .await;
                                 }
                             }
 
                             // tool_calls delta
                             if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array()) {
                                 for tc in tcs {
-                                    let idx = tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
+                                    let idx = tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0)
+                                        as usize;
 
                                     // 确保 tool_calls_acc 足够大
                                     while tool_calls_acc.len() <= idx {
@@ -272,18 +294,29 @@ pub async fn request_speech_stream(
 
                                     // 合并 function name
                                     if let Some(func) = tc.get("function") {
-                                        if let Some(name) = func.get("name").and_then(|n| n.as_str()) {
-                                            tool_calls_acc[idx]["function"]["name"] = Value::String(name.to_string());
+                                        if let Some(name) =
+                                            func.get("name").and_then(|n| n.as_str())
+                                        {
+                                            tool_calls_acc[idx]["function"]["name"] =
+                                                Value::String(name.to_string());
                                         }
                                         // 合并 arguments 增量
-                                        if let Some(args) = func.get("arguments").and_then(|a| a.as_str()) {
+                                        if let Some(args) =
+                                            func.get("arguments").and_then(|a| a.as_str())
+                                        {
                                             if !args.is_empty() {
-                                                let existing = tool_calls_acc[idx]["function"]["arguments"]
-                                                    .as_str()
-                                                    .unwrap_or("")
-                                                    .to_string();
-                                                tool_calls_acc[idx]["function"]["arguments"] = Value::String(format!("{}{}", existing, args));
-                                                let _ = delta_tx.send(StreamDelta::ToolCallArgDelta(args.to_string())).await;
+                                                let existing =
+                                                    tool_calls_acc[idx]["function"]["arguments"]
+                                                        .as_str()
+                                                        .unwrap_or("")
+                                                        .to_string();
+                                                tool_calls_acc[idx]["function"]["arguments"] =
+                                                    Value::String(format!("{}{}", existing, args));
+                                                let _ = delta_tx
+                                                    .send(StreamDelta::ToolCallArgDelta(
+                                                        args.to_string(),
+                                                    ))
+                                                    .await;
                                             }
                                         }
                                     }

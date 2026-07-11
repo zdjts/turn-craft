@@ -423,7 +423,7 @@ pub fn TexasHoldemGame(props: GamePluginProps) -> Element {
                 }
             } else {
                 div { class: "loading-screen",
-                    div { class: "loading-spinner" }
+                    div { class: "loading-g-spinner" }
                     div { class: "loading-text", "正在连接牌桌..." }
                 }
             }
@@ -469,13 +469,13 @@ fn GameStateView(props: GameStateViewProps) -> Element {
         div { class: "poker-table-wrapper",
             div { class: "poker-table",
                 // 底池
-                div { class: "pot-area",
+                div { class: "poker-pot",
                     div { class: "pot-chips-icon", "💰" }
                     div { class: "pot-amount", "{s.pot}" }
                 }
 
                 // 公共牌
-                div { class: "community-cards-area",
+                div { class: "poker-community",
                     for (idx, card) in s.community_cards.iter().enumerate() {
                         PokerCard {
                             key: "{idx}",
@@ -494,7 +494,7 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                         let is_me = player.id == my_actor_id;
                         let is_dealer = idx == s.dealer_index;
                         let is_active = s.active_player.as_deref() == Some(&player.id);
-                        let seat_class = format!("player-seat seat-{}{}{}{}",
+                        let seat_class = format!("poker-seat seat-{}{}{}{}",
                             idx,
                             if is_active { " active" } else { "" },
                             if player.folded { " folded" } else { "" },
@@ -532,26 +532,26 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                                     div { class: "position-tag", "{player.position}" }
                                 }
 
-                                div { class: "player-info",
+                                div { class: "poker-player-info",
                                     div { class: "avatar",
                                         if player.kind == "Ai" { "🤖" } else { "👤" }
                                     }
-                                    div { class: "player-name", "{player_name}" }
+                                    div { class: "poker-player-name", "{player_name}" }
                                 }
 
-                                div { class: "player-chips",
+                                div { class: "poker-player-chips",
                                     "💰 {player.chips}"
                                 }
 
                                 if player.current_bet > 0 {
-                                    div { class: "player-bet",
+                                    div { class: "poker-player-bet",
                                         div { class: "bet-chip", "🪙" }
                                         div { class: "bet-amount", "{player.current_bet}" }
                                     }
                                 }
 
                                 if !display_hand.is_empty() {
-                                    div { class: "player-hand",
+                                    div { class: "poker-player-hand",
                                         for (idx2, card) in display_hand.iter().enumerate() {
                                             PokerCard {
                                                 key: "{player.id}-{idx2}",
@@ -563,9 +563,9 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                                 }
 
                                 if player.folded {
-                                    div { class: "player-status folded", "弃牌" }
+                                    div { class: "poker-player-status folded", "弃牌" }
                                 } else if player.all_in {
-                                    div { class: "player-status allin", "ALL IN" }
+                                    div { class: "poker-player-status allin", "ALL IN" }
                                 }
 
                                 if is_active {
@@ -582,7 +582,7 @@ fn GameStateView(props: GameStateViewProps) -> Element {
         }
 
         // ── 操作区域 ──
-        div { class: "action-area",
+        div { class: "poker-actions",
             if s.phase == "WaitingForPlayers" {
                 div { class: "waiting-start",
                     div { class: "waiting-icon", "🎮" }
@@ -623,9 +623,9 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                         div { class: "turn-text", "轮到你行动" }
                     }
 
-                    div { class: "action-buttons",
+                    div { class: "poker-actions-row",
                         button {
-                            class: "btn-action btn-fold",
+                            class: "poker-btn poker-btn-fold",
                             onclick: move |_| {
                                 on_action.call(serde_json::json!({"action": "fold"}));
                             },
@@ -640,7 +640,7 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                             if can_check {
                                 rsx! {
                                     button {
-                                        class: "btn-action btn-check",
+                                        class: "poker-btn poker-btn-check",
                                         onclick: move |_| {
                                             on_action.call(serde_json::json!({"action": "check"}));
                                         },
@@ -650,7 +650,7 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                             } else if need_call {
                                 rsx! {
                                     button {
-                                        class: "btn-action btn-call",
+                                        class: "poker-btn poker-btn-call",
                                         onclick: move |_| {
                                             on_action.call(serde_json::json!({"action": "call"}));
                                         },
@@ -675,7 +675,7 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                                 let on_action_clone = on_action;
                                 rsx! {
                                     button {
-                                        class: "btn-action btn-raise",
+                                        class: "poker-btn poker-btn-raise",
                                         onclick: move |_| {
                                             let amount = raise_amount.read().parse::<u32>().unwrap_or(0);
                                             if amount > current_bet {
@@ -689,7 +689,7 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                         }
 
                         button {
-                            class: "btn-action btn-allin",
+                            class: "poker-btn poker-btn-allin",
                             onclick: move |_| {
                                 on_action.call(serde_json::json!({"action": "all_in"}));
                             },
@@ -711,7 +711,7 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                 }
             } else {
                 div { class: "waiting-panel",
-                    div { class: "waiting-spinner" }
+                    div { class: "waiting-g-spinner" }
                     div { class: "waiting-text",
                         if let Some(ref ap) = s.active_player {
                             "等待 {ap} 行动..."
@@ -753,14 +753,11 @@ fn GameStateView(props: GameStateViewProps) -> Element {
         }
 
         // ── 历史流水 ──
-        div { class: "history-panel glass-panel",
-            style: "margin-top: 20px; padding: 15px; border-radius: 8px;",
-            div { class: "history-header",
-                style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;",
-                h4 { style: "margin: 0;", "📜 历史流水记录" }
+        div { class: "history-panel g-card poker-history-panel",
+            div { class: "history-header poker-history-header",
+                h4 { "📜 历史流水记录" }
                 button {
-                    class: "glass-panel-subtle toggle-ai-btn",
-                    style: "font-size: 0.85em; padding: 4px 12px; cursor: pointer;",
+                    class: "g-card-subtle gm-ai-toggle poker-history-toggle",
                     onclick: move |_| {
                         let cur = *show_ai_content.read();
                         show_ai_content.set(!cur);
@@ -768,26 +765,23 @@ fn GameStateView(props: GameStateViewProps) -> Element {
                     if *show_ai_content.read() { "👀 隐藏 AI 心声" } else { "🙈 显示 AI 心声" }
                 }
             }
-            div { class: "history-list",
-                style: "max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;",
+            div { class: "history-list poker-history-list",
                 if s.history.is_empty() {
-                    div { style: "color: #888; text-align: center;", "暂无记录" }
+                    div { class: "poker-history-empty", "暂无记录" }
                 } else {
                     for entry in s.history.iter().rev() {
-                        div { class: "history-item", style: "margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;",
+                        div { class: "history-item poker-history-item",
                             div { class: "history-action",
-                                span { style: "font-weight: bold; margin-right: 8px;", "{entry.actor_id}" }
-                                span { style: "color: #bbb;", "[{phase_display(&entry.phase)}] {entry.action_desc}" }
+                                span { class: "poker-history-actor", "{entry.actor_id}" }
+                                span { class: "poker-history-desc", "[{phase_display(&entry.phase)}] {entry.action_desc}" }
                             }
                             if *show_ai_content.read() {
                                 if let Some(content) = &entry.ai_content {
-                                    div { class: "history-ai-content",
-                                        style: "margin-top: 4px; padding: 6px; background: rgba(255,255,255,0.05); border-left: 3px solid #66b3ff; font-size: 0.9em; color: #add8e6; white-space: pre-wrap;",
+                                    div { class: "history-ai-content poker-history-ai-card",
                                         "🤖: {content}"
                                     }
                                 } else if s.players.iter().any(|p| p.id == entry.actor_id && p.kind == "Ai") {
-                                    div { class: "history-ai-content",
-                                        style: "margin-top: 4px; padding: 6px; font-size: 0.8em; color: #888; font-style: italic;",
+                                    div { class: "history-ai-content poker-history-ai-hint",
                                         "[由于后端未下发或无记录，无法显示AI心声]"
                                     }
                                 }
@@ -881,7 +875,7 @@ pub fn TexasHoldemLobbyCard(props: crate::games::registry::GameConfigProps) -> E
     });
 
     rsx! {
-        div { class: "form-field",
+        div { class: "g-field",
             label { "游戏人数" }
             div { class: "player-count-grid",
                 for count_opt in PLAYER_COUNT_OPTIONS.iter() {
@@ -917,7 +911,7 @@ pub fn TexasHoldemLobbyCard(props: crate::games::registry::GameConfigProps) -> E
             }
         }
 
-        div { class: "form-field",
+        div { class: "g-field",
             label { "游戏模式" }
             div { class: "mode-toggle",
                 button {
@@ -959,7 +953,7 @@ pub fn TexasHoldemLobbyCard(props: crate::games::registry::GameConfigProps) -> E
         }
 
         if !*spectator_mode.read() {
-            div { class: "form-field",
+            div { class: "g-field",
                 label { "联机席位配置" }
                 div { class: "seats-toggle-grid",
                     for i in 2..=*player_count.read() {
@@ -990,7 +984,7 @@ pub fn TexasHoldemLobbyCard(props: crate::games::registry::GameConfigProps) -> E
             }
         }
 
-        div { class: "form-field",
+        div { class: "g-field",
             label { "德州扑克配置" }
             div { class: "texas-config",
                 div { class: "config-field",

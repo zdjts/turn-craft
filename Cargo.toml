@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "backend",
-    "front",
     "platform_core",
+    "front",
 ]
 resolver = "2"

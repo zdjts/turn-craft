@@ -11,10 +11,10 @@
 //!   fired through the WebSocket to Axum's `handle_socket` ingress loop.
 
 use dioxus::prelude::*;
-use std::collections::HashMap;
 use futures_util::{select, SinkExt, StreamExt};
 use gloo_net::websocket::{futures::WebSocket, Message};
 use serde_json::Value;
+use std::collections::HashMap;
 use tracing::{debug, error, info, warn};
 
 // ═══════════════════════════════════════════════════════
@@ -43,7 +43,7 @@ pub struct WsBridge {
 
     /// Coroutine handle for shooting commands upstream.
     pub tx: Coroutine<WsCommand>,
-    
+
     /// 当前正在流式输出的文本 (key = actor_id, value = 已累积的文本)
     pub streaming_text: Signal<HashMap<String, String>>,
 }

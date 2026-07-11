@@ -1,4 +1,5 @@
 use crate::api::get_token;
+use crate::icons::{self, IconSize};
 use dioxus::prelude::*;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -114,41 +115,41 @@ pub fn AppLayout() -> Element {
     rsx! {
         div { class: "app-shell",
             // ── Sidebar ──
-            div { class: "sidebar glass-panel",
+            div { class: "sidebar g-card",
                 div { class: "sidebar-logo",
-                    span { class: "logo-icon", "⚔️" }
+                    icons::GameIcon { size: IconSize::Lg }
                     span { class: "logo-text", "Turn Craft" }
                 }
 
                 div { class: "sidebar-menu",
                     Link {
                         to: super::Route::Lobby {},
-                        class: if matches!(current_route, super::Route::Lobby {}) { "menu-item active" } else { "menu-item" },
-                        span { class: "menu-icon", "🏟️" }
+                        class: if matches!(current_route, super::Route::Lobby {}) { "menu-item is-active" } else { "menu-item" },
+                        span { class: "menu-icon", icons::ArenaIcon { size: IconSize::Md } }
                         span { class: "menu-label", "游戏大厅" }
                     }
                     Link {
                         to: super::Route::PublicRooms {},
-                        class: if matches!(current_route, super::Route::PublicRooms {}) { "menu-item active" } else { "menu-item" },
-                        span { class: "menu-icon", "🌐" }
+                        class: if matches!(current_route, super::Route::PublicRooms {}) { "menu-item is-active" } else { "menu-item" },
+                        span { class: "menu-icon", icons::GlobeIcon { size: IconSize::Md } }
                         span { class: "menu-label", "公开房间" }
                     }
                     Link {
                         to: super::Route::History {},
-                        class: if matches!(current_route, super::Route::History {}) { "menu-item active" } else { "menu-item" },
-                        span { class: "menu-icon", "📜" }
+                        class: if matches!(current_route, super::Route::History {}) { "menu-item is-active" } else { "menu-item" },
+                        span { class: "menu-icon", icons::ScrollIcon { size: IconSize::Md } }
                         span { class: "menu-label", "历史房间" }
                     }
                     Link {
                         to: super::Route::Profile {},
-                        class: if matches!(current_route, super::Route::Profile {}) { "menu-item active" } else { "menu-item" },
-                        span { class: "menu-icon", "👤" }
+                        class: if matches!(current_route, super::Route::Profile {}) { "menu-item is-active" } else { "menu-item" },
+                        span { class: "menu-icon", icons::UserIcon { size: IconSize::Md } }
                         span { class: "menu-label", "个人主页" }
                     }
                     Link {
                         to: super::Route::About {},
-                        class: if matches!(current_route, super::Route::About {}) { "menu-item active" } else { "menu-item" },
-                        span { class: "menu-icon", "ℹ️" }
+                        class: if matches!(current_route, super::Route::About {}) { "menu-item is-active" } else { "menu-item" },
+                        span { class: "menu-icon", icons::InfoIcon { size: IconSize::Md } }
                         span { class: "menu-label", "关于项目" }
                     }
                 }
@@ -159,10 +160,10 @@ pub fn AppLayout() -> Element {
                         class: "theme-toggle-btn",
                         onclick: toggle_theme,
                         if theme.read().as_str() == "dark" {
-                            span { class: "toggle-icon", "☀️" }
+                            span { class: "toggle-icon", icons::SunIcon { size: IconSize::Md } }
                             span { class: "toggle-label", "浅色模式" }
                         } else {
-                            span { class: "toggle-icon", "🌙" }
+                            span { class: "toggle-icon", icons::MoonIcon { size: IconSize::Md } }
                             span { class: "toggle-label", "深色模式" }
                         }
                     }
@@ -178,7 +179,7 @@ pub fn AppLayout() -> Element {
                             class: "logout-btn",
                             onclick: logout,
                             title: "退出登录",
-                            "🚪"
+                            icons::LogoutIcon { size: IconSize::Md }
                         }
                     }
                 }

@@ -25,6 +25,9 @@ pub struct GameUIDefinition {
     pub game_type: &'static str,
     pub name: &'static str,
     pub icon: &'static str,
+    pub description: &'static str,
+    pub min_players: usize,
+    pub max_players: usize,
     pub lobby_card: fn(props: GameConfigProps) -> Element,
     pub game_component: fn(props: GamePluginProps) -> Element,
     pub default_config: fn() -> DefaultGameConfig,
@@ -46,6 +49,9 @@ impl GameUIRegistry {
                 game_type: "lincoln",
                 name: "林肯辩论",
                 icon: "🏛️",
+                description: "经典英式辩论 · 法官裁判 · 正反方交锋",
+                min_players: 3,
+                max_players: 3,
                 lobby_card: crate::games::lincoln::LincolnLobbyCard,
                 game_component: crate::games::lincoln::LincolnGame,
                 default_config: || DefaultGameConfig {
@@ -69,6 +75,9 @@ impl GameUIRegistry {
                 game_type: "texas_holdem",
                 name: "德州扑克",
                 icon: "🃏",
+                description: "2-6 人经典德扑 · 盲注博弈 · 心理对抗",
+                min_players: 2,
+                max_players: 6,
                 lobby_card: crate::games::texas_holdem::TexasHoldemLobbyCard,
                 game_component: crate::games::texas_holdem::TexasHoldemGame,
                 default_config: || {
@@ -103,6 +112,9 @@ impl GameUIRegistry {
                 game_type: "werewolf",
                 name: "狼人杀",
                 icon: "🐺",
+                description: "7 人社交推理 · 狼人暗杀 · 好人投票",
+                min_players: 7,
+                max_players: 7,
                 lobby_card: crate::games::werewolf::WerewolfLobbyCard,
                 game_component: crate::games::werewolf::WerewolfGame,
                 default_config: || {
@@ -118,11 +130,7 @@ impl GameUIRegistry {
                         game_config: None,
                     }
                 },
-                generate_slots: |configs| {
-                    let mut s: Vec<String> = configs.keys().cloned().collect();
-                    s.sort();
-                    s
-                },
+                generate_slots: |_| (1..=7).map(|i| format!("Player{}", i)).collect(),
             },
         );
 

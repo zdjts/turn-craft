@@ -59,20 +59,20 @@ pub fn Login() -> Element {
     };
 
     rsx! {
-        div { class: "login-container",
+        div { class: "pg-login-container",
             // Dynamic glow background for login
             div { class: "bg-glow bg-glow-1" }
             div { class: "bg-glow bg-glow-2" }
 
-            div { class: "login-card glass-panel animate-fade-in",
-                div { class: "login-header",
-                    span { class: "login-icon", "⚔️" }
-                    h1 { class: "login-title", "Turn Craft" }
-                    p { class: "login-subtitle", "回合制 AI 与真人协作对局平台" }
+            div { class: "pg-login-card g-card animate-fade-in",
+                div { class: "pg-login-header",
+                    span { class: "pg-login-icon", "⚔️" }
+                    h1 { class: "pg-login-title", "Turn Craft" }
+                    p { class: "pg-login-subtitle", "回合制 AI 与真人协作对局平台" }
                 }
 
-                div { class: "login-form",
-                    div { class: "form-field",
+                div { class: "pg-login-form",
+                    div { class: "g-field",
                         label { "用户名" }
                         input {
                             r#type: "text",
@@ -83,7 +83,7 @@ pub fn Login() -> Element {
                         }
                     }
 
-                    div { class: "form-field",
+                    div { class: "g-field",
                         label { "密码" }
                         input {
                             r#type: "password",
@@ -99,19 +99,25 @@ pub fn Login() -> Element {
                         }
                     }
 
-                    if let Some(msg) = error_msg.read().clone() {
-                        div { class: "login-error-bubble",
-                            span { class: "error-icon", "⚠️" }
-                            span { "{msg}" }
+                        if let Some(msg) = error_msg.read().clone() {
+                            {
+                                let is_success = msg.contains("注册成功");
+                                rsx! {
+                                    div {
+                                        class: if is_success { "pg-login-success" } else { "pg-login-error" },
+                                        span { class: if is_success { "success-icon" } else { "pg-login-error-icon" }, if is_success { "✅" } else { "⚠️" } }
+                                        span { "{msg}" }
+                                    }
+                                }
+                            }
                         }
-                    }
 
                     button {
-                        class: if *loading.read() { "login-submit-btn loading" } else { "login-submit-btn" },
+                        class: if *loading.read() { "pg-login-submit is-loading" } else { "pg-login-submit" },
                         onclick: move |_| handle_submit(()),
                         disabled: *loading.read(),
                         if *loading.read() {
-                            span { class: "spinner" }
+                            span { class: "g-spinner" }
                         } else if *is_register.read() {
                             "立即注册"
                         } else {
@@ -120,11 +126,11 @@ pub fn Login() -> Element {
                     }
                 }
 
-                div { class: "login-toggle",
+                div { class: "pg-login-toggle",
                     if *is_register.read() {
                         span { "已有账号？" }
                         button {
-                            class: "toggle-btn-link",
+                            class: "pg-login-link",
                             onclick: move |_| {
                                 is_register.set(false);
                                 error_msg.set(None);
@@ -134,7 +140,7 @@ pub fn Login() -> Element {
                     } else {
                         span { "还没有账号？" }
                         button {
-                            class: "toggle-btn-link",
+                            class: "pg-login-link",
                             onclick: move |_| {
                                 is_register.set(true);
                                 error_msg.set(None);

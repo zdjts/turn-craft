@@ -1,4 +1,5 @@
 use crate::api::{get_ai_configs, update_ai_config, AiConfigData};
+use crate::icons;
 use crate::routes::layout::use_toast;
 use dioxus::prelude::*;
 
@@ -111,22 +112,25 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
     };
 
     rsx! {
-        div { class: "settings-container animate-fade-in",
+        div { class: "pg-settings animate-fade-in",
             div { class: "page-header",
-                h1 { "⚙️ 配置 AI 智能参数" }
+                h1 {
+                    icons::SparklesIcon { size: crate::icons::IconSize::Lg }
+                    " 配置 AI 智能参数"
+                }
                 p { "为当前房间的 AI 助手配置专属的大语言模型接入端点和个性化 Prompt 提示词。" }
             }
 
             if *loading.read() {
-                div { class: "loading-canvas glass-panel",
-                    span { class: "spinner" }
+                div { class: "loading-canvas g-card",
+                    span { class: "g-spinner" }
                     p { "正在读取 AI 配置项，请稍候..." }
                 }
             } else {
-                div { class: "settings-layout glass-panel",
+                div { class: "pg-settings-layout g-card",
                     // Switch AI tabs if there are multiple AI players in the room
                     if all_ai_actors.read().len() > 1 {
-                        div { class: "ai-actor-tabs",
+                        div { class: "pg-settings-tabs",
                             for actor in all_ai_actors.read().iter() {
                                 {
                                     let act_id = actor.clone();
@@ -148,7 +152,7 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                                     rsx! {
                                         button {
                                             key: "{act_id}",
-                                            class: if is_current { "ai-tab-btn active" } else { "ai-tab-btn" },
+                                            class: if is_current { "pg-settings-tab is-active" } else { "pg-settings-tab" },
                                             onclick: move |_| {
                                                 nav.push(super::Route::Settings { room_id: rid.clone(), actor_id: act_id.clone() });
                                             },
@@ -160,24 +164,30 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                         }
                     }
 
-                    div { class: "settings-section-title",
-                        "🤖 正在配置: {actor_id}"
+                    div { class: "pg-settings-title",
+                        span { class: "ai-model-badge",
+                            icons::AiProviderIcon { model: Some(model.read().clone()) }
+                        }
+                        " 正在配置: {actor_id}"
                     }
 
-                    div { class: "settings-form",
-                        div { class: "form-grid-two-cols",
-                            div { class: "form-field",
+                    div { class: "pg-settings-form",
+                        div { class: "pg-settings-grid",
+                            div { class: "g-field",
                                 label { "API 基址 (Base URL)" }
                                 input {
                                     r#type: "text",
-                                    placeholder: "https://api.openai.com/v1",
+                                    placeholder: "http://localhost:4000/v1",
                                     value: "{base_url}",
                                     oninput: move |e| base_url.set(e.value()),
                                 }
                             }
 
-                            div { class: "form-field",
-                                label { "模型名称 (Model)" }
+                            div { class: "g-field",
+                                label {
+                                    "模型名称 (Model) "
+                                    icons::AiProviderIcon { model: Some(model.read().clone()) }
+                                }
                                 input {
                                     r#type: "text",
                                     placeholder: "gpt-4o",
@@ -187,8 +197,8 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                             }
                         }
 
-                        div { class: "form-grid-two-cols",
-                            div { class: "form-field",
+                        div { class: "pg-settings-grid",
+                            div { class: "g-field",
                                 label { "API 密钥 (API Key)" }
                                 input {
                                     r#type: "password",
@@ -198,7 +208,7 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                                 }
                             }
 
-                            div { class: "form-field",
+                            div { class: "g-field",
                                 label { "最大输出限制 (Max Tokens)" }
                                 input {
                                     r#type: "number",
@@ -213,32 +223,32 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                             }
                         }
 
-                        div { class: "form-field",
+                        div { class: "g-field",
                             label { "系统提示词 (System Prompt)" }
                             textarea {
-                                class: "prompt-textarea",
+                                class: "pg-settings-prompt",
                                 placeholder: "输入赋予该 AI 角色的设定、推理逻辑以及遵守规则...",
                                 value: "{prompt}",
                                 oninput: move |e| prompt.set(e.value()),
                             }
                         }
 
-                        div { class: "settings-actions",
+                        div { class: "pg-settings-actions",
                             button {
-                                class: "cancel-settings-btn glass-panel-subtle",
+                                class: "pg-settings-cancel g-card-subtle",
                                 onclick: move |_| {
                                     nav.go_back();
                                 },
                                 "取消"
                             }
                             button {
-                                class: if *saving.read() { "save-settings-btn loading" } else { "save-settings-btn" },
+                                class: if *saving.read() { "pg-settings-save is-loading" } else { "pg-settings-save" },
                                 onclick: handle_save,
                                 disabled: *saving.read(),
                                 if *saving.read() {
-                                    span { class: "spinner" }
+                                    span { class: "g-spinner" }
                                 } else {
-                                    "💾 保存配置"
+                                    "保存配置"
                                 }
                             }
                         }

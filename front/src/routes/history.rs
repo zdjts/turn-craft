@@ -54,59 +54,73 @@ pub fn History() -> Element {
         });
     };
 
-    let handle_delete = move |room_id: String| {
-        spawn(async move {
-            match delete_room(&room_id).await {
-                Ok(_) => {
-                    toast.show(
-                        "房间删除成功".to_string(),
-                        crate::routes::layout::ToastType::Success,
-                    );
-                    load_rooms();
+    let mut delete_confirm = use_signal(|| Option::<String>::None);
+
+    let mut handle_delete = move |room_id: String| {
+        delete_confirm.set(Some(room_id));
+    };
+
+    let mut confirm_delete = move || {
+        let room_to_delete = delete_confirm.read().clone();
+        delete_confirm.set(None);
+        if let Some(room_id) = room_to_delete {
+            spawn(async move {
+                match delete_room(&room_id).await {
+                    Ok(_) => {
+                        toast.show(
+                            "房间删除成功".to_string(),
+                            crate::routes::layout::ToastType::Success,
+                        );
+                        load_rooms();
+                    }
+                    Err(e) => {
+                        toast.show(
+                            format!("删除失败: {e}"),
+                            crate::routes::layout::ToastType::Error,
+                        );
+                    }
                 }
-                Err(e) => {
-                    toast.show(
-                        format!("删除失败: {e}"),
-                        crate::routes::layout::ToastType::Error,
-                    );
-                }
-            }
-        });
+            });
+        }
+    };
+
+    let mut cancel_delete = move || {
+        delete_confirm.set(None);
     };
 
     rsx! {
-        div { class: "history-container animate-fade-in",
+        div { class: "pg-history animate-fade-in",
             div { class: "page-header",
                 div { class: "header-left",
                     h1 { "📜 历史对局房间" }
                     p { "您创建的所有对局记录，支持设置公开展示属性。" }
                 }
                 button {
-                    class: "refresh-btn-large glass-panel-subtle",
+                    class: "refresh-btn-large g-card-subtle",
                     onclick: move |_| load_rooms(),
                     "🔄 刷新记录"
                 }
             }
 
             if *loading.read() {
-                div { class: "skeleton-list",
+                div { class: "g-skeleton-list",
                     for _ in 0..4 {
-                        div { class: "skeleton-item-large" }
+                        div { class: "g-skeleton-row-lg" }
                     }
                 }
             } else if rooms.read().is_empty() {
-                div { class: "empty-state-card glass-panel",
+                div { class: "g-empty g-card",
                     div { class: "empty-icon", "📜" }
                     h3 { "暂无对局历史" }
                     p { "您尚未创建过对局，快去大厅发起一场博弈吧！" }
                     button {
-                        class: "go-lobby-btn",
+                        class: "pg-history-go",
                         onclick: move |_| { nav.push(super::Route::Lobby {}); },
                         "前往大厅"
                     }
                 }
             } else {
-                div { class: "history-list",
+                div { class: "pg-history-list",
                     for room in rooms.read().iter() {
                         {
                             let rid = room.room_id.clone();
@@ -118,13 +132,13 @@ pub fn History() -> Element {
                             let time_str = room.created_at.chars().take(16).collect::<String>().replace("T", " ");
 
                             rsx! {
-                                div { key: "{rid}", class: "history-card glass-panel animate-slide-up",
-                                    div { class: "history-card-left",
+                                div { key: "{rid}", class: "pg-history-card g-card animate-slide-up",
+                                    div { class: "pg-pg-history-card-left",
                                         div { class: "game-badge", "{game_icon} {game_name}" }
                                         div { class: "room-id-mono", "ID: {rid}" }
                                     }
 
-                                    div { class: "history-card-mid",
+                                    div { class: "pg-pg-history-card-mid",
                                         div { class: "meta-item",
                                             span { class: "label", "总局数限制:" }
                                             span { class: "value", "{rounds} 轮" }
@@ -135,7 +149,7 @@ pub fn History() -> Element {
                                         }
                                     }
 
-                                    div { class: "history-card-right",
+                                    div { class: "pg-pg-history-card-right",
                                         // Toggle visibility switch
                                         {
                                             let rid_toggle = rid.clone();
@@ -143,38 +157,66 @@ pub fn History() -> Element {
                                             let rid_spectate = rid.clone();
                                             let rid_delete = rid.clone();
                                             rsx! {
-                                                div { class: "visibility-toggle-wrapper",
-                                                    span { class: "visibility-label", "公开状态:" }
+                                                div { class: "pg-history-visibility",
+                                                    span { class: "pg-history-vis-label", "公开状态:" }
                                                     button {
-                                                        class: if is_pub { "toggle-switch active" } else { "toggle-switch" },
+                                                        class: if is_pub { "pg-history-toggle is-active" } else { "pg-history-toggle" },
                                                         onclick: move |_| toggle_public(rid_toggle.clone(), is_pub),
-                                                        if is_pub { "公开中" } else { "私有" }
+                                                        if is_pub { "公开中 ▸" } else { "私有 ▸" }
                                                     }
                                                 }
 
                                                 // Action buttons
                                                 div { class: "actions-row",
                                                     button {
-                                                        class: "action-btn replay",
+                                                        class: "g-btn-ghost replay",
                                                         onclick: move |_| {
                                                             nav.push(super::Route::Replay { room_id: rid_replay.clone() });
                                                         },
                                                         "🎞️ 回放"
                                                     }
                                                     button {
-                                                        class: "action-btn spectate",
+                                                        class: "g-btn-ghost spectate",
                                                         onclick: move |_| {
                                                             nav.push(super::Route::Game { room_id: rid_spectate.clone(), actor_id: "spectator".to_string() });
                                                         },
                                                         "👁️ 观战"
                                                     }
                                                     button {
-                                                        class: "action-btn delete",
+                                                        class: "g-btn-ghost delete",
                                                         onclick: move |_| handle_delete(rid_delete.clone()),
                                                         "🗑️ 销毁"
-                                                    }
-                                                }
-                                            }
+                }
+            }
+
+            if let Some(ref room_id) = *delete_confirm.read() {
+                {
+                    let mut confirm = confirm_delete.clone();
+                    let mut cancel = cancel_delete.clone();
+                    let rid = room_id.clone();
+                    rsx! {
+                        div { class: "modal-overlay",
+                            div { class: "modal-confirm g-card",
+                                h3 { "确认删除" }
+                                p { "确定要永久删除房间 {rid} 吗？此操作不可撤销。" }
+                                div { class: "modal-actions",
+                                    button {
+                                        class: "modal-btn cancel",
+                                        onclick: move |_| cancel(),
+                                        "取消"
+                                    }
+                                    button {
+                                        class: "modal-btn confirm-delete",
+                                        onclick: move |_| confirm(),
+                                        "确认删除"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
                                         }
                                     }
                                 }

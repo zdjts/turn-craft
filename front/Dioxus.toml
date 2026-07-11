@@ -1,9 +1,10 @@
 [application]
+default_platform = "web"
 
 [web.app]
 
 # HTML title tag content
-title = "front"
+title = "Turn Craft"
 
 # include `assets` in web platform
 [web.resource]

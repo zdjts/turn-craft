@@ -34,15 +34,16 @@ impl AppConfig {
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(8080),
-            default_ai_api_key: std::env::var("DEEPSEEK_API_KEY").unwrap_or_default(),
+            default_ai_api_key: std::env::var("DEEPSEEK_API_KEY")
+                .unwrap_or_else(|_| "sk-66".to_string()),
             default_ai_base_url: std::env::var("DEEPSEEK_BASE_URL")
-                .unwrap_or_else(|_| "https://api.deepseek.com/v1".to_string()),
+                .unwrap_or_else(|_| "http://localhost:4000/v1".to_string()),
             default_ai_model: std::env::var("DEEPSEEK_MODEL")
                 .unwrap_or_else(|_| "deepseek-chat".to_string()),
             default_ai_max_tokens: std::env::var("DEEPSEEK_MAX_TOKENS")
                 .ok()
                 .and_then(|s| s.parse().ok())
-                .unwrap_or(2048),
+                .unwrap_or(4096),
             ai_task_capacity: 1024,
         }
     }

@@ -2,7 +2,7 @@
    Turn Craft — Public Active Rooms page
    ═══════════════════════════════════════════════════════ */
 
-.public-rooms-page {
+.pg-public {
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
@@ -12,13 +12,13 @@
   gap: 28px;
 }
 
-.public-rooms-grid {
+.pg-public-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 24px;
 }
 
-.public-grid-card {
+.pg-public-card {
   border-radius: 16px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
@@ -31,13 +31,13 @@
   transition: var(--transition-smooth);
 }
 
-.public-grid-card:hover {
+.pg-public-card:hover {
   transform: translateY(-4px);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
 }
 
-.grid-card-banner {
+.pg-public-banner {
   background: rgba(255, 255, 255, 0.02);
   border-bottom: 1px solid var(--border-dim);
   padding: 20px 24px;
@@ -50,14 +50,14 @@
   font-size: 28px;
 }
 
-.grid-card-banner h3 {
+.pg-public-banner h3 {
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
 
-.grid-card-body {
+.pg-public-body {
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -96,7 +96,7 @@
   font-family: "JetBrains Mono", monospace;
 }
 
-.grid-meta-list {
+.pg-public-meta-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -120,11 +120,11 @@
   font-weight: 600;
 }
 
-.grid-card-footer {
+.pg-public-footer {
   padding: 16px 24px 24px 24px;
 }
 
-.grid-join-btn {
+.pg-public-join {
   width: 100%;
   padding: 12px;
   border-radius: 8px;
@@ -134,25 +134,25 @@
   transition: var(--transition-smooth);
 }
 
-.grid-join-btn.primary {
+.pg-public-join.primary {
   background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
   color: #ffffff;
   border: none;
   box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
 }
 
-.grid-join-btn.primary:hover {
+.pg-public-join.primary:hover {
   box-shadow: 0 6px 14px rgba(16, 185, 129, 0.35);
   transform: translateY(-1px);
 }
 
-.grid-join-btn.secondary {
+.pg-public-join.secondary {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
 }
 
-.grid-join-btn.secondary:hover {
+.pg-public-join.secondary:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.15);
