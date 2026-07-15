@@ -1,5 +1,6 @@
-use crate::api::get_token;
+use crate::api::{get_token, get_username};
 use crate::icons::{self, IconSize};
+use crate::services::connection;
 use dioxus::prelude::*;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -29,6 +30,9 @@ pub fn use_toast() -> ToastService {
 #[component]
 pub fn AppLayout() -> Element {
     let nav = use_navigator();
+
+    // Initialize global ConnectionManager once at app level
+    let _conn = connection::use_connection_manager();
 
     // Auth redirect check
     use_effect(move || {
@@ -93,23 +97,12 @@ pub fn AppLayout() -> Element {
 
     let logout = move |_| {
         crate::api::remove_token();
+        crate::api::remove_username();
         nav.push(super::Route::Login {});
     };
 
-    // User info fallback: decode username from token or use generic name
     let username = use_memo(move || {
-        if let Some(token) = get_token() {
-            // A simple decode helper or default to a readable name
-            if token.contains(":") {
-                let parts: Vec<&str> = token.split(':').collect();
-                if parts.len() > 1 {
-                    return parts[0].to_string();
-                }
-            }
-            token.chars().take(8).collect::<String>()
-        } else {
-            "未登录".to_string()
-        }
+        get_username().unwrap_or_else(|| "未登录".to_string())
     });
 
     rsx! {
@@ -155,6 +148,17 @@ pub fn AppLayout() -> Element {
                 }
 
                 div { class: "sidebar-footer",
+                    // 反馈入口
+                    div {
+                        class: "sidebar-feedback",
+                        style: "margin-bottom: 12px; text-align: center;",
+                        a {
+                            href: "https://github.com/anomalyco/turn-craft/issues/new",
+                            target: "_blank",
+                            style: "color: var(--text-muted); font-size: 0.85em; text-decoration: none;",
+                            "💬 反馈建议"
+                        }
+                    }
                     // Theme toggler
                     button {
                         class: "theme-toggle-btn",

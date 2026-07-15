@@ -8,6 +8,7 @@ mod app;
 mod auth;
 mod config;
 mod error;
+mod event_store;
 mod games;
 mod handlers;
 mod room;
@@ -92,7 +93,11 @@ async fn main() {
     game_registry.register(Box::new(crate::games::werewolf::WerewolfFactory));
     let game_registry = Arc::new(game_registry);
 
-    // 5. 初始化 Service 与 Supervisor
+    // 5. 初始化 EventStore
+    let event_store = Arc::new(crate::event_store::SqliteEventStore::new(pool.clone()))
+        as Arc<dyn crate::event_store::EventStore>;
+
+    // 6. 初始化 Service 与 Supervisor
     let auth_service = Arc::new(crate::auth::AuthService::new(
         user_repo,
         &CONFIG.jwt_secret,
@@ -107,6 +112,7 @@ async fn main() {
         ai_tx.clone(),
         supervisor,
         game_registry,
+        event_store.clone(),
     ));
 
     // 6. 从数据库恢复之前所有的活跃房间
@@ -120,6 +126,7 @@ async fn main() {
         auth_service,
         room_service,
         ai_service: Arc::new(crate::ai::AIService::new(ai_config_repo)),
+        start_time: chrono::Utc::now(),
     };
 
     let app = build_router(app_state);

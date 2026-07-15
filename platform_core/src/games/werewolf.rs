@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::error::EngineError;
 use crate::traits::{ActionKind, EngineEvent, GameEngine};
@@ -877,6 +877,7 @@ impl GameEngine for WerewolfEngine {
     fn to_json(&self) -> Value {
         let mut v = serde_json::to_value(self).unwrap_or(Value::Null);
         if let Some(obj) = v.as_object_mut() {
+            obj.insert("type".to_string(), Value::String("state".to_string()));
             obj.insert("finished".to_string(), Value::Bool(self.is_finished()));
             obj.insert(
                 "game_type".to_string(),

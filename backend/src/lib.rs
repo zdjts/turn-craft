@@ -1,9 +1,12 @@
 pub mod ai;
 pub mod app;
+pub mod application;
 pub mod auth;
 pub mod config;
 pub mod error;
+pub mod event_store;
 pub mod games;
 pub mod handlers;
+pub mod infrastructure;
 pub mod room;
 pub mod user;

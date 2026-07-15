@@ -3,8 +3,10 @@ pub enum RoomError {
     #[error("房间不存在")]
     NotFound,
     #[error("角色槽位已被占用")]
+    #[allow(dead_code)]
     SlotOccupied,
     #[error("你不是房间的主人")]
+    #[allow(dead_code)]
     NotOwner,
     #[error("不支持的游戏类型: {0}")]
     UnsupportedGameType(String),

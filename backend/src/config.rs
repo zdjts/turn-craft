@@ -23,8 +23,14 @@ impl AppConfig {
         Self {
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite://dev.db".to_string()),
-            jwt_secret: std::env::var("JWT_SECRET")
-                .unwrap_or_else(|_| "super-secret-key-change-me".to_string()),
+            jwt_secret: {
+                let secret = std::env::var("JWT_SECRET")
+                    .unwrap_or_else(|_| "super-secret-key-change-me".to_string());
+                if secret == "super-secret-key-change-me" {
+                    tracing::warn!("⚠️  JWT_SECRET 未设置，使用默认不安全密钥。生产环境请设置 JWT_SECRET 环境变量！");
+                }
+                secret
+            },
             jwt_expires_in_secs: std::env::var("JWT_EXPIRES_IN_SECS")
                 .ok()
                 .and_then(|s| s.parse().ok())
@@ -39,7 +45,7 @@ impl AppConfig {
             default_ai_base_url: std::env::var("DEEPSEEK_BASE_URL")
                 .unwrap_or_else(|_| "http://localhost:4000/v1".to_string()),
             default_ai_model: std::env::var("DEEPSEEK_MODEL")
-                .unwrap_or_else(|_| "deepseek-chat".to_string()),
+                .unwrap_or_else(|_| "deepseek-v4-flash".to_string()),
             default_ai_max_tokens: std::env::var("DEEPSEEK_MAX_TOKENS")
                 .ok()
                 .and_then(|s| s.parse().ok())

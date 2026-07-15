@@ -1,23 +1,87 @@
 use std::env;
 
-/// AI 配置：存储 API 密钥、端点、模型等信息
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+/// AI 行为风格预设
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AiStyle {
+    /// 默认 — 无特殊风格要求
+    Default,
+    /// 激进 — 偏好高风险、高回报的决策
+    Aggressive,
+    /// 保守 — 偏好安全、低风险的决策
+    Conservative,
+    /// 创意 — 偏好出人意料、非传统的策略
+    Creative,
+}
+
+impl AiStyle {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AiStyle::Default => "default",
+            AiStyle::Aggressive => "aggressive",
+            AiStyle::Conservative => "conservative",
+            AiStyle::Creative => "creative",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "aggressive" => AiStyle::Aggressive,
+            "conservative" => AiStyle::Conservative,
+            "creative" => AiStyle::Creative,
+            _ => AiStyle::Default,
+        }
+    }
+
+    /// 风格描述（附加到 system prompt）
+    pub fn instruction(&self) -> &'static str {
+        match self {
+            AiStyle::Default => "",
+            AiStyle::Aggressive => "风格要求：采取激进策略，偏好高风险高回报的行动。不要过于保守。",
+            AiStyle::Conservative => "风格要求：采取保守策略，优先保证安全，避免不必要的风险。",
+            AiStyle::Creative => "风格要求：发挥创意，使用非传统策略。不要总是按常规出牌，要让对手难以预测。",
+        }
+    }
+}
+
+impl Default for AiStyle {
+    fn default() -> Self { AiStyle::Default }
+}
+
+/// AI 配置：存储 API 密钥、端点、模型、风格等信息
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AiConfig {
     pub api_key: String,
     pub base_url: String,
     pub model: String,
     pub max_tokens: u32,
     pub prompt: String,
+    #[serde(default)]
+    pub style: AiStyle,
+}
+
+impl Default for AiConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            base_url: String::new(),
+            model: String::new(),
+            max_tokens: 2048,
+            prompt: String::new(),
+            style: AiStyle::Default,
+        }
+    }
 }
 impl AiConfig {
     /// 创建默认配置（max_tokens=2048）
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             max_tokens: 2048,
             ..Self::default()
         }
     }
-    /// 从环境变量加载配置
+    /// 从环境变量加载配置（当前 unused — AI 配置来自 DB）
+    #[allow(dead_code)]
     pub fn from_env(path: Option<&str>) -> Result<Self, String> {
         match path {
             Some(p) => {
@@ -58,20 +122,30 @@ impl AiConfig {
             model,
             max_tokens,
             prompt: "".to_string(),
+            style: AiStyle::Default,
         })
     }
+    #[allow(dead_code)]
     pub fn get_env(&self, key: &str) -> Result<String, String> {
         env::var(key).map_err(|e| format!("缺少环境变量: {}", e))
     }
 }
 
-/// 构建 AI 请求消息：系统提示 + 游戏快照
+/// 构建 AI 请求消息：系统提示 + 风格指令 + 游戏快照
 pub fn build_messages(config: &AiConfig, snapshot_json: String) -> String {
-    let prompt = config.prompt.clone();
+    let mut system_parts: Vec<String> = Vec::new();
+    if !config.prompt.is_empty() {
+        system_parts.push(config.prompt.clone());
+    }
+    let style_inst = config.style.instruction().to_string();
+    if !style_inst.is_empty() {
+        system_parts.push(style_inst);
+    }
+    let system_content = system_parts.join("\n\n");
     let messages = serde_json::json!([
         {
             "role": "system",
-            "content": prompt,
+            "content": system_content,
         },
         {
             "role": "user",

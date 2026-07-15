@@ -8,6 +8,7 @@ use super::env::AiConfig;
 
 /// AI 客户端错误类型
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum AiClientError {
     Http(reqwest::Error),
     Parse(String),
@@ -20,6 +21,7 @@ impl From<reqwest::Error> for AiClientError {
 
 /// 请求 AI 发言：发送消息到 LLM API 并返回完整响应
 /// 支持可选的 tools（用于 function calling / tool use）
+#[allow(dead_code)]
 pub async fn request_speech(
     http: &Client,
     config: &AiConfig,

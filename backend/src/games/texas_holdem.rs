@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use platform_core::{
     games::texas_holdem::{
         ActionHistory, GamePhase, PokerPlayer, ShowdownResult, TexasHoldemEngine,
     },
-    traits::{ActionKind, GameEngine},
+    traits::{ActionKind, GameEngine, GameMeta},
 };
 use serde_json::Value;
 
@@ -22,6 +21,25 @@ pub struct TexasHoldemFactory;
 impl GameFactory for TexasHoldemFactory {
     fn game_type(&self) -> &str {
         "texas_holdem"
+    }
+
+    fn meta(&self) -> GameMeta {
+        GameMeta {
+            game_type: "texas_holdem".into(),
+            name: "德州扑克".into(),
+            description: "2-6 人经典德扑 · 盲注博弈 · 心理对抗".into(),
+            min_players: 2,
+            max_players: 6,
+            slot_names: (1..=6).map(|i| format!("player{}", i)).collect(),
+            config_schema: Some(serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "small_blind": { "type": "integer", "minimum": 1, "default": 10 },
+                    "big_blind": { "type": "integer", "minimum": 2, "default": 20 },
+                    "starting_chips": { "type": "integer", "minimum": 100, "default": 1000 }
+                }
+            })),
+        }
     }
 
     async fn create(
@@ -75,7 +93,7 @@ impl GameFactory for TexasHoldemFactory {
                     let saved = all_defaults.get(&capitalized);
 
                     let config = match saved {
-                        Some(s) => AiConfig {
+                        Some(s) => AiConfig { style: crate::ai::env::AiStyle::Default,
                             api_key: s.api_key.clone(),
                             base_url: s.base_url.clone(),
                             model: s.model.clone(),
@@ -88,7 +106,7 @@ impl GameFactory for TexasHoldemFactory {
                         },
                         None => {
                             let fallback = all_defaults.values().next();
-                            AiConfig {
+                            AiConfig { style: crate::ai::env::AiStyle::Default,
                                 api_key: fallback.map(|f| f.api_key.clone()).unwrap_or_else(|| {
                                     crate::config::CONFIG.default_ai_api_key.clone()
                                 }),

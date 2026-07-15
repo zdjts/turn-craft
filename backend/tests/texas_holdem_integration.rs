@@ -26,6 +26,7 @@ fn test_ai_config(prompt: &str) -> backend::ai::env::AiConfig {
         model: AI_MODEL.to_string(),
         max_tokens: 2048,
         prompt: prompt.to_string(),
+        style: backend::ai::env::AiStyle::Default,
     }
 }
 

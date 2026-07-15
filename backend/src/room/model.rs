@@ -30,6 +30,25 @@ pub enum RoomCommand {
         content: String,
         is_done: bool,
     },
+    /// 槽位被用户占据（join_slot 后通知引擎）
+    #[allow(dead_code)]
+    SlotOccupied {
+        slot_name: String,
+        user_id: crate::user::model::UserId,
+    },
+    /// 槽位被释放（预留，供 future 使用）
+    #[allow(dead_code)]
+    SlotReleased {
+        slot_name: String,
+    },
+    /// 重试 AI 动作（手动或自动）
+    RetryAi {
+        actor_id: String,
+    },
+    /// 跳过 AI 回合
+    SkipAiTurn {
+        actor_id: String,
+    },
 }
 
 impl std::fmt::Debug for RoomCommand {
@@ -53,12 +72,30 @@ impl std::fmt::Debug for RoomCommand {
                 .field("actor_id", actor_id)
                 .field("is_done", is_done)
                 .finish(),
+            Self::SlotOccupied { slot_name, user_id } => f
+                .debug_struct("SlotOccupied")
+                .field("slot_name", slot_name)
+                .field("user_id", user_id)
+                .finish(),
+            Self::SlotReleased { slot_name } => f
+                .debug_struct("SlotReleased")
+                .field("slot_name", slot_name)
+                .finish(),
+            Self::RetryAi { actor_id } => f
+                .debug_struct("RetryAi")
+                .field("actor_id", actor_id)
+                .finish(),
+            Self::SkipAiTurn { actor_id } => f
+                .debug_struct("SkipAiTurn")
+                .field("actor_id", actor_id)
+                .finish(),
         }
     }
 }
 
 /// AI 任务 — 供 AiWorker 消费
 pub struct AiTask {
+    #[allow(dead_code)]
     pub room_id: String,
     pub actor_id: String,
     pub snapshot: String,

@@ -1,4 +1,3 @@
-use thiserror::Error;
 
 use crate::user::error::UserError;
 
@@ -6,8 +5,10 @@ use crate::user::error::UserError;
 pub enum AuthError {
     #[error("用户名或密码错误")]
     InvalidCredentials,
-    #[error("Token 无效或已经过期")]
+    #[error("Token 无效")]
     Unauthorized,
+    #[error("Token 已过期，请重新登录")]
+    TokenExpired,
     #[error("用户名不能为空")]
     EmptyUsername,
     #[error("密码长度不能少于6位")]

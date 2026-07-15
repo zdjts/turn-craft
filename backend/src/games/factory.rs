@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use platform_core::traits::GameEngine;
+use platform_core::traits::{GameEngine, GameMeta};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -11,6 +11,7 @@ use crate::room::model::CreateRoomInput;
 #[async_trait]
 pub trait GameFactory: Send + Sync {
     fn game_type(&self) -> &str;
+    fn meta(&self) -> GameMeta;
     async fn create(
         &self,
         room_id: &str,
@@ -38,7 +39,11 @@ impl GameRegistry {
     pub fn get(&self, game_type: &str) -> Option<&dyn GameFactory> {
         self.factories.get(game_type).map(|b| b.as_ref())
     }
+    #[allow(dead_code)]
     pub fn all_types(&self) -> Vec<&str> {
         self.factories.keys().map(|s| s.as_str()).collect()
+    }
+    pub fn all_meta(&self) -> Vec<GameMeta> {
+        self.factories.values().map(|f| f.meta()).collect()
     }
 }

@@ -1,27 +1,35 @@
 use crate::games::{GamePluginManager, GamePluginProps};
 use crate::routes::layout::use_toast;
-use crate::services::websocket::use_ws_bridge;
+use crate::services::connection::{ConnState, ConnectionManager};
 use dioxus::prelude::*;
-use serde_json::Value;
+use serde_json::json;
 
 #[component]
 pub fn Game(room_id: String, actor_id: String) -> Element {
     let toast = use_toast();
     let nav = use_navigator();
+    let mut conn = use_context::<ConnectionManager>();
 
-    // Connect websocket bridge
-    let bridge = use_ws_bridge(&room_id, &actor_id);
-    let connected = bridge.connected;
-    let state = bridge.opaque_state;
+    // Bind connection on mount
+    {
+        let rid = room_id.clone();
+        let aid = actor_id.clone();
+        use_effect(move || {
+            conn.connect(&rid, &aid);
+        });
+    }
+
+    let conn_state = conn.state;
+    let connected = use_memo(move || *conn_state.read() == ConnState::Connected);
+    let state = conn.opaque_state;
 
     let rid_for_copy = room_id.clone();
     let aid_for_plugin = actor_id.clone();
 
-    // Handle copying room ID to clipboard
     let copy_room_id = move |_| {
         if let Some(win) = web_sys::window() {
-            let nav = win.navigator().clipboard();
-            let _ = nav.write_text(&rid_for_copy);
+            let clip = win.navigator().clipboard();
+            let _ = clip.write_text(&rid_for_copy);
             toast.show(
                 "房间 ID 已复制到剪贴板".to_string(),
                 crate::routes::layout::ToastType::Success,
@@ -29,28 +37,11 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
         }
     };
 
-    // Extract players and game info from opaque state
     let game_type = use_memo(move || {
-        let s = state.read();
-        s.get("game_type")
+        state.read().get("game_type")
             .and_then(|g| g.as_str())
             .unwrap_or("unknown")
             .to_string()
-    });
-
-    let max_round = use_memo(move || {
-        let s = state.read();
-        s.get("max_round").and_then(|r| r.as_u64()).unwrap_or(0)
-    });
-
-    let current_round = use_memo(move || {
-        let s = state.read();
-        s.get("round").and_then(|r| r.as_u64()).unwrap_or(0)
-    });
-
-    let finished = use_memo(move || {
-        let s = state.read();
-        s.get("finished").and_then(|f| f.as_bool()).unwrap_or(false)
     });
 
     let active_actor = use_memo(move || {
@@ -61,12 +52,10 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
             .map(|s| s.to_string())
     });
 
-    // Parse player roster slots
     let roster_slots = use_memo(move || {
         let mut list = Vec::new();
         let s = state.read();
         if let Some(actors) = s.get("actors").and_then(|a| a.as_array()) {
-            // Lincoln style roster
             for act in actors {
                 if let (Some(id), Some(role), Some(kind)) = (
                     act.get("id").and_then(|v| v.as_str()),
@@ -77,14 +66,12 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                 }
             }
         } else if let Some(players) = s.get("players").and_then(|p| p.as_array()) {
-            // Texas holdem style roster
             for p in players {
                 if let (Some(id), Some(kind)) = (
                     p.get("id").and_then(|v| v.as_str()),
                     p.get("kind").and_then(|v| v.as_str()),
                 ) {
-                    let pos = p
-                        .get("position")
+                    let pos = p.get("position")
                         .or_else(|| p.get("role"))
                         .and_then(|v| v.as_str())
                         .unwrap_or("未知");
@@ -95,11 +82,31 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
         list
     });
 
+    let conn_state_label = use_memo(move || conn_state.read().as_str().to_string());
+    let has_action_error = use_memo(move || conn.action_error.read().is_some());
+    let current_error = use_memo(move || conn.action_error.read().clone());
+    let can_retry_val = use_memo(move || *conn.can_retry.read());
+
+    // 回合指示
+    let turn_info = use_memo(move || {
+        let s = state.read();
+        let active = s.get("active_actor")
+            .or_else(|| s.get("active_player"))
+            .and_then(|a| a.as_str());
+        let phase = s.get("phase").or_else(|| s.get("cur_role"))
+            .or_else(|| s.get("phase_hint"))
+            .and_then(|p| p.as_str());
+        let round = s.get("round").and_then(|r| r.as_u64());
+        (active.map(|s| s.to_string()), phase.map(|s| s.to_string()), round)
+    });
+
+    let is_my_turn = use_memo(move || {
+        turn_info().0.as_deref() == Some(&actor_id)
+    });
+
     rsx! {
         div { class: "pg-arena",
-            // ── Left Side Glass Control Panel ──
             div { class: "pg-arena-sidebar g-card",
-                // Room Info Header
                 div { class: "pg-arena-info",
                     div { class: "room-row-top",
                         span { class: "room-label", "游戏房间" }
@@ -112,18 +119,68 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                     }
                     div { class: "room-id-mono", "{room_id}" }
 
-                    // Connection Status
                     div { class: "pg-arena-conn",
                         div {
-                            class: if *connected.read() { "status-dot online" } else { "status-dot offline" }
+                            class: if connected() { "status-dot online" } else { "status-dot offline" }
                         }
-                        span { class: "status-text",
-                            if *connected.read() { "已连接" } else { "连接断开，正在重试..." }
+                        span { class: "status-text", "{conn_state_label}" }
+                    }
+
+                    // 回合状态指示
+                    if connected() {
+                        div { class: "pg-arena-turn-info",
+                            div { class: "pg-arena-turn-info-row",
+                                if let (Some(active), Some(phase)) = (turn_info().0.as_ref(), turn_info().1.as_ref()) {
+                                    span { class: "turn-label",
+                                        if is_my_turn() {
+                                            "🎯 你的回合"
+                                        } else {
+                                            "⏳ {active} 的回合"
+                                        }
+                                    }
+                                    span { class: "phase-label", "{phase}" }
+                                } else if let (Some(active), None) = (turn_info().0.as_ref(), turn_info().1.as_ref()) {
+                                    span { class: "turn-label", "⏳ {active} 的回合" }
+                                } else {
+                                    span { class: "turn-label", "等待开始..." }
+                                }
+                            }
+                            if let Some(r) = turn_info().2 {
+                                div { class: "round-label", "第 {r} 轮" }
+                            }
+                        }
+                    }
+
+                    // AI 失败重试提示
+                    if has_action_error() {
+                        div { class: "retry-banner",
+                            div { class: "retry-banner-content",
+                                span { "⚠️ 操作失败: {current_error:?}" }
+                                div { class: "retry-banner-actions",
+                                    if can_retry_val() {
+                                        button {
+                                            class: "retry-btn",
+                                            onclick: move |_| {
+                                                conn.send(&json!({"type": "retry"}));
+                                                conn.action_error.set(None);
+                                            },
+                                            "🔄 重试"
+                                        }
+                                    }
+                                    button {
+                                        class: "skip-btn",
+                                        onclick: move |_| {
+                                            conn.send(&json!({"type": "skip"}));
+                                            conn.action_error.set(None);
+                                        },
+                                        "⏭️ 跳过"
+                                    }
+                                }
+                            }
                         }
                     }
                 }
 
-                // AI Configuration jumps
                 div { class: "pg-arena-actions",
                     h4 { class: "roster-title", "⚙️ AI 助手配置" }
                     div { class: "ai-config-buttons-list",
@@ -164,7 +221,6 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                     }
                 }
 
-                // Player Roster
                 div { class: "pg-arena-roster",
                     h4 { class: "roster-title", "👥 对局参与者" }
                     div { class: "pg-arena-roster-list",
@@ -200,11 +256,11 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                     }
                 }
 
-                // Bottom Control / Return
                 div { class: "pg-arena-controls",
                     button {
                         class: "pg-arena-leave",
                         onclick: move |_| {
+                            conn.disconnect();
                             nav.push(super::Route::Lobby {});
                         },
                         "🚪 返回大厅"
@@ -212,9 +268,8 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                 }
             }
 
-            // ── Right Viewport ──
             div { class: "pg-arena-viewport",
-                if !*connected.read() {
+                if !connected() {
                     div { class: "loading-canvas g-card",
                         span { class: "g-spinner" }
                         h3 { "正在建立网络连接" }
@@ -227,13 +282,12 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
                         p { "已连接，正在同步初始状态数据..." }
                     }
                 } else {
-                    // Dynamically hand off to child game plugin
                     div { class: "game-plugin-container g-card",
                         GamePluginManager {
                             game_type: game_type(),
                             props: GamePluginProps {
-                                state: state,
-                                on_action: Callback::new(move |act| bridge.send(&act)),
+                                state,
+                                on_action: Callback::new(move |act| conn.send(&act)),
                                 actor_id: aid_for_plugin.clone(),
                             }
                         }

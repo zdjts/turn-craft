@@ -14,13 +14,13 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
     let mut max_tokens = use_signal(|| 2048_u32);
     let mut prompt = use_signal(|| String::new());
 
+    let mut style = use_signal(|| "default".to_string());
+
     let mut loading = use_signal(|| true);
     let mut saving = use_signal(|| false);
 
     let rid_for_save = room_id.clone();
     let aid_for_save = actor_id.clone();
-    let rid_for_cancel = room_id.clone();
-    let aid_for_cancel = actor_id.clone();
 
     let mut prev_actor = use_signal(|| actor_id.clone());
     let mut prev_room = use_signal(|| room_id.clone());
@@ -51,6 +51,7 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                         model.set(cfg.model.clone());
                         max_tokens.set(cfg.max_tokens);
                         prompt.set(cfg.prompt.clone());
+                        style.set(cfg.style.clone());
                     } else {
                         // Reset if not found
                         api_key.set(String::new());
@@ -58,6 +59,7 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                         model.set(String::new());
                         max_tokens.set(2048);
                         prompt.set(String::new());
+                        style.set("default".to_string());
                         toast.show(
                             format!("未找到角色 {aid} 的 AI 配置，已初始化默认配置。"),
                             crate::routes::layout::ToastType::Info,
@@ -89,6 +91,7 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
             model: model.read().clone(),
             max_tokens: *max_tokens.read(),
             prompt: prompt.read().clone(),
+            style: style.read().clone(),
         };
 
         spawn(async move {
@@ -137,18 +140,7 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                                     let is_current = act_id == actor_id;
                                     let rid = room_id.clone();
                                     let nav = nav.clone();
-                                    let display_name = match act_id.as_str() {
-                                        "ai_pro" => "正方 (Pro)".to_string(),
-                                        "ai_con" => "反方 (Con)".to_string(),
-                                        "ai_judge" => "裁判 (Judge)".to_string(),
-                                        other => {
-                                            if other.starts_with("ai_") {
-                                                format!("AI {}", &other[3..])
-                                            } else {
-                                                other.to_string()
-                                            }
-                                        }
-                                    };
+                                    let display_name = format!("AI {act_id}");
                                     rsx! {
                                         button {
                                             key: "{act_id}",
@@ -220,6 +212,19 @@ pub fn Settings(room_id: String, actor_id: String) -> Element {
                                         }
                                     },
                                 }
+                            }
+                        }
+
+                        div { class: "g-field",
+                            label { "AI 行为风格" }
+                            select {
+                                class: "g-select",
+                                value: "{style}",
+                                onchange: move |e| style.set(e.value()),
+                                option { value: "default", "默认 — 无特殊风格" }
+                                option { value: "aggressive", "激进 — 高风险高回报策略" }
+                                option { value: "conservative", "保守 — 安全低风险策略" }
+                                option { value: "creative", "创意 — 非传统出牌策略" }
                             }
                         }
 

@@ -2,7 +2,7 @@ use reqwest::Client;
 use tracing::error;
 
 use crate::{
-    ai::client::{StreamDelta, request_speech, request_speech_stream},
+    ai::client::{StreamDelta, request_speech_stream},
     room::actor::SideEffect,
     room::model::{AiTask, RoomCommand},
 };

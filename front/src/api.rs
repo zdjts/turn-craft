@@ -32,6 +32,30 @@ pub fn remove_token() {
     }
 }
 
+pub fn set_username(name: &str) {
+    if let Some(win) = web_sys::window() {
+        if let Ok(Some(storage)) = win.local_storage() {
+            let _ = storage.set_item("username", name);
+        }
+    }
+}
+
+pub fn get_username() -> Option<String> {
+    web_sys::window()?
+        .local_storage()
+        .ok()??
+        .get_item("username")
+        .ok()?
+}
+
+pub fn remove_username() {
+    if let Some(win) = web_sys::window() {
+        if let Ok(Some(storage)) = win.local_storage() {
+            let _ = storage.remove_item("username");
+        }
+    }
+}
+
 // ═══════════════════════════════════════════════════════
 //  注册 / 登录 API
 // ═══════════════════════════════════════════════════════
@@ -203,6 +227,8 @@ pub struct AiConfigData {
     pub model: String,
     pub max_tokens: u32,
     pub prompt: String,
+    #[serde(default)]
+    pub style: String,
 }
 
 pub async fn get_ai_configs(room_id: &str) -> Result<HashMap<String, AiConfigData>, String> {

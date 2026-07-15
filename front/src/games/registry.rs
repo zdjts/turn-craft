@@ -13,6 +13,17 @@ pub struct GameConfigProps {
     pub game_config: Signal<Option<Value>>,
 }
 
+#[derive(Clone)]
+pub struct RoomTemplate {
+    pub name: String,
+    pub desc: String,
+    pub icon: &'static str,
+    pub role_config: HashMap<String, String>,
+    pub my_role: String,
+    pub max_round: usize,
+    pub game_config: Option<Value>,
+}
+
 pub struct DefaultGameConfig {
     pub role_config: HashMap<String, String>,
     pub my_role: String,
@@ -32,6 +43,8 @@ pub struct GameUIDefinition {
     pub game_component: fn(props: GamePluginProps) -> Element,
     pub default_config: fn() -> DefaultGameConfig,
     pub generate_slots: fn(configs: &HashMap<String, String>) -> Vec<String>,
+    pub help_text: &'static [&'static str],
+    pub templates: Vec<RoomTemplate>,
 }
 
 pub struct GameUIRegistry {
@@ -65,8 +78,27 @@ impl GameUIRegistry {
                     game_config: None,
                 },
                 generate_slots: |_| vec!["Judge".to_string(), "Pro".to_string(), "Con".to_string()],
+                help_text: &[
+                    "🎯 目标：通过辩论说服裁判。正方(Pro)支持辩题，反方(Con)反对辩题。",
+                    "👨‍⚖️ 法官(Judge)：开局给出辩题，最后裁决胜负。",
+                    "💬 发言顺序：法官开题 → 正方 → 反方 → 正方 → 反方 → 法官总结",
+                    "🤖 AI 玩家会自动发言。你发言后等待 AI 回应即可。",
+                ],
+                templates: vec![
+                    RoomTemplate {
+                        name: "经典辩论".into(), desc: "法官主办，AI 正反方辩论".into(), icon: "🏛️",
+                        role_config: HashMap::from([("Judge".into(),"human".into()),("Pro".into(),"ai".into()),("Con".into(),"ai".into())]),
+                        my_role: "Judge".into(), max_round: 8, game_config: None,
+                    },
+                    RoomTemplate {
+                        name: "长辩论".into(), desc: "16 轮深度辩论".into(), icon: "📜",
+                        role_config: HashMap::from([("Judge".into(),"human".into()),("Pro".into(),"ai".into()),("Con".into(),"ai".into())]),
+                        my_role: "Judge".into(), max_round: 16, game_config: None,
+                    },
+                ],
             },
         );
+        
 
         // 2. Texas Hold'em
         games.insert(
@@ -102,6 +134,32 @@ impl GameUIRegistry {
                         .map(|i| format!("player{}", i))
                         .collect()
                 },
+                help_text: &[
+                    "🎯 目标：赢取所有筹码。通过下注、加注、弃牌等策略击败对手。",
+                    "🃏 每局开始每位玩家获得两张底牌，然后依次发公共牌。",
+                    "💰 下注轮次：Pre-Flop → Flop → Turn → River → 摊牌",
+                    "🤖 AI 玩家会自动行动。轮到你时，底牌会显示在界面中。",
+                ],
+                templates: vec![
+                    RoomTemplate {
+                        name: "标准德州".into(), desc: "6 人桌，你 + 5 个 AI".into(), icon: "🃏",
+                        role_config: {
+                            let mut m = HashMap::new(); m.insert("player1".into(), "human".into());
+                            for i in 2..=6 { m.insert(format!("player{}", i), "ai".into()); } m
+                        },
+                        my_role: "player1".into(), max_round: 100,
+                        game_config: Some(serde_json::json!({"small_blind":10,"big_blind":20,"starting_chips":1000})),
+                    },
+                    RoomTemplate {
+                        name: "快速德州".into(), desc: "3 人对抗赛".into(), icon: "⚡",
+                        role_config: {
+                            let mut m = HashMap::new(); m.insert("player1".into(), "human".into());
+                            for i in 2..=3 { m.insert(format!("player{}", i), "ai".into()); } m
+                        },
+                        my_role: "player1".into(), max_round: 50,
+                        game_config: Some(serde_json::json!({"small_blind":5,"big_blind":10,"starting_chips":500})),
+                    },
+                ],
             },
         );
 
@@ -131,6 +189,22 @@ impl GameUIRegistry {
                     }
                 },
                 generate_slots: |_| (1..=7).map(|i| format!("Player{}", i)).collect(),
+                help_text: &[
+                    "🎯 目标：狼人阵营 vs 好人阵营。狼人隐藏身份，好人找出狼人。",
+                    "🌙 夜晚阶段：狼人击杀、预言家查验、女巫救人/毒人。",
+                    "☀️ 白天阶段：存活玩家发言讨论，然后投票放逐。",
+                    "🤖 AI 玩家会自动行动。请关注私密消息查看你的身份和能力。",
+                ],
+                templates: vec![
+                    RoomTemplate {
+                        name: "7 人标准局".into(), desc: "完美推演：2 狼 + 预言家 + 女巫 + 猎人 + 2 村民".into(), icon: "🐺",
+                        role_config: {
+                            let mut m = HashMap::new(); m.insert("Player1".into(), "human".into());
+                            for i in 2..=7 { m.insert(format!("Player{}", i), "ai".into()); } m
+                        },
+                        my_role: "Player1".into(), max_round: 50, game_config: None,
+                    },
+                ],
             },
         );
 

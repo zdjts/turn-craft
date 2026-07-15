@@ -1,10 +1,9 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use platform_core::{
     games::lincoln::{DebateRole, HistoryEntry, LincolnActor, LincolnEngine},
-    traits::{ActionKind, GameEngine},
+    traits::{ActionKind, GameEngine, GameMeta},
 };
 use serde_json::Value;
 
@@ -29,6 +28,18 @@ pub struct LincolnFactory;
 impl GameFactory for LincolnFactory {
     fn game_type(&self) -> &str {
         "lincoln"
+    }
+
+    fn meta(&self) -> GameMeta {
+        GameMeta {
+            game_type: "lincoln".into(),
+            name: "林肯辩论".into(),
+            description: "经典英式辩论 · 法官裁判 · 正反方交锋".into(),
+            min_players: 3,
+            max_players: 3,
+            slot_names: vec!["Judge".into(), "Pro".into(), "Con".into()],
+            config_schema: None,
+        }
     }
 
     async fn create(
@@ -75,15 +86,10 @@ impl GameFactory for LincolnFactory {
 
             match role_type {
                 "human" => {
-                    let actor_id = if role_name == &input.my_slot {
-                        input.my_slot.clone()
-                    } else {
-                        format!("human_{}", role_name.to_lowercase())
-                    };
-                    engine.add_actor(actor_id, ActionKind::Human, debate_role);
+                    engine.add_actor(role_name.clone(), ActionKind::Human, debate_role);
                 }
                 "ai" => {
-                    let actor_id = format!("ai_{}", role_name.to_lowercase());
+                    let actor_id = role_name.clone();
                     engine.add_actor(actor_id.clone(), ActionKind::Ai, debate_role);
                     let mut chars = role_name.chars();
                     let capitalized = match chars.next() {
@@ -98,7 +104,7 @@ impl GameFactory for LincolnFactory {
                         .to_string();
 
                     let config = match saved {
-                        Some(s) => AiConfig {
+                        Some(s) => AiConfig { style: crate::ai::env::AiStyle::Default,
                             api_key: s.api_key.clone(),
                             base_url: s.base_url.clone(),
                             model: s.model.clone(),
@@ -111,7 +117,7 @@ impl GameFactory for LincolnFactory {
                         },
                         None => {
                             let fallback = all_defaults.values().next();
-                            AiConfig {
+                            AiConfig { style: crate::ai::env::AiStyle::Default,
                                 api_key: fallback.map(|f| f.api_key.clone()).unwrap_or_else(|| {
                                     crate::config::CONFIG.default_ai_api_key.clone()
                                 }),

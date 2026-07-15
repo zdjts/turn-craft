@@ -60,7 +60,7 @@ pub fn History() -> Element {
         delete_confirm.set(Some(room_id));
     };
 
-    let mut confirm_delete = move || {
+    let confirm_delete = move || {
         let room_to_delete = delete_confirm.read().clone();
         delete_confirm.set(None);
         if let Some(room_id) = room_to_delete {
@@ -84,7 +84,7 @@ pub fn History() -> Element {
         }
     };
 
-    let mut cancel_delete = move || {
+    let cancel_delete = move || {
         delete_confirm.set(None);
     };
 
@@ -130,6 +130,7 @@ pub fn History() -> Element {
                             let game_icon = game_def.map(|g| g.icon).unwrap_or("❓");
                             let rounds = room.max_round;
                             let time_str = room.created_at.chars().take(16).collect::<String>().replace("T", " ");
+                            let is_done = room.engine_state.get("finished").and_then(|v| v.as_bool()).unwrap_or(false);
 
                             rsx! {
                                 div { key: "{rid}", class: "pg-history-card g-card animate-slide-up",
@@ -139,6 +140,10 @@ pub fn History() -> Element {
                                     }
 
                                     div { class: "pg-pg-history-card-mid",
+                                        div { class: "meta-item",
+                                            span { class: "label", "状态:" }
+                                            span { class: "value", if is_done { "✅ 已结算" } else { "⏳ 未完成" } }
+                                        }
                                         div { class: "meta-item",
                                             span { class: "label", "总局数限制:" }
                                             span { class: "value", "{rounds} 轮" }

@@ -24,12 +24,14 @@ impl SqliteAiConfigRepo {
 }
 
 fn row_to_ai_config(row: &sqlx::sqlite::SqliteRow) -> AiConfig {
+    let style_str: String = row.get("style");
     AiConfig {
         api_key: row.get("api_key"),
         base_url: row.get("base_url"),
         model: row.get("model"),
         max_tokens: row.get::<i64, _>("max_tokens") as u32,
         prompt: row.get("prompt"),
+        style: crate::ai::env::AiStyle::from_str(&style_str),
     }
 }
 
@@ -37,7 +39,7 @@ fn row_to_ai_config(row: &sqlx::sqlite::SqliteRow) -> AiConfig {
 impl AiConfigRepository for SqliteAiConfigRepo {
     async fn get(&self, room_id: &str, actor_id: &str) -> Result<AiConfig, AiError> {
         let row = sqlx::query(
-            "SELECT api_key, base_url, model, max_tokens, prompt FROM ai_configs WHERE room_id = ? AND actor_id = ?",
+            "SELECT api_key, base_url, model, max_tokens, prompt, style FROM ai_configs WHERE room_id = ? AND actor_id = ?",
         )
         .bind(room_id)
         .bind(actor_id)
@@ -58,8 +60,8 @@ impl AiConfigRepository for SqliteAiConfigRepo {
         sqlx::query(
             r#"
             INSERT OR REPLACE INTO ai_configs
-                (room_id, actor_id, api_key, base_url, model, max_tokens, prompt)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                (room_id, actor_id, api_key, base_url, model, max_tokens, prompt, style)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(room_id)
@@ -69,6 +71,7 @@ impl AiConfigRepository for SqliteAiConfigRepo {
         .bind(&config.model)
         .bind(config.max_tokens as i64)
         .bind(&config.prompt)
+        .bind(config.style.as_str())
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -76,7 +79,7 @@ impl AiConfigRepository for SqliteAiConfigRepo {
 
     async fn get_all_for_room(&self, room_id: &str) -> Result<HashMap<String, AiConfig>, AiError> {
         let rows = sqlx::query(
-            "SELECT actor_id, api_key, base_url, model, max_tokens, prompt FROM ai_configs WHERE room_id = ?",
+            "SELECT actor_id, api_key, base_url, model, max_tokens, prompt, style FROM ai_configs WHERE room_id = ?",
         )
         .bind(room_id)
         .fetch_all(&self.pool)

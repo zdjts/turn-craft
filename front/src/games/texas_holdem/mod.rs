@@ -409,7 +409,7 @@ pub fn TexasHoldemGame(props: GamePluginProps) -> Element {
     });
 
     // 检查是否是观察者
-    let is_spectator = my_actor_id == "spectator" || my_actor_id.starts_with("human_spectator");
+    let is_spectator = my_actor_id == "spectator";
 
     // 获取当前状态（克隆为 owned 值，避免借用问题）
     let state_data = texas().clone();

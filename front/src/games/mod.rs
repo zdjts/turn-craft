@@ -3,7 +3,7 @@ pub mod registry;
 pub mod texas_holdem;
 pub mod werewolf;
 
-pub use registry::{GameConfigProps, REGISTRY};
+// pub use registry::{GameConfigProps, REGISTRY}; // consumers import from registry directly
 
 use dioxus::prelude::*;
 use serde_json::Value;

@@ -159,6 +159,7 @@ impl GameEngine for LincolnEngine {
 
     fn to_json(&self) -> serde_json::Value {
         serde_json::json!({
+            "type": "state",
             "game_type": self.game_type(),
             "room_id": self.room_id,
             "actors": self.actors,

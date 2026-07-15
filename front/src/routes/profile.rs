@@ -1,4 +1,4 @@
-use crate::api::{get_history_rooms, get_token, RoomSnapshotData};
+use crate::api::{get_history_rooms, get_username, RoomSnapshotData};
 use crate::games::registry::REGISTRY;
 use dioxus::prelude::*;
 
@@ -17,20 +17,15 @@ pub fn Profile() -> Element {
     });
 
     let username = use_memo(move || {
-        if let Some(token) = get_token() {
-            if token.contains(":") {
-                let parts: Vec<&str> = token.split(':').collect();
-                if parts.len() > 1 {
-                    return parts[0].to_string();
-                }
-            }
-            token.chars().take(8).collect::<String>()
-        } else {
-            "未登录".to_string()
-        }
+        get_username().unwrap_or_else(|| "未登录".to_string())
     });
 
     let total_games = use_memo(move || rooms.read().len());
+    let finished_games = use_memo(move || {
+        rooms.read().iter().filter(|r| {
+            r.engine_state.get("finished").and_then(|f| f.as_bool()).unwrap_or(false)
+        }).count()
+    });
 
     rsx! {
         div { class: "pg-profile animate-fade-in",
@@ -61,12 +56,12 @@ pub fn Profile() -> Element {
                             div { class: "pg-profile-metric-label", "参局总数" }
                         }
                         div { class: "pg-profile-metric",
-                            div { class: "pg-profile-metric-num", "—" }
-                            div { class: "pg-profile-metric-label", "协作胜利" }
+                            div { class: "pg-profile-metric-num", "{finished_games}" }
+                            div { class: "pg-profile-metric-label", "已结算对局" }
                         }
                         div { class: "pg-profile-metric",
-                            div { class: "pg-profile-metric-num", "—" }
-                            div { class: "pg-profile-metric-label", "败北对局" }
+                            div { class: "pg-profile-metric-num", "{total_games() - finished_games()}" }
+                            div { class: "pg-profile-metric-label", "未完成" }
                         }
                     }
                     div { class: "pg-profile-winrate",
@@ -116,7 +111,12 @@ pub fn Profile() -> Element {
                                         }
                                         div { class: "pg-profile-match-right",
                                             span { class: "pg-profile-match-time", "{time_str}" }
-                                            span { class: "pg-profile-status", "已结算" }
+                                            {
+                                                let is_done = room.engine_state.get("finished").and_then(|v| v.as_bool()).unwrap_or(false);
+                                                rsx! {
+                                                    span { class: "pg-profile-status", if is_done { "已结算" } else { "未完成" } }
+                                                }
+                                            }
                                         }
                                     }
                                 }

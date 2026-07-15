@@ -59,6 +59,67 @@ impl<R: GameRole, A: GameAction> RoomState<R, A> {
 //  GameEngine — 类型擦除后的泛型游戏引擎合约
 // ═══════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════
+//  身份映射 — 统一 slot_name / actor_id / peer_id
+// ═══════════════════════════════════════════════════════
+
+/// SlotId：房间创建时前端指定的槽位名称（如 "Judge"、"Player1"）
+pub type SlotId = String;
+
+/// ActorId：引擎内部 actor 的唯一标识
+pub type ActorId = String;
+
+/// PeerId：WebSocket 连接的唯一标识（当前等于 slot_name）
+pub type PeerId = String;
+
+/// 身份映射表：房间创建时生成并冻结
+///
+/// 确保 SlotId / ActorId / PeerId 三者之间的稳定映射，
+/// 解决当前多人对局中身份漂移问题。
+#[derive(Debug, Clone)]
+pub struct IdentityMap {
+    /// slot → actor（通常 1:1，slot_name == actor_id）
+    slot_to_actor: std::collections::HashMap<SlotId, ActorId>,
+    /// actor → slot（反向查找）
+    actor_to_slot: std::collections::HashMap<ActorId, SlotId>,
+}
+
+impl IdentityMap {
+    pub fn new(slot_names: &[String]) -> Self {
+        let mut slot_to_actor = std::collections::HashMap::new();
+        let mut actor_to_slot = std::collections::HashMap::new();
+        for name in slot_names {
+            // 默认 slot_name == actor_id，工厂也可覆盖
+            slot_to_actor.insert(name.clone(), name.clone());
+            actor_to_slot.insert(name.clone(), name.clone());
+        }
+        Self { slot_to_actor, actor_to_slot }
+    }
+
+    pub fn register_mapping(&mut self, slot: SlotId, actor: ActorId) {
+        self.actor_to_slot.remove(&actor);
+        self.slot_to_actor.remove(&slot);
+        self.slot_to_actor.insert(slot.clone(), actor.clone());
+        self.actor_to_slot.insert(actor, slot);
+    }
+
+    pub fn actor_for_slot(&self, slot: &str) -> Option<&str> {
+        self.slot_to_actor.get(slot).map(|s| s.as_str())
+    }
+
+    pub fn slot_for_actor(&self, actor: &str) -> Option<&str> {
+        self.actor_to_slot.get(actor).map(|s| s.as_str())
+    }
+
+    pub fn slots(&self) -> impl Iterator<Item = &str> {
+        self.slot_to_actor.keys().map(|s| s.as_str())
+    }
+
+    pub fn actors(&self) -> impl Iterator<Item = &str> {
+        self.actor_to_slot.keys().map(|s| s.as_str())
+    }
+}
+
 /// 引擎侧事件：房间循环消费这些副作用来代为执行网络 IO
 pub enum EngineEvent {
     /// 触发 AI 决策，值为目标 actor_id
@@ -70,13 +131,26 @@ pub enum EngineEvent {
         actor_id: String,
         payload: serde_json::Value,
     },
+    /// 玩家加入槽位（引擎如需感知可处理）
+    PlayerJoined(String),
+    /// 玩家离开槽位
+    PlayerLeft(String),
 }
 
-/// 通用游戏引擎接口
-///
-/// 所有游戏实现此 trait，房间循环完全通过此 trait 与游戏交互。
+/// 游戏元数据 — 供 API 端点返回，前端从端点获取描述信息
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct GameMeta {
+    pub game_type: String,
+    pub name: String,
+    pub description: String,
+    pub min_players: usize,
+    pub max_players: usize,
+    pub slot_names: Vec<String>,
+    pub config_schema: Option<serde_json::Value>,
+}
+
 /// 房间循环成为纯粹的"收取 Action → 喂给引擎 step → 广播引擎 to_json 快照"的失忆中转站。
-pub trait GameEngine: Send + 'static {
+pub trait GameEngine: Send + Sync + 'static {
     /// 游戏类型标识（如 "lincoln"、"werewolf"）
     fn game_type(&self) -> &str;
 

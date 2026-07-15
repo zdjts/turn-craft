@@ -1,5 +1,5 @@
 use crate::api::{create_room, get_public_rooms, join_room, CreateRoomRequest, RoomSnapshotData};
-use crate::games::registry::{GameConfigProps, REGISTRY};
+use crate::games::registry::{GameConfigProps, REGISTRY, RoomTemplate};
 use crate::routes::layout::use_toast;
 use dioxus::prelude::*;
 use serde_json::Value;
@@ -163,11 +163,77 @@ fn GameBrowseView(
     on_select: Callback<String>,
     on_quick_start: Callback<String>,
     on_enter_config: Callback<String>,
+    on_template_start: Callback<(String, RoomTemplate)>,
 ) -> Element {
     let games = REGISTRY.all_games();
+    let selection = selected_game.read();
+    let selected_def = selection.as_ref().and_then(|gt| REGISTRY.get(gt));
+    let help_lines = selected_def.map(|def| def.help_text);
+    let empty_templates = Vec::new();
+    let templates = selected_def.map(|def| &def.templates).unwrap_or(&empty_templates);
 
     rsx! {
+        if let Some(lines) = help_lines {
+            div { class: "pg-lobby-quick-guide g-card",
+                div { class: "pg-lobby-quick-guide-title", "📖 游戏说明" }
+                for line in lines {
+                    div { class: "pg-lobby-quick-guide-line", "{line}" }
+                }
+            }
+        }
+        if !templates.is_empty() {
+            div { class: "pg-lobby-templates g-card",
+                div { class: "pg-lobby-quick-guide-title", "🎮 从模板开局" }
+                div { class: "pg-lobby-template-list",
+                    for tpl in templates.iter() {
+                        {
+                            let gt = selected_def.unwrap().game_type.to_string();
+                            let tpl = tpl.clone();
+                            let cb = on_template_start.clone();
+                            rsx! {
+                                div { class: "pg-lobby-template-card g-card-subtle",
+                                    onclick: move |_| cb.call((gt.clone(), tpl.clone())),
+                                    span { class: "pg-lobby-template-icon", "{tpl.icon}" }
+                                    div { class: "pg-lobby-template-name", "{tpl.name}" }
+                                    div { class: "pg-lobby-template-desc", "{tpl.desc}" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         div { class: "pg-lobby-games",
+            // 推荐玩法区 — 总是可见
+            div { class: "pg-lobby-recommend g-card",
+                div { class: "pg-lobby-recommend-title", "🔥 推荐玩法" }
+                div { class: "pg-lobby-recommend-list",
+                    for def in games.iter() {
+                        {
+                            let gt = def.game_type.to_string();
+                            let cb = on_quick_start.clone();
+                            let cb_cfg = on_enter_config.clone();
+                            let first_tpl = def.templates.first().map(|t| format!("{} — {}", t.name, t.desc));
+                            rsx! {
+                                div {
+                                    key: "{gt}",
+                                    class: "pg-lobby-recommend-card g-card-subtle",
+                                    onclick: { let gt = gt.clone(); move |_| cb.call(gt.clone()) },
+                                    span { class: "pg-lobby-recommend-icon", "{def.icon}" }
+                                    div { class: "pg-lobby-recommend-body",
+                                        div { class: "pg-lobby-recommend-name", "{def.name}" }
+                                        div { class: "pg-lobby-recommend-desc",
+                                            if let Some(ref desc) = first_tpl { "{desc}" } else { "{def.description}" }
+                                        }
+                                    }
+                                    span { class: "pg-lobby-recommend-tag", "{def.min_players}-{def.max_players}人" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // 游戏选择区
             for def in games.iter() {
                 {
                     let gt = def.game_type;
@@ -178,7 +244,7 @@ fn GameBrowseView(
                             class: if is_selected { "pg-lobby-game-card is-selected" } else { "pg-lobby-game-card" },
                             onclick: {
                                 let gt = gt.to_string();
-                                let mut on_select = on_select.clone();
+                                let on_select = on_select.clone();
                                 move |_| on_select.call(gt.clone())
                             },
                             div { class: "pg-lobby-game-icon", "{def.icon}" }
@@ -193,7 +259,7 @@ fn GameBrowseView(
                                         class: "pg-lobby-quick-start",
                                         onclick: {
                                             let gt = gt.to_string();
-                                            let mut cb = on_quick_start.clone();
+                                            let cb = on_quick_start.clone();
                                             move |e| { e.stop_propagation(); cb.call(gt.clone()); }
                                         },
                                         "⚡ 快速开始"
@@ -202,7 +268,7 @@ fn GameBrowseView(
                                         class: "pg-lobby-config-toggle",
                                         onclick: {
                                             let gt = gt.to_string();
-                                            let mut cb = on_enter_config.clone();
+                                            let cb = on_enter_config.clone();
                                             move |e| { e.stop_propagation(); cb.call(gt.clone()); }
                                         },
                                         "⚙ 自定义"
@@ -314,7 +380,7 @@ pub fn Lobby() -> Element {
     let mut my_role = use_signal(|| "Judge".to_string());
     let mut max_round = use_signal(|| 16_usize);
     let mut game_config = use_signal(|| Option::<Value>::None);
-    let mut is_public = use_signal(|| true);
+    let is_public = use_signal(|| true);
     let mut creating = use_signal(|| false);
 
     // Public rooms
@@ -444,7 +510,7 @@ pub fn Lobby() -> Element {
     let mut room_filter_signal = use_signal(|| Option::<String>::None);
 
     // Keep room_filter synced with current config game_type
-    let mut sync_filter = move |gt: Option<String>| {
+    let _sync_filter = move |gt: Option<String>| {
         room_filter_signal.set(gt);
     };
     let toggle_select = move |gt: String| {
@@ -454,6 +520,46 @@ pub fn Lobby() -> Element {
             sel.set(None);
         } else {
             sel.set(Some(gt));
+        }
+    };
+
+    let template_create = {
+        let mut role_config = role_config;
+        let mut my_role = my_role;
+        let mut max_round = max_round;
+        let mut game_config = game_config;
+        let mut selected_game_type = selected_game_type;
+        let toast = toast.clone();
+        let nav = nav.clone();
+        let mut creating = creating;
+        move |(gt, tpl): (String, RoomTemplate)| {
+            if *creating.read() { return; }
+            selected_game_type.set(gt.clone());
+            role_config.set(tpl.role_config.clone());
+            my_role.set(tpl.my_role.clone());
+            max_round.set(tpl.max_round);
+            game_config.set(tpl.game_config.clone());
+            creating.set(true);
+            let configs = tpl.role_config.clone();
+            let slots = if let Some(def) = REGISTRY.get(&gt) {
+                (def.generate_slots)(&configs)
+            } else {
+                let mut s: Vec<String> = configs.keys().cloned().collect();
+                s.sort(); s
+            };
+            let req = CreateRoomRequest { game_type: gt, max_round: tpl.max_round, my_slot: tpl.my_role, slots, slot_configs: configs, game_config: tpl.game_config, is_public: true };
+            let nav = nav.clone(); let toast = toast.clone();
+            spawn(async move {
+                match create_room(&req).await {
+                    Ok(resp) if resp.status == "success" => {
+                        if let (Some(rid), Some(aid)) = (resp.room_id, resp.actor_id) {
+                            nav.push(super::Route::Game { room_id: rid, actor_id: aid });
+                        }
+                    }
+                    Ok(resp) => { toast.show(resp.message.unwrap_or_else(|| "创建失败".into()), crate::routes::layout::ToastType::Error); }
+                    Err(e) => { toast.show(format!("请求失败: {e}"), crate::routes::layout::ToastType::Error); }
+                }
+            });
         }
     };
 
@@ -479,6 +585,42 @@ pub fn Lobby() -> Element {
                                 on_select: Callback::new(move |gt: String| toggle_select(gt)),
                                 on_quick_start: Callback::new(move |gt: String| quick_create(gt)),
                                 on_enter_config: Callback::new(move |gt: String| enter_config(gt)),
+                                on_template_start: Callback::new({
+                                    let mut role_config = role_config;
+                                    let mut my_role = my_role;
+                                    let mut max_round = max_round;
+                                    let mut game_config = game_config;
+                                    let mut selected_game_type = selected_game_type;
+                                    let toast = toast.clone();
+                                    let nav = nav.clone();
+                                    let mut creating = creating;
+                                    move |(gt, tpl): (String, RoomTemplate)| {
+                                        if *creating.read() { return; }
+                                        selected_game_type.set(gt.clone());
+                                        role_config.set(tpl.role_config.clone());
+                                        my_role.set(tpl.my_role.clone());
+                                        max_round.set(tpl.max_round);
+                                        game_config.set(tpl.game_config.clone());
+                                        creating.set(true);
+                                        let configs = tpl.role_config.clone();
+                                        let slots: Vec<String> = if let Some(def) = REGISTRY.get(&gt) {
+                                            (def.generate_slots)(&configs)
+                                        } else { configs.keys().cloned().collect() };
+                                        let req = CreateRoomRequest { game_type: gt, max_round: tpl.max_round, my_slot: tpl.my_role, slots, slot_configs: configs, game_config: tpl.game_config, is_public: true };
+                                        let nav = nav.clone(); let toast = toast.clone();
+                                        spawn(async move {
+                                            match create_room(&req).await {
+                                                Ok(resp) if resp.status == "success" => {
+                                                    if let (Some(rid), Some(aid)) = (resp.room_id, resp.actor_id) {
+                                                        nav.push(super::Route::Game { room_id: rid, actor_id: aid });
+                                                    }
+                                                }
+                                                Ok(resp) => { toast.show(resp.message.unwrap_or_else(|| "创建失败".into()), crate::routes::layout::ToastType::Error); }
+                                                Err(e) => { toast.show(format!("请求失败: {e}"), crate::routes::layout::ToastType::Error); }
+                                            }
+                                        });
+                                    }
+                                }),
                             }
                         },
                         LobbyMode::Config { game_type } => rsx! {

@@ -916,3 +916,23 @@ body {
 
 .is-loading { opacity: 0.7; cursor: not-allowed; pointer-events: none; }
 .is-disabled { opacity: 0.4; pointer-events: none; }
+
+/* ── Sidebar Feedback ───────────────────────────────── */
+
+.sidebar-feedback a {
+  color: var(--text-muted);
+  font-size: 0.82em;
+  text-decoration: none;
+  transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sidebar-feedback a:hover {
+  color: var(--amber);
+}
+
+/* ── Replay Header ──────────────────────────────────── */
+.page-header { display:flex;align-items:flex-start;justify-content:space-between;gap:16px; }
+.header-left { flex:1; }
+.header-right { display:flex;align-items:center;gap:8px;flex-shrink:0; }

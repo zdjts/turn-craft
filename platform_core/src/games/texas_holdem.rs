@@ -1036,6 +1036,7 @@ impl GameEngine for TexasHoldemEngine {
             .collect();
 
         let mut result = serde_json::json!({
+            "type": "state",
             "game_type": self.game_type(),
             "room_id": self.room_id,
             "phase": self.phase,
@@ -1080,7 +1081,7 @@ impl GameEngine for TexasHoldemEngine {
         }
 
         // 如果是观察者，显示所有玩家的手牌
-        if actor_id == "spectator" || actor_id.starts_with("human_spectator") {
+        if actor_id == "spectator" {
             let all_hands: Vec<serde_json::Value> = self
                 .players
                 .iter()

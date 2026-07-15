@@ -1,4 +1,6 @@
-use crate::api::{get_room, RoomSnapshotData};
+use std::collections::HashMap;
+
+use crate::api::{create_room, get_room, CreateRoomRequest, RoomSnapshotData};
 use crate::games::lincoln::{HistoryEntry, LincolnState};
 use crate::games::registry::REGISTRY;
 use crate::routes::layout::use_toast;
@@ -9,27 +11,109 @@ use serde_json::Value;
 pub fn Replay(room_id: String) -> Element {
     let toast = use_toast();
     let nav = use_navigator();
+    let rid = room_id.clone();
+
     let mut room_data = use_signal(|| Option::<RoomSnapshotData>::None);
     let mut loading = use_signal(|| true);
 
-    use_effect(move || {
-        let rid = room_id.clone();
-        spawn(async move {
-            loading.set(true);
-            match get_room(&rid).await {
-                Ok(r) => {
-                    room_data.set(Some(r));
+    use_effect({
+        let rid = rid.clone();
+        move || {
+            let rid = rid.clone();
+            spawn(async move {
+                loading.set(true);
+                match get_room(&rid).await {
+                    Ok(r) => {
+                        room_data.set(Some(r));
+                    }
+                    Err(e) => {
+                        toast.show(
+                            format!("加载对局记录失败: {e}"),
+                            crate::routes::layout::ToastType::Error,
+                        );
+                    }
                 }
-                Err(e) => {
-                    toast.show(
-                        format!("加载对局记录失败: {e}"),
-                        crate::routes::layout::ToastType::Error,
-                    );
+                loading.set(false);
+            });
+        }
+    });
+
+    // 分享文本
+    let share_text = use_memo({
+        let rid = rid.clone();
+        move || {
+        let share_rid = rid.clone();
+        match room_data.read().as_ref() {
+            Some(rd) => {
+                let name = REGISTRY.get(&rd.game_type).map(|d| d.name).unwrap_or("?");
+                let done = rd.engine_state.get("finished").and_then(|v| v.as_bool()).unwrap_or(false);
+                let rnd = rd.engine_state.get("round").and_then(|v| v.as_u64()).unwrap_or(0);
+                let pot = rd.engine_state.get("pot").and_then(|v| v.as_u64()).unwrap_or(0);
+                let slot_count = rd.actor_slots.as_array().map(|a| a.len()).unwrap_or(0);
+                let extra = if rd.game_type == "texas_holdem" { format!("奖池: {pot} | {slot_count} 人") } else { format!("共 {rnd} 轮 | {slot_count} 人") };
+                format!("Turn Craft | {name} {}\n{extra}\n房间: {share_rid}", if done { "✅" } else { "⏳" })
+            }
+            None => String::new(),
+        }
+    }
+    });
+
+    // Play Again 数据
+    let play_again_data = use_memo(move || {
+        room_data.read().as_ref().map(|rd| {
+            let gt = rd.game_type.clone();
+            let max_rnd = rd.max_round;
+            let slots: Vec<String> = rd.actor_slots.as_array().map(|arr| {
+                arr.iter().filter_map(|s| s.get("slot_name").and_then(|n| n.as_str()).map(|n| n.to_string())).collect()
+            }).unwrap_or_default();
+            let mut configs = HashMap::new();
+            if let Some(arr) = rd.actor_slots.as_array() {
+                for s in arr {
+                    if let (Some(name), Some(occ)) = (s.get("slot_name").and_then(|n| n.as_str()), s.get("occupant")) {
+                        configs.insert(name.to_string(), if occ.as_str() == Some("Ai") { "ai".into() } else { "human".into() });
+                    }
                 }
             }
-            loading.set(false);
-        });
+            let my_slot = rd.actor_slots.as_array().and_then(|arr| {
+                arr.iter().find(|s| matches!(s.get("occupant").and_then(|o| o.as_str()), Some("Empty") | Some("Human")))
+                    .and_then(|s| s.get("slot_name").and_then(|n| n.as_str()).map(|n| n.to_string()))
+            }).unwrap_or_else(|| "spectator".to_string());
+            let game_config = rd.engine_state.get("game_config").cloned();
+            (gt, max_rnd, slots, configs, my_slot, game_config)
+        })
     });
+
+    let handle_play_again = {
+        let nav = nav.clone();
+        let toast = toast.clone();
+        move |_| {
+            if let Some(ref data) = *play_again_data.read() {
+                let (ref gt, max_rnd, ref slots, ref configs, ref my_slot, ref game_config) = *data;
+                let req = CreateRoomRequest {
+                    game_type: gt.clone(),
+                    max_round: max_rnd,
+                    my_slot: my_slot.clone(),
+                    slots: slots.clone(),
+                    slot_configs: configs.clone(),
+                    game_config: game_config.clone(),
+                    is_public: true,
+                };
+                let nav = nav.clone();
+                let toast = toast.clone();
+                spawn(async move {
+                    match create_room(&req).await {
+                        Ok(resp) if resp.status == "success" => {
+                            if let (Some(rid), Some(aid)) = (resp.room_id, resp.actor_id) {
+                                nav.push(super::Route::Game { room_id: rid, actor_id: aid });
+                            }
+                        }
+                        Ok(resp) => toast.show(resp.message.unwrap_or_else(|| "创建失败".into()), crate::routes::layout::ToastType::Error),
+                        Err(e) => toast.show(format!("网络请求失败: {e}"), crate::routes::layout::ToastType::Error),
+                    }
+                });
+            }
+        }
+    };
 
     rsx! {
         div { class: "pg-replay animate-fade-in",
@@ -38,10 +122,25 @@ pub fn Replay(room_id: String) -> Element {
                     h1 { "🎞️ 对局回放记录" }
                     p { "这里是该房间历史状态与局内对话的静态复盘记录。" }
                 }
-                button {
-                    class: "pg-replay-back g-card-subtle",
-                    onclick: move |_| { nav.push(super::Route::History {}); },
-                    "⬅️ 返回历史列表"
+                div { class: "header-right",
+                    button {
+                        class: "pg-replay-back g-card-subtle",
+                        onclick: move |_| { nav.push(super::Route::History {}); },
+                        "⬅️ 返回历史列表"
+                    }
+                    button {
+                        class: "pg-replay-share g-card-subtle",
+                        style: "margin-left: 8px;",
+                        onclick: {
+                            let text = share_text();
+                            move |_| {
+                                if let Some(win) = web_sys::window() {
+                                    let _ = win.navigator().clipboard().write_text(&text);
+                                }
+                            }
+                        },
+                        "📋 分享结果"
+                    }
                 }
             }
 
@@ -64,6 +163,17 @@ pub fn Replay(room_id: String) -> Element {
                         div { class: "meta-item", "房间 ID: {r.room_id}" }
                         div { class: "meta-item", "总局数: {r.max_round} 轮" }
                         div { class: "meta-item", "创建时间: {r.created_at.replace(\"T\", \" \")}" }
+                    }
+
+                    // Play Again
+                    if play_again_data.read().is_some() {
+                        div { class: "pg-replay-actions g-card-subtle",
+                            button {
+                                class: "pg-replay-play-again",
+                                onclick: handle_play_again,
+                                "🔄 再来一局（相同配置）"
+                            }
+                        }
                     }
 
                     // Body

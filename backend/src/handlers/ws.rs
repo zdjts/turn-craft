@@ -86,11 +86,23 @@ async fn handle_socket(
                         Ok(val) => val,
                         Err(_) => serde_json::json!({ "content": text.to_string() }),
                     };
-                    let cmd = RoomCommand::PlayerAction {
-                        actor_id: actor_id_ingress.clone(),
-                        action,
-                        feedback_tx: None,
+
+                    // 检查是否是元命令 (retry / skip)
+                    let msg_type = action.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                    let cmd = match msg_type {
+                        "retry" => RoomCommand::RetryAi {
+                            actor_id: actor_id_ingress.clone(),
+                        },
+                        "skip" => RoomCommand::SkipAiTurn {
+                            actor_id: actor_id_ingress.clone(),
+                        },
+                        _ => RoomCommand::PlayerAction {
+                            actor_id: actor_id_ingress.clone(),
+                            action,
+                            feedback_tx: None,
+                        },
                     };
+
                     if let Err(e) = room_tx_ingress.send(cmd).await {
                         tracing::error!(room_id = %room_id_ingress, actor_id = %actor_id_ingress, error = ?e, "上行数据转发失败，房间已销毁");
                         break;

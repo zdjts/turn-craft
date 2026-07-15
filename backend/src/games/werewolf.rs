@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use platform_core::{
-    games::werewolf::{HistoryEvent, Phase, WerewolfEngine, WerewolfPlayer, WerewolfRole},
-    traits::{ActionKind, GameEngine},
+    games::werewolf::{WerewolfEngine, WerewolfRole},
+    traits::{ActionKind, GameEngine, GameMeta},
 };
 
 use super::factory::GameFactory;
@@ -20,6 +20,18 @@ pub struct WerewolfFactory;
 impl GameFactory for WerewolfFactory {
     fn game_type(&self) -> &str {
         "werewolf"
+    }
+
+    fn meta(&self) -> GameMeta {
+        GameMeta {
+            game_type: "werewolf".into(),
+            name: "狼人杀".into(),
+            description: "7 人社交推理 · 狼人暗杀 · 好人投票".into(),
+            min_players: 7,
+            max_players: 7,
+            slot_names: (1..=7).map(|i| format!("Player{}", i)).collect(),
+            config_schema: None,
+        }
     }
 
     async fn create(
@@ -46,6 +58,10 @@ impl GameFactory for WerewolfFactory {
             .get_all_for_room(&global_defaults_key)
             .await
             .unwrap_or_default();
+        tracing::info!(defaults_key = %global_defaults_key, count = all_defaults.len(), "加载全局默认 AI 配置");
+        for (k, cfg) in &all_defaults {
+            tracing::info!(default = %k, key_prefix = %cfg.api_key.chars().take(10).collect::<String>(), "默认配置条目");
+        }
         let mut ai_configs = HashMap::new();
 
         // Standard 7 players mapping for Werewolf:
@@ -81,15 +97,10 @@ impl GameFactory for WerewolfFactory {
 
             match role_type {
                 "human" => {
-                    let actor_id = if slot_name == &input.my_slot {
-                        input.my_slot.clone()
-                    } else {
-                        format!("human_{}", slot_name)
-                    };
-                    engine.add_actor(actor_id, ActionKind::Human, role);
+                    engine.add_actor(slot_name.clone(), ActionKind::Human, role);
                 }
                 "ai" => {
-                    let actor_id = format!("ai_{}", slot_name);
+                    let actor_id = slot_name.clone();
                     engine.add_actor(actor_id.clone(), ActionKind::Ai, role);
 
                     let mut chars = slot_name.chars();
@@ -102,7 +113,7 @@ impl GameFactory for WerewolfFactory {
                     let default_prompt = default_prompts.get(&role).unwrap_or(&"").to_string();
 
                     let config = match saved {
-                        Some(s) => AiConfig {
+                        Some(s) => AiConfig { style: crate::ai::env::AiStyle::Default,
                             api_key: s.api_key.clone(),
                             base_url: s.base_url.clone(),
                             model: s.model.clone(),
@@ -115,10 +126,12 @@ impl GameFactory for WerewolfFactory {
                         },
                         None => {
                             let fallback = all_defaults.values().next();
-                            AiConfig {
-                                api_key: fallback.map(|f| f.api_key.clone()).unwrap_or_else(|| {
-                                    crate::config::CONFIG.default_ai_api_key.clone()
-                                }),
+                            let api_key = fallback.map(|f| f.api_key.clone()).unwrap_or_else(|| {
+                                crate::config::CONFIG.default_ai_api_key.clone()
+                            });
+                            tracing::info!(slot = %capitalized_slot, has_fallback = fallback.is_some(), final_key = %api_key, "使用 fallback/CONFIG 默认配置");
+                            AiConfig { style: crate::ai::env::AiStyle::Default,
+                                api_key,
                                 base_url: fallback.map(|f| f.base_url.clone()).unwrap_or_else(
                                     || crate::config::CONFIG.default_ai_base_url.clone(),
                                 ),
@@ -132,6 +145,7 @@ impl GameFactory for WerewolfFactory {
                             }
                         }
                     };
+                    tracing::info!(actor_id = %actor_id, key_prefix = %config.api_key.chars().take(6).collect::<String>(), model = %config.model, "创建 AI 配置");
                     ai_configs.insert(actor_id, config);
                 }
                 _ => {}

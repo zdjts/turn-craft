@@ -1,4 +1,4 @@
-use crate::api::{login, register, set_token, AuthRequest};
+use crate::api::{login, register, set_token, set_username, AuthRequest};
 use dioxus::prelude::*;
 
 #[component]
@@ -39,9 +39,9 @@ pub fn Login() -> Element {
                     if resp.status == "success" {
                         if let Some(token) = resp.token {
                             set_token(&token);
+                            set_username(&req.username);
                             nav.push(super::Route::Lobby {});
                         } else {
-                            // If register succeeded, we might toggle back to login or auto-login if token provided
                             if *is_register.read() {
                                 is_register.set(false);
                                 error_msg.set(Some("注册成功，请登录".to_string()));

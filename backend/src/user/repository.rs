@@ -11,6 +11,7 @@ pub trait UserRepository: Send + Sync {
     async fn create(&self, user: &User) -> Result<(), UserError>;
     async fn find_by_username(&self, username: &str) -> Result<Option<User>, UserError>;
     async fn find_by_id(&self, id: &UserId) -> Result<Option<User>, UserError>;
+    async fn update_password(&self, user_id: &UserId, hash: &str) -> Result<(), UserError>;
 }
 
 pub struct SqliteUserRepo {
@@ -78,5 +79,18 @@ impl UserRepository for SqliteUserRepo {
             created_at: chrono::NaiveDateTime::parse_from_str(&r.created_at, "%Y-%m-%d %H:%M:%S")
                 .unwrap_or_else(|_| chrono::Utc::now().naive_utc()),
         }))
+    }
+
+    async fn update_password(&self, user_id: &UserId, hash: &str) -> Result<(), UserError> {
+        let rows = sqlx::query("UPDATE users SET password_hash = ? WHERE id = ?")
+            .bind(hash)
+            .bind(user_id.as_ref())
+            .execute(&self.pool)
+            .await
+            .map_err(UserError::Database)?;
+        if rows.rows_affected() == 0 {
+            return Err(UserError::NotFound);
+        }
+        Ok(())
     }
 }

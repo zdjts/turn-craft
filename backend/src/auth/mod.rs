@@ -71,6 +71,24 @@ impl AuthService {
     pub async fn verify_token(&self, token: &str) -> Result<UserId, AuthError> {
         verify_jwt(token, &self.jwt_secret)
     }
+
+    pub async fn change_password(
+        &self,
+        user_id: &UserId,
+        old_password: &str,
+        new_password: &str,
+    ) -> Result<(), AuthError> {
+        if new_password.len() < 6 {
+            return Err(AuthError::WeakPassword);
+        }
+        let user = self.user_repo.find_by_id(user_id)
+            .await?
+            .ok_or(AuthError::InvalidCredentials)?;
+        verify_password(old_password, &user.password_hash)?;
+        let new_hash = hash_password(new_password)?;
+        self.user_repo.update_password(user_id, &new_hash).await?;
+        Ok(())
+    }
 }
 
 fn hash_password(password: &str) -> Result<String, AuthError> {

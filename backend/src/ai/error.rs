@@ -1,4 +1,3 @@
-use thiserror::Error;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AiError {
@@ -6,6 +5,7 @@ pub enum AiError {
     ConfigNotFound,
 
     #[error("AI 服务不可用: {0}")]
+    #[allow(dead_code)]
     ProviderError(String),
 
     #[error("数据库错误: {0}")]

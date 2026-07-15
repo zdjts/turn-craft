@@ -2,7 +2,6 @@ pub mod actor;
 pub mod error;
 pub mod model;
 pub mod repository;
-// pub mod service;
 pub mod supervisor;
 
 use std::sync::Arc;
@@ -20,6 +19,10 @@ use self::actor::{SideEffect, spawn_game_room};
 use self::model::{AiTask, CreateRoomInput, CreateRoomOutput, Peer, RoomCommand, RoomSnapshot};
 use self::repository::RoomRepository;
 use self::supervisor::RoomSupervisor;
+use crate::event_store::EventStore;
+
+/// AI 失败后自动重试的延迟秒数（actor 状态机控制重试次数）
+const AI_RETRY_DELAY_SECS: u64 = 5;
 
 pub struct RoomService {
     room_repo: Arc<dyn RoomRepository>,
@@ -27,7 +30,8 @@ pub struct RoomService {
     ai_worker_tx: mpsc::Sender<AiTask>,
     active_rooms: Arc<DashMap<String, mpsc::Sender<RoomCommand>>>,
     supervisor: RoomSupervisor,
-    game_registry: Arc<GameRegistry>,
+    pub game_registry: Arc<GameRegistry>,
+    event_store: Arc<dyn EventStore>,
 }
 
 impl RoomService {
@@ -37,6 +41,7 @@ impl RoomService {
         ai_worker_tx: mpsc::Sender<AiTask>,
         supervisor: RoomSupervisor,
         game_registry: Arc<GameRegistry>,
+        event_store: Arc<dyn EventStore>,
     ) -> Self {
         Self {
             room_repo,
@@ -45,6 +50,7 @@ impl RoomService {
             active_rooms: Arc::new(DashMap::new()),
             supervisor,
             game_registry,
+            event_store,
         }
     }
 
@@ -105,7 +111,7 @@ impl RoomService {
         })
     }
 
-    /// 启动单个房间的异步副作用处理任务 (保存历史、触发 AI)
+    /// 启动单个房间的异步副作用处理任务 (保存状态、触发 AI、事件日志)
     fn spawn_effect_handler(
         &self,
         room_id: String,
@@ -117,6 +123,7 @@ impl RoomService {
         let ai_tx = self.ai_worker_tx.clone();
         let active_rooms = self.active_rooms.clone();
         let supervisor = self.supervisor.clone();
+        let event_store = self.event_store.clone();
 
         tokio::spawn(async move {
             while let Some(effect) = rx.recv().await {
@@ -152,8 +159,13 @@ impl RoomService {
                             }
                         }
                     }
-                    SideEffect::PersistSnapshot(snapshot) => {
-                        let _ = repo.save(&snapshot).await;
+                    SideEffect::SaveEngineState { room_id: rid, engine_state } => {
+                        if let Ok(state_str) = serde_json::to_string(&engine_state) {
+                            let _ = repo.save_engine_state(&rid, &state_str).await;
+                        }
+                    }
+                    SideEffect::AppendEvent { event_type, actor_id, payload, .. } => {
+                        let _ = event_store.append(&room_id, &event_type, &actor_id, &payload).await;
                     }
                     SideEffect::GameOver => {
                         tracing::info!(room_id = %room_id, "游戏结束");
@@ -183,6 +195,19 @@ impl RoomService {
                                 .await;
                         }
                     }
+                    SideEffect::AiFailed { actor_id, error } => {
+                        tracing::warn!(
+                            room_id = %room_id, actor_id = %actor_id,
+                            delay_secs = AI_RETRY_DELAY_SECS, error = %error,
+                            "AI 动作失败，{}s 后自动重试（actor 状态机控制次数）", AI_RETRY_DELAY_SECS
+                        );
+                        if let Some(room_tx) = active_rooms.get(&room_id).map(|r| r.value().clone()) {
+                            tokio::spawn(async move {
+                                tokio::time::sleep(std::time::Duration::from_secs(AI_RETRY_DELAY_SECS)).await;
+                                let _ = room_tx.send(RoomCommand::RetryAi { actor_id }).await;
+                            });
+                        }
+                    }
                 }
             }
         });
@@ -200,14 +225,13 @@ impl RoomService {
             .load(room_id)
             .await?
             .ok_or(AppError::RoomNotFound)?;
-        if slot_name != "spectator" && !slot_name.starts_with("spectator") {
-            let slot = snapshot
-                .actor_slots
-                .iter()
-                .find(|s| s.slot_name == slot_name)
-                .ok_or(AppError::Forbidden)?;
-            slot.authorize(&user_id).map_err(AppError::Room)?;
-        }
+
+        let slot = snapshot
+            .actor_slots
+            .iter()
+            .find(|s| s.slot_name == slot_name)
+            .ok_or(AppError::Forbidden)?;
+        slot.authorize(&user_id).map_err(AppError::Room)?;
 
         let room_tx = self
             .active_rooms
@@ -261,33 +285,65 @@ impl RoomService {
 
     pub async fn restore_all(&self) -> Result<(), AppError> {
         let snapshots = self.room_repo.list_all().await.map_err(AppError::Room)?;
-        for snap in snapshots {
-            if let Some(factory) = self.game_registry.get(&snap.game_type) {
-                let engine = match factory.restore(&snap.engine_state) {
-                    Ok(eng) => eng,
-                    Err(e) => {
-                        tracing::error!(room_id = %snap.room_id, error = ?e, "无法恢复引擎，跳过此房间");
-                        continue;
-                    }
-                };
-                let (effect_tx, effect_rx) = mpsc::channel::<SideEffect>(64);
-                let effect_tx_for_handler = effect_tx.clone();
-                let room_tx = spawn_game_room(snap.room_id.clone(), engine, effect_tx);
-                self.spawn_effect_handler(snap.room_id.clone(), effect_tx_for_handler, effect_rx);
-                self.active_rooms
-                    .insert(snap.room_id.clone(), room_tx.clone());
-
-                // 恢复时默认开启保活监控，直到有玩家重连
-                self.supervisor.track(snap.room_id.clone(), room_tx).await;
-                tracing::info!(room_id = %snap.room_id, game_type = %snap.game_type, "房间已成功恢复并加入保活监控");
+        let mut restored = 0usize;
+        let mut skipped = 0usize;
+        for snap in &snapshots {
+            // 跳过已标记为 __defaults__ 的内部房间
+            if snap.room_id == "__defaults__" {
+                continue;
             }
+
+            let factory = match self.game_registry.get(&snap.game_type) {
+                Some(f) => f,
+                None => {
+                    tracing::warn!(room_id = %snap.room_id, game_type = %snap.game_type, "不支持的遊戲类型，跳过");
+                    skipped += 1;
+                    continue;
+                }
+            };
+
+            let engine = match factory.restore(&snap.engine_state) {
+                Ok(eng) => eng,
+                Err(e) => {
+                    tracing::error!(room_id = %snap.room_id, game_type = %snap.game_type, error = ?e, "引擎恢复失败，跳过");
+                    skipped += 1;
+                    continue;
+                }
+            };
+
+            // 已结束的游戏不启动 Actor（保留存档供回放）
+            if engine.is_finished() {
+                tracing::info!(room_id = %snap.room_id, "游戏已结束，跳过 Actor 启动（保留存档）");
+                skipped += 1;
+                continue;
+            }
+
+            let (effect_tx, effect_rx) = mpsc::channel::<SideEffect>(64);
+            let effect_tx_for_handler = effect_tx.clone();
+            let room_tx = spawn_game_room(snap.room_id.clone(), engine, effect_tx);
+            self.spawn_effect_handler(snap.room_id.clone(), effect_tx_for_handler, effect_rx);
+            self.active_rooms
+                .insert(snap.room_id.clone(), room_tx.clone());
+
+            self.supervisor.track(snap.room_id.clone(), room_tx).await;
+            tracing::info!(room_id = %snap.room_id, game_type = %snap.game_type, "房间已成功恢复并加入保活监控");
+            restored += 1;
         }
+        tracing::info!(total = %snapshots.len(), restored, skipped, "restore_all 完成");
         Ok(())
     }
 
-    pub async fn list_public_rooms(&self) -> Result<Vec<RoomSnapshot>, AppError> {
-        let rooms = self.room_repo.list_all().await.map_err(AppError::Room)?;
-        Ok(rooms.into_iter().filter(|r| r.is_public).collect())
+    pub async fn list_public_rooms(
+        &self,
+        game_type: Option<&str>,
+        page: usize,
+        per_page: usize,
+    ) -> Result<(Vec<RoomSnapshot>, usize), AppError> {
+        let (rooms, total) = self.room_repo
+            .list_public_filtered(game_type, page.max(1), per_page.max(1).min(100))
+            .await
+            .map_err(AppError::Room)?;
+        Ok((rooms, total))
     }
 
     pub async fn list_history_rooms(&self, user_id: UserId) -> Result<Vec<RoomSnapshot>, AppError> {
@@ -337,38 +393,63 @@ impl RoomService {
         let slot = snapshot
             .actor_slots
             .iter_mut()
-            .find(|s| s.slot_name == slot_name)
-            .ok_or(AppError::Forbidden)?;
+            .find(|s| s.slot_name == slot_name);
 
-        match &slot.occupant {
-            self::model::ActorOccupant::Empty => {
-                slot.occupant = self::model::ActorOccupant::Human(user_id);
+        let is_new_occupancy = match slot {
+            Some(slot) => match &slot.occupant {
+                self::model::ActorOccupant::Empty => {
+                    slot.occupant = self::model::ActorOccupant::Human(user_id.clone());
+                    true
+                }
+                self::model::ActorOccupant::Human(id) if id == &user_id => {
+                    return Ok(()); // already occupied by same user
+                }
+                _ => {
+                    return Err(AppError::Forbidden); // slot taken or is AI
+                }
+            },
+            None if slot_name == "spectator" => {
+                // Spectator: create a new slot dynamically
+                snapshot.actor_slots.push(self::model::ActorSlot {
+                    slot_name: slot_name.to_string(),
+                    occupant: self::model::ActorOccupant::Human(user_id.clone()),
+                });
+                true
             }
-            self::model::ActorOccupant::Human(id) if id == &user_id => {
-                // 已经占据该位置
-                return Ok(());
+            None => {
+                return Err(AppError::Forbidden);
             }
-            _ => {
-                return Err(AppError::Forbidden); // Slot taken or is AI
-            }
-        }
+        };
 
         self.room_repo
             .save(&snapshot)
             .await
             .map_err(AppError::Room)?;
+
+        // 通知引擎槽位已被占据
+        if is_new_occupancy {
+            if let Some(room_tx) = self.active_rooms.get(room_id) {
+                let _ = room_tx
+                    .send(RoomCommand::SlotOccupied {
+                        slot_name: slot_name.to_string(),
+                        user_id,
+                    })
+                    .await;
+            }
+        }
+
         Ok(())
     }
 }
 
 fn build_slots(input: &CreateRoomInput, owner_id: &UserId) -> Vec<self::model::ActorSlot> {
-    input
+    let mut slots: Vec<self::model::ActorSlot> = input
         .slots
         .iter()
         .map(|name| {
             let occupant = match input.slot_configs.get(name).map(|s| s.as_str()) {
                 Some("human") => {
-                    if name == &input.my_slot || (input.my_slot.is_empty() && name == "spectator") {
+                    if name == &input.my_slot {
                         self::model::ActorOccupant::Human(owner_id.clone())
                     } else {
                         self::model::ActorOccupant::Empty
@@ -382,5 +463,14 @@ fn build_slots(input: &CreateRoomInput, owner_id: &UserId) -> Vec<self::model::A
                 occupant,
             }
         })
-        .collect()
+        .collect();
+
+    if input.my_slot == "spectator" {
+        slots.push(self::model::ActorSlot {
+            slot_name: "spectator".to_string(),
+            occupant: self::model::ActorOccupant::Human(owner_id.clone()),
+        });
+    }
+
+    slots
 }

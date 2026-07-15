@@ -5,7 +5,7 @@ use tracing::{debug, info, warn};
 
 pub mod actions;
 use super::GamePluginProps;
-use crate::services::websocket::WsBridge;
+use crate::services::connection::ConnectionManager;
 use actions::submit_litigation;
 
 // ═══════════════════════════════════════════════════════
@@ -113,7 +113,7 @@ pub fn LincolnGame(props: GamePluginProps) -> Element {
 
                     // ── 流式输出气泡 (AI 正在生成中) ──
                     {
-                        let bridge = use_context::<WsBridge>();
+                        let bridge = use_context::<ConnectionManager>();
                         let streaming = bridge.streaming_text.read();
                         // 找到当前 active_actor 是否有流式内容
                         let streaming_entry = s.active_actor.as_ref()

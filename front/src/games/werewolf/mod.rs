@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use super::GamePluginProps;
 use crate::games::registry::GameConfigProps;
-use crate::services::websocket::WsBridge;
+use crate::services::connection::ConnectionManager;
 
 #[component]
 pub fn WerewolfLobbyCard(props: GameConfigProps) -> Element {
@@ -171,6 +171,9 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
     let is_finished = state.get("phase").and_then(|p| p.get("GameOver")).is_some();
     let my_id = props.actor_id.clone();
 
+    let conn = use_context::<ConnectionManager>();
+    let error_msg = conn.error_message;
+
     let my_role = get_player_role(state.get("players"), &my_id);
     let my_alive = get_player_alive(state.get("players"), &my_id);
     let phase_name = parse_phase_name(state.get("phase"));
@@ -262,7 +265,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
                                 {
                                     let actor = evt.get("actor_id").and_then(|v| v.as_str()).unwrap_or("System");
                                     let is_sys = actor == "System";
-                                    let act_type = evt.get("action_type").and_then(|v| v.as_str()).unwrap_or("");
+                                    let _act_type = evt.get("action_type").and_then(|v| v.as_str()).unwrap_or("");
                                     let d = evt.get("day").and_then(|v| v.as_u64()).unwrap_or(0);
 
                                     rsx! {
@@ -289,7 +292,7 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
 
                 // ── 流式输出气泡 (AI 正在发言中) ──
                 {
-                    let bridge = use_context::<WsBridge>();
+                    let bridge = use_context::<ConnectionManager>();
                     let streaming = bridge.streaming_text.read();
                     let active_actor = state.get("active_actor").and_then(|v| v.as_str());
                     let streaming_entry = active_actor
@@ -378,6 +381,12 @@ pub fn WerewolfGame(props: GamePluginProps) -> Element {
             }
 
             // ── 操作面板 ──
+            if let Some(ref msg) = *error_msg.read() {
+                div { class: "gm-action-error",
+                    span { class: "gm-action-error-icon", "⚠️" }
+                    span { "操作失败: {msg}" }
+                }
+            }
             div { class: if (is_my_turn && !is_finished) || phase_name == "Init" || (phase_name == "DayVote" && my_alive) || (phase_name == "NightWolf" && my_role == "Werewolf" && my_alive) { "gm-action-bar" } else { "gm-action-bar locked" },
                 if phase_name == "Init" {
                     div { class: "gm-action-row", style: "justify-content: center;",
