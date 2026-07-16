@@ -1,0 +1,10 @@
+target/
+node_modules/
+front/
+docs/
+.git/
+.jj/
+dev.db
+*.log
+data/
+backups/

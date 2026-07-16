@@ -7,3 +7,12 @@ ARCHITECTURE.md
 # .sqlx/
 *.db
 migrations/
+app.log
+error.log
+start.sh
+docs/
+front_next/node_modules/
+front_next/dist/
+*.tsbuildinfo
+*.db-journal
+*.db
