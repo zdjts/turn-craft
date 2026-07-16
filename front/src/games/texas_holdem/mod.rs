@@ -834,7 +834,7 @@ fn PokerCard(props: PokerCardProps) -> Element {
 
 const PLAYER_COUNT_OPTIONS: &[usize] = &[2, 3, 4, 5, 6];
 
-pub fn TexasHoldemLobbyCard(props: crate::games::registry::GameConfigProps) -> Element {
+pub fn texas_holdem_lobby_card(props: crate::games::registry::GameConfigProps) -> Element {
     let mut role_config = props.role_config;
     let mut my_role = props.my_role;
     let mut max_round = props.max_round;

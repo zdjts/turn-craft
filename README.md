@@ -1,74 +1,100 @@
-# Turn-Craft
+# Turn Craft — 回合制博弈游戏平台
 
-Turn-Craft 是一个基于 Rust 开发的**大模型多智能体 (Multi-Agent)** 驱动的多人回合制桌游/辩论平台。
+林肯辩论 · 德州扑克 · 狼人杀 · 二十一点。搭配个性化 AI 助手，开启精彩协作。
 
-它提供了一套基于 WebSocket 和有限状态机 (FSM) 的实时游戏引擎框架，允许人类玩家与多个配置了不同性格和策略的 AI 玩家同台同局竞技、推理或辩论。
+## 快速启动
 
-## 🎮 当前包含的游戏
+```bash
+docker compose up -d
+```
 
-目前平台已原生集成了以下三种不同类型的对局：
+浏览器打开 `http://localhost`，注册账号即可开始。
 
-1. **林肯-道格拉斯辩论 (Lincoln-Douglas Debate)**
-   - 结构化的 1v1 辩论赛，包含立论、质询、驳论等多个阶段。
-   - 可配置正反方为 AI 或人类，进行逻辑交锋。
-2. **德州扑克 (Texas Hold'em)**
-   - 经典的桌面扑克博弈游戏。
-   - 展现 AI 对筹码控制、桌面信息阅读以及欺诈 (Bluffing) 的能力。
-3. **狼人杀 (Werewolf)**
-   - 7 人标准局（包含狼人、预言家、女巫、猎人、平民）。
-   - 复杂的多阶段状态扭转（天黑请闭眼、查验、双药、自爆、白天发言与投票）。
-   - 允许人类玩家扮演任意角色混入全 AI 局，或纯旁观 AI 之间的尔虞我诈。
+## 游戏列表
 
-## 🏗️ 架构与模块划分
+| 游戏 | 人数 | 类型 | 说明 |
+|------|------|------|------|
+| 🏛️ 林肯辩论 | 3 人 | main | 法官主持，AI 正反方交锋 |
+| 🃏 德州扑克 | 2-6 人 | main | 经典德扑，盲注博弈 |
+| 🐺 狼人杀 | 7 人 | experimental | 社交推理，狼人暗杀 |
+| 🃏 二十一点 | 1-6 人 | main | 庄家对赌，策略博弈 |
 
-项目采用全 Rust 技术栈 (Rust Backend + Rust Wasm Frontend) 进行构建，包含以下三个核心 Cargo Workspace：
+## 特性
 
-* **`platform_core` (核心抽象引擎)**
-  * 定义了通用的 `GameEngine` Trait。
-  * 包含了各游戏的底层核心逻辑、状态机模型及 Action/Event 定义。
-* **`backend` (后端服务)**
-  * 基于 **Axum** 的高性能 Web 服务器。
-  * **WebSocket 房间模型 (Actor Model)**：每个房间拥有独立的 Tokio 协程 Actor，负责处理多端高并发下的状态原子扭转，并向客户端广播状态快照。
-  * **异步 AI 工作流 (AiWorker)**：后台常驻的 LLM 请求管线，解耦了缓慢的 AI 接口调用与高频的房间网络同步。
-  * **持久化**：使用 **Sqlx (SQLite)** 将房间快照 (Snapshot) 和玩家状态落盘，随时可以断线重连或恢复历史对局。
-* **`front` (前端 Web 客户端)**
-  * 基于 **Dioxus** 编写的 Rust WebAssembly (Wasm) 前端。
-  * 提供游戏大厅、房间创建、选座、全局 AI 提示词 (Prompt) 调整以及各游戏的沉浸式交互界面。
+- **AI 对手** — 7 种行为风格（默认/激进/保守/创意/狡猾/理性/混乱）
+- **LLM 策略评价** — 对局结束后 AI 自动生成策略复盘
+- **多人社交** — 邀请码、观战模式、玩家事件广播
+- **社区系统** — 排行榜、成就系统、个人主页
+- **全量回放** — 每局完整历史，支持分享
 
-## 🚀 快速开始
+## 配置
 
-### 环境依赖
-- Rust (Latest stable)
-- Dioxus CLI (`cargo install dioxus-cli` 或 `cargo binstall dioxus-cli`)
+复制 `.env.example` 为 `.env`，按需修改：
 
-### 启动后端
+```env
+DATABASE_URL=sqlite:///app/data/dev.db
+JWT_SECRET=change-me-to-a-random-string
+DEEPSEEK_API_KEY=sk-xxx          # AI 功能必需
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_MODEL=deepseek-chat
+```
+
+缺少 `DEEPSEEK_API_KEY` 时后端仍可启动，AI 相关功能不可用。
+
+## 开发
+
+### 依赖
+
+- Rust 1.85+
+- Node.js 22+
+- SQLite
+
+### 后端
+
 ```bash
 cd backend
-
-# 配置环境变量（可选，项目内有默认配置 fallback）
-# cp .env.example .env
-
-# 自动运行数据库迁移并启动后端服务器 (默认监听 8080)
-cargo run
+DATABASE_URL="sqlite://dev.db?mode=rwc" cargo run
 ```
 
-### 启动前端
+### 前端
+
 ```bash
-cd front
-
-# 使用 Dioxus 启动本地开发服务器
-dx serve
+cd front_next
+npm install
+npm run dev
 ```
-启动后，在浏览器访问控制台输出的地址 (通常为 `http://localhost:8080` 对于 dx )。
 
-## ⚙️ AI 配置 (Prompt Engineering)
+开发模式下 Vite 代理后端请求到 `localhost:8080`。
 
-对于每一局游戏，你可以在创建房间界面为每个 AI 席位独立配置大模型参数，包括：
-- **API Key** 与 **Base URL** (兼容 OpenAI 接口格式的任何模型服务，如 DeepSeek, GPT-4, Claude 代理等)
-- **模型名称 (Model)** 
-- **系统提示词 (System Prompt)**：系统已为不同角色（如狼人、预言家）预设了基础 Prompt，你可以自行覆盖，比如给某个狼人 AI 添加“性格暴躁，喜欢跳预言家”的隐藏人设。
+### 测试
 
-## 🗺️ 未来规划 (Roadmap)
+```bash
+make test-all       # 全部测试
+make test-core      # 后端核心回归 (7 项)
+make test-platform  # 平台核心
+make test-ui        # UI 路径回归
+make test-front     # 前端组件测试 (Vitest)
+make check          # 编译检查零 warning
+```
 
-我们正在计划向更加数据驱动 (Data-driven) 的方向演进，未来的目标包括：
-* **JSON 驱动的通用状态机 (JSON-driven FSM)**：将当前硬编码 (Hardcode) 在 Rust 里的阶段扭转、技能逻辑完全抽离为 JSON 配置文件。届时实现“血染钟楼”、“阿瓦隆”或“谁是卧底”等新游戏，将无需再编写后端 Rust 逻辑，只需配置游戏规则与动作即可无缝接入 AI 引擎。
+## 架构
+
+```
+front_next/          — React 18 + TypeScript + Vite
+backend/             — Rust + Axum 0.8 + SQLx
+platform_core/       — 游戏引擎核心（trait + 实现）
+docs/                — 协议文档
+```
+
+### 生产部署
+
+```bash
+docker compose build backend   # 首次构建较慢
+docker compose up -d
+./scripts/backup.sh             # 备份数据
+./scripts/restore.sh <file>     # 恢复数据
+```
+
+## 协议
+
+WebSocket 协议详见 `docs/protocol.md`。

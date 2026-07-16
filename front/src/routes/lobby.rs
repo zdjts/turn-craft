@@ -212,7 +212,7 @@ fn GameBrowseView(
                         {
                             let gt = def.game_type.to_string();
                             let cb = on_quick_start.clone();
-                            let cb_cfg = on_enter_config.clone();
+                            let _cb_cfg = on_enter_config.clone();
                             let first_tpl = def.templates.first().map(|t| format!("{} — {}", t.name, t.desc));
                             rsx! {
                                 div {
@@ -296,8 +296,8 @@ fn GameConfigView(
     max_round: Signal<usize>,
     game_config: Signal<Option<Value>>,
     is_public: Signal<bool>,
-    creating: ReadOnlySignal<bool>,
-    onCreate: Callback<()>,
+    creating: ReadSignal<bool>,
+    on_create: Callback<()>,
 ) -> Element {
     let game_name = REGISTRY
         .get(&game_type)
@@ -341,7 +341,7 @@ fn GameConfigView(
 
                 button {
                     class: if *creating.read() { "pg-lobby-create is-loading" } else { "pg-lobby-create" },
-                    onclick: move |_| onCreate.call(()),
+                    onclick: move |_| on_create.call(()),
                     disabled: *creating.read(),
                     if *creating.read() {
                         span { class: "g-spinner" }
@@ -523,46 +523,6 @@ pub fn Lobby() -> Element {
         }
     };
 
-    let template_create = {
-        let mut role_config = role_config;
-        let mut my_role = my_role;
-        let mut max_round = max_round;
-        let mut game_config = game_config;
-        let mut selected_game_type = selected_game_type;
-        let toast = toast.clone();
-        let nav = nav.clone();
-        let mut creating = creating;
-        move |(gt, tpl): (String, RoomTemplate)| {
-            if *creating.read() { return; }
-            selected_game_type.set(gt.clone());
-            role_config.set(tpl.role_config.clone());
-            my_role.set(tpl.my_role.clone());
-            max_round.set(tpl.max_round);
-            game_config.set(tpl.game_config.clone());
-            creating.set(true);
-            let configs = tpl.role_config.clone();
-            let slots = if let Some(def) = REGISTRY.get(&gt) {
-                (def.generate_slots)(&configs)
-            } else {
-                let mut s: Vec<String> = configs.keys().cloned().collect();
-                s.sort(); s
-            };
-            let req = CreateRoomRequest { game_type: gt, max_round: tpl.max_round, my_slot: tpl.my_role, slots, slot_configs: configs, game_config: tpl.game_config, is_public: true };
-            let nav = nav.clone(); let toast = toast.clone();
-            spawn(async move {
-                match create_room(&req).await {
-                    Ok(resp) if resp.status == "success" => {
-                        if let (Some(rid), Some(aid)) = (resp.room_id, resp.actor_id) {
-                            nav.push(super::Route::Game { room_id: rid, actor_id: aid });
-                        }
-                    }
-                    Ok(resp) => { toast.show(resp.message.unwrap_or_else(|| "创建失败".into()), crate::routes::layout::ToastType::Error); }
-                    Err(e) => { toast.show(format!("请求失败: {e}"), crate::routes::layout::ToastType::Error); }
-                }
-            });
-        }
-    };
-
     let config_game_type = match &*mode.read() {
         LobbyMode::Browse => selected_game.read().clone(),
         LobbyMode::Config { game_type } => Some(game_type.clone()),
@@ -633,7 +593,7 @@ pub fn Lobby() -> Element {
                                 game_config,
                                 is_public,
                                 creating,
-                                onCreate: Callback::new(handle_create_room),
+                                on_create: Callback::new(handle_create_room),
                             }
                         },
                     }

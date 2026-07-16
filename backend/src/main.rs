@@ -91,6 +91,7 @@ async fn main() {
     game_registry.register(Box::new(crate::games::lincoln::LincolnFactory));
     game_registry.register(Box::new(crate::games::texas_holdem::TexasHoldemFactory));
     game_registry.register(Box::new(crate::games::werewolf::WerewolfFactory));
+    game_registry.register(Box::new(crate::games::blackjack::BlackjackFactory));
     let game_registry = Arc::new(game_registry);
 
     // 5. 初始化 EventStore
@@ -113,6 +114,7 @@ async fn main() {
         supervisor,
         game_registry,
         event_store.clone(),
+        pool.clone(),
     ));
 
     // 6. 从数据库恢复之前所有的活跃房间

@@ -121,6 +121,37 @@ pub async fn set_room_public(
     Ok(Json(json!({ "status": "success" })))
 }
 
+/// 生成房间邀请链接
+pub async fn create_invite(
+    State(state): State<AppState>,
+    AuthUser(_user_id): AuthUser,
+    Path(room_id): Path<String>,
+) -> Result<Json<Value>, AppError> {
+    let room_service = state.room_service.clone();
+    let rid = room_id;
+    let code = room_service.create_invite(&rid).await?;
+    Ok(Json(json!({ "status": "success", "invite_code": code, "invite_link": format!("/invite/{}", code) })))
+}
+
+/// 通过邀请码查找房间
+pub async fn resolve_invite(
+    State(state): State<AppState>,
+    Path(code): Path<String>,
+) -> Result<Json<Value>, AppError> {
+    let pool = &state.room_service.pool;
+    let room_id: Option<String> = sqlx::query_scalar("SELECT room_id FROM rooms WHERE invite_code = ?")
+        .bind(&code)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| AppError::Internal(e.into()))?
+        .flatten();
+
+    match room_id {
+        Some(rid) => Ok(Json(json!({ "status": "success", "room_id": rid }))),
+        None => Err(AppError::RoomNotFound),
+    }
+}
+
 /// 获取单个房间详情
 pub async fn get_room(
     State(state): State<AppState>,

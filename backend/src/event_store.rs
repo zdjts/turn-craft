@@ -19,12 +19,6 @@ pub struct GameEvent {
 pub trait EventStore: Send + Sync {
     /// 追加一个事件到日志
     async fn append(&self, room_id: &str, event_type: &str, actor_id: &str, payload: &Value) -> Result<i64, RoomError>;
-
-    /// 获取房间的事件列表（分页）
-    async fn list_events(&self, room_id: &str, offset: i64, limit: i64) -> Result<Vec<GameEvent>, RoomError>;
-
-    /// 获取房间当前事件序号
-    async fn current_seq(&self, room_id: &str) -> Result<i64, RoomError>;
 }
 
 pub struct SqliteEventStore {
@@ -64,48 +58,5 @@ impl EventStore for SqliteEventStore {
             .await?;
 
         Ok(seq)
-    }
-
-    async fn list_events(&self, room_id: &str, offset: i64, limit: i64) -> Result<Vec<GameEvent>, RoomError> {
-        use sqlx::Row;
-        let rows = sqlx::query(
-            "SELECT room_id, seq, event_type, actor_id, payload, created_at FROM game_events WHERE room_id = ? ORDER BY seq ASC LIMIT ? OFFSET ?",
-        )
-        .bind(room_id)
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(&self.pool)
-        .await?;
-
-        let events = rows
-            .into_iter()
-            .map(|r| {
-                let room_id: String = r.get("room_id");
-                let seq: i64 = r.get("seq");
-                let event_type: String = r.get("event_type");
-                let actor_id: String = r.get("actor_id");
-                let payload_str: String = r.get("payload");
-                let payload: Value = serde_json::from_str(&payload_str).unwrap_or_default();
-                GameEvent {
-                    room_id,
-                    seq,
-                    event_type,
-                    actor_id,
-                    payload,
-                }
-            })
-            .collect();
-
-        Ok(events)
-    }
-
-    async fn current_seq(&self, room_id: &str) -> Result<i64, RoomError> {
-        let seq: Option<i64> = sqlx::query_scalar(
-            "SELECT event_seq FROM rooms WHERE room_id = ?",
-        )
-        .bind(room_id)
-        .fetch_optional(&self.pool)
-        .await?;
-        Ok(seq.unwrap_or(0))
     }
 }

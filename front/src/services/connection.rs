@@ -23,6 +23,7 @@ pub enum ConnState {
     Connecting,
     Connected,
     Reconnecting { attempts: u32 },
+    Closed,
 }
 
 impl ConnState {
@@ -32,6 +33,7 @@ impl ConnState {
             ConnState::Connecting => "正在连接...",
             ConnState::Connected => "已连接",
             ConnState::Reconnecting { .. } => "重连中...",
+            ConnState::Closed => "房间已关闭",
         }
     }
 }
@@ -132,6 +134,7 @@ pub fn use_connection_manager() -> ConnectionManager {
                                     // --- Connected phase: bidirectional pump ---
                                     let (mut sink, stream) = ws.split();
                                     let mut stream = stream.fuse();
+                                    let mut has_received_state = false;
 
                                     'connected: loop {
                                         select! {
@@ -139,8 +142,12 @@ pub fn use_connection_manager() -> ConnectionManager {
                                             msg = stream.next() => {
                                                 match msg {
                                                     Some(Ok(Message::Text(text))) => {
+                                                        if text.contains("\"type\":\"state\"") || text.contains("\"game_type\"") {
+                                                            has_received_state = true;
+                                                        }
                                                         handle_downstream(
                                                             &text,
+                                                            &mut state,
                                                             &mut opaque_state,
                                                             &mut streaming_text,
                                                             &mut error_message,
@@ -158,7 +165,11 @@ pub fn use_connection_manager() -> ConnectionManager {
                                                     }
                                                     None => {
                                                         info!(target: "conn", "服务器关闭连接");
-                                                        state.set(ConnState::Reconnecting { attempts: retry_count });
+                                                        if has_received_state {
+                                                            state.set(ConnState::Reconnecting { attempts: retry_count });
+                                                        } else {
+                                                            state.set(ConnState::Closed);
+                                                        }
                                                         break 'connected;
                                                     }
                                                 }
@@ -230,6 +241,16 @@ pub fn use_connection_manager() -> ConnectionManager {
                             }
                         }
                     }
+
+                    ConnState::Closed => {
+                        // Room is permanently closed; wait for explicit Disconnect
+                        if let Some(cmd) = rx.next().await {
+                            match cmd {
+                                ManagerCmd::Disconnect => state.set(ConnState::Disconnected),
+                                _ => {} // ignore other commands
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -263,6 +284,7 @@ fn build_ws_url(room_id: &str, actor_id: &str) -> String {
 
 fn handle_downstream(
     text: &str,
+    conn_state: &mut Signal<ConnState>,
     opaque_state: &mut Signal<Value>,
     streaming_text: &mut Signal<HashMap<String, String>>,
     error_message: &mut Signal<Option<String>>,
@@ -352,8 +374,9 @@ fn handle_downstream(
             }
         }
         Err(e) => {
-            if text.contains("room_closed") {
+            if text.contains("room_closed") || text.contains("ROOM_NOT_FOUND") {
                 warn!(target: "conn", "收到房间关闭通知");
+                conn_state.set(ConnState::Closed);
             }
             warn!(target: "conn", error = %e, raw = %text, "JSON 解析失败");
         }

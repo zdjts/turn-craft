@@ -222,11 +222,32 @@ pub fn spawn_game_room(
                         actor_id: actor_id.clone(),
                         payload: Value::Null,
                     }).await;
+                    let spec = actor_id.starts_with("__spectator__");
+                    let join_msg = serde_json::json!({
+                        "type": "player_event",
+                        "event": "joined",
+                        "actor_id": if spec { &actor_id[13..] } else { &actor_id },
+                        "is_spectator": spec,
+                    }).to_string();
+                    for p in peers.iter() {
+                        let _ = p.tx.send(join_msg.clone()).await;
+                    }
                     if let Some(p) = peers.iter().find(|p| p.actor_id == actor_id) {
                         let _ = p.tx.send(engine.to_json_for_player(&actor_id).to_string()).await;
                     }
                 }
                 RoomCommand::Leave(actor_id) => {
+                    // 广播 player_event 给所有 peer（先广播再移除）
+                    let spec = actor_id.starts_with("__spectator__");
+                    let leave_msg = serde_json::json!({
+                        "type": "player_event",
+                        "event": "left",
+                        "actor_id": if spec { &actor_id[13..] } else { &actor_id },
+                        "is_spectator": spec,
+                    }).to_string();
+                    for p in peers.iter().filter(|p| p.actor_id != actor_id) {
+                        let _ = p.tx.send(leave_msg.clone()).await;
+                    }
                     peers.retain(|p| p.actor_id != actor_id);
                     info!(room_id = %room_id, actor_id = %actor_id, "选手离开房间");
                     let _ = effect_tx.send(SideEffect::AppendEvent {

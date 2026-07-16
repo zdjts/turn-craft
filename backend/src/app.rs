@@ -48,6 +48,17 @@ pub fn build_router(state: AppState) -> Router {
             "/rooms/{room_id}/ai-config/{actor_id}",
             put(handlers::ai_config::update_ai_config),
         )
+        .route(
+            "/rooms/{room_id}/ai-insights",
+            get(handlers::ai_insights::get_ai_insights),
+        )
+        .route("/rooms/{room_id}/invite", get(handlers::room::create_invite))
+        .route("/invite/{code}", get(handlers::room::resolve_invite))
+        .route("/leaderboard/games", get(handlers::leaderboard::leaderboard_games))
+        .route("/leaderboard/wins", get(handlers::leaderboard::leaderboard_wins))
+        .route("/leaderboard/experienced", get(handlers::leaderboard::leaderboard_experienced))
+        .route("/leaderboard/by-game/{game_type}", get(handlers::leaderboard::leaderboard_by_game))
+        .route("/users/me/achievements", get(handlers::achievements::get_achievements))
         .route("/ws/{room_id}/{actor_id}", get(handlers::ws::ws_handler))
         .layer(cors)
         .with_state(state)

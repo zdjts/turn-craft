@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum IconSize {
+    #[allow(dead_code)]
     Sm,
     Md,
     Lg,

@@ -22,7 +22,7 @@ impl AppConfig {
     fn from_env() -> Self {
         Self {
             database_url: std::env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "sqlite://dev.db".to_string()),
+                .unwrap_or_else(|_| "sqlite://dev.db?mode=rwc".to_string()),
             jwt_secret: {
                 let secret = std::env::var("JWT_SECRET")
                     .unwrap_or_else(|_| "super-secret-key-change-me".to_string());

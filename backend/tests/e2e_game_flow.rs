@@ -33,7 +33,7 @@ async fn setup() -> (sqlx::SqlitePool, AuthService, RoomService) {
             room_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, game_type TEXT NOT NULL,
             engine_state TEXT NOT NULL, actor_slots TEXT NOT NULL, ai_configs TEXT NOT NULL,
             max_round INTEGER NOT NULL, created_at TEXT NOT NULL,
-            is_public INTEGER NOT NULL DEFAULT 0
+            is_public INTEGER NOT NULL DEFAULT 0, ai_insights TEXT
         )",
     ).execute(&pool).await.unwrap();
 
@@ -69,6 +69,7 @@ async fn setup() -> (sqlx::SqlitePool, AuthService, RoomService) {
         RoomSupervisor::new(),
         Arc::new(registry),
         event_store,
+        pool.clone(),
     );
 
     (pool, auth, room_service)

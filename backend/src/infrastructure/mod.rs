@@ -10,4 +10,4 @@
 //!
 //! 参见 docs/architecture_handover.md 第 5.3 节。
 
-pub use crate::event_store::{EventStore, SqliteEventStore, GameEvent};
+pub use crate::event_store::{EventStore, SqliteEventStore};

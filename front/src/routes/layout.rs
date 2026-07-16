@@ -1,4 +1,4 @@
-use crate::api::{get_token, get_username};
+use crate::api::{get_room, get_token, get_username};
 use crate::icons::{self, IconSize};
 use crate::services::connection;
 use dioxus::prelude::*;
@@ -7,6 +7,7 @@ use dioxus::prelude::*;
 pub enum ToastType {
     Success,
     Info,
+    #[allow(dead_code)]
     Warning,
     Error,
 }
@@ -95,6 +96,41 @@ pub fn AppLayout() -> Element {
     // Current route to highlight active sidebar item
     let current_route = use_route::<super::Route>();
 
+    // ── Feedback context: capture room_id + route for issue body ──
+    let (feedback_room_id, feedback_path) = match &current_route {
+        super::Route::Game { room_id, .. } => (room_id.clone(), current_route.to_string()),
+        super::Route::Settings { room_id, .. } => (room_id.clone(), current_route.to_string()),
+        super::Route::Replay { room_id } => (room_id.clone(), current_route.to_string()),
+        _ => ("N/A".to_string(), current_route.to_string()),
+    };
+    let mut feedback_game_type: Signal<String> = use_signal(|| {
+        if feedback_room_id == "N/A" {
+            "N/A".to_string()
+        } else {
+            "加载中...".to_string()
+        }
+    });
+    {
+        let rid = feedback_room_id.clone();
+        use_effect(move || {
+            if rid != "N/A" {
+                let rid = rid.clone();
+                spawn(async move {
+                    if let Ok(room) = get_room(&rid).await {
+                        feedback_game_type.set(room.game_type);
+                    }
+                });
+            }
+        });
+    }
+    let feedback_url = format!(
+        "https://github.com/anomalyco/turn-craft/issues/new?body={}",
+        js_sys::encode_uri_component(&format!(
+            "## 反馈上下文\n\n- **页面路由**: {}\n- **房间 ID**: {}\n- **游戏类型**: {}\n\n## 反馈内容\n\n(请在此描述您的问题或建议)",
+            feedback_path, feedback_room_id, feedback_game_type.read()
+        ))
+    );
+
     let logout = move |_| {
         crate::api::remove_token();
         crate::api::remove_username();
@@ -148,12 +184,12 @@ pub fn AppLayout() -> Element {
                 }
 
                 div { class: "sidebar-footer",
-                    // 反馈入口
+                    // 反馈入口（自动携带上下文）
                     div {
                         class: "sidebar-feedback",
                         style: "margin-bottom: 12px; text-align: center;",
                         a {
-                            href: "https://github.com/anomalyco/turn-craft/issues/new",
+                            href: "{feedback_url}",
                             target: "_blank",
                             style: "color: var(--text-muted); font-size: 0.85em; text-decoration: none;",
                             "💬 反馈建议"

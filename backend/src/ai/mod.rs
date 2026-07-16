@@ -2,6 +2,7 @@ pub mod client;
 pub mod config_repo;
 pub mod env;
 pub mod error;
+pub mod insights;
 pub mod listener;
 
 use crate::ai::config_repo::AiConfigRepository;

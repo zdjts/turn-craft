@@ -279,7 +279,7 @@ const LINCOLN_ROLES: &[(&str, &str)] = &[
     ("Con", "反方 — 驳论"),
 ];
 
-pub fn LincolnLobbyCard(props: crate::games::registry::GameConfigProps) -> Element {
+pub fn lincoln_lobby_card(props: crate::games::registry::GameConfigProps) -> Element {
     let mut role_config = props.role_config;
     let mut my_role = props.my_role;
     let mut max_round = props.max_round;

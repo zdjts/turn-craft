@@ -1,5 +1,6 @@
 pub mod actor;
 pub mod error;
+pub mod invite;
 pub mod model;
 pub mod repository;
 pub mod supervisor;
@@ -32,6 +33,7 @@ pub struct RoomService {
     supervisor: RoomSupervisor,
     pub game_registry: Arc<GameRegistry>,
     event_store: Arc<dyn EventStore>,
+    pub pool: sqlx::SqlitePool,
 }
 
 impl RoomService {
@@ -42,6 +44,7 @@ impl RoomService {
         supervisor: RoomSupervisor,
         game_registry: Arc<GameRegistry>,
         event_store: Arc<dyn EventStore>,
+        pool: sqlx::SqlitePool,
     ) -> Self {
         Self {
             room_repo,
@@ -51,6 +54,7 @@ impl RoomService {
             supervisor,
             game_registry,
             event_store,
+            pool,
         }
     }
 
@@ -376,6 +380,12 @@ impl RoomService {
 
     pub async fn get_room_snapshot(&self, room_id: &str) -> Result<Option<RoomSnapshot>, AppError> {
         self.room_repo.load(room_id).await.map_err(AppError::Room)
+    }
+
+    /// 获取或生成房间邀请码
+    pub async fn create_invite(&self, room_id: &str) -> Result<String, AppError> {
+        let code = crate::room::invite::get_or_create(&self.pool, room_id).await?;
+        Ok(code)
     }
 
     pub async fn join_slot(

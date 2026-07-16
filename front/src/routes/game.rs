@@ -82,6 +82,7 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
         list
     });
 
+    let is_closed = use_memo(move || *conn_state.read() == ConnState::Closed);
     let conn_state_label = use_memo(move || conn_state.read().as_str().to_string());
     let has_action_error = use_memo(move || conn.action_error.read().is_some());
     let current_error = use_memo(move || conn.action_error.read().clone());
@@ -269,7 +270,19 @@ pub fn Game(room_id: String, actor_id: String) -> Element {
             }
 
             div { class: "pg-arena-viewport",
-                if !connected() {
+                if is_closed() {
+                    div { class: "loading-canvas g-card",
+                        div { class: "closed-icon", style: "font-size: 3rem; text-align: center;", "🚪" }
+                        h3 { "房间已关闭" }
+                        p { "该房间不存在或已结束，请返回大厅。" }
+                        button {
+                            class: "pg-arena-leave",
+                            style: "margin-top: 16px;",
+                            onclick: move |_| { nav.push(super::Route::Lobby {}); },
+                            "← 返回大厅"
+                        }
+                    }
+                } else if !connected() {
                     div { class: "loading-canvas g-card",
                         span { class: "g-spinner" }
                         h3 { "正在建立网络连接" }

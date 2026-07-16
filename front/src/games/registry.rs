@@ -65,7 +65,7 @@ impl GameUIRegistry {
                 description: "经典英式辩论 · 法官裁判 · 正反方交锋",
                 min_players: 3,
                 max_players: 3,
-                lobby_card: crate::games::lincoln::LincolnLobbyCard,
+                lobby_card: crate::games::lincoln::lincoln_lobby_card,
                 game_component: crate::games::lincoln::LincolnGame,
                 default_config: || DefaultGameConfig {
                     role_config: HashMap::from([
@@ -110,7 +110,7 @@ impl GameUIRegistry {
                 description: "2-6 人经典德扑 · 盲注博弈 · 心理对抗",
                 min_players: 2,
                 max_players: 6,
-                lobby_card: crate::games::texas_holdem::TexasHoldemLobbyCard,
+                lobby_card: crate::games::texas_holdem::texas_holdem_lobby_card,
                 game_component: crate::games::texas_holdem::TexasHoldemGame,
                 default_config: || {
                     let mut modes = HashMap::new();

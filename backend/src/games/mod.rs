@@ -1,3 +1,4 @@
+pub mod blackjack;
 pub mod factory;
 pub mod lincoln;
 pub mod texas_holdem;

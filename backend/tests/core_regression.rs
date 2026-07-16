@@ -21,8 +21,8 @@ use backend::games::factory::GameRegistry;
 use backend::user::repository::SqliteUserRepo;
 use backend::room::repository::SqliteRoomRepo;
 use backend::ai::config_repo::SqliteAiConfigRepo;
-use backend::room::model::CreateRoomInput;
 use backend::event_store::SqliteEventStore;
+use backend::room::model::CreateRoomInput;
 
 async fn setup() -> (sqlx::SqlitePool, AuthService, RoomService) {
     let db_url = std::env::var("DATABASE_URL")
@@ -41,7 +41,7 @@ async fn setup() -> (sqlx::SqlitePool, AuthService, RoomService) {
 
     sqlx::query("CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))")
         .execute(&pool).await.unwrap();
-    sqlx::query("CREATE TABLE IF NOT EXISTS rooms (room_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, game_type TEXT NOT NULL, engine_state TEXT NOT NULL, actor_slots TEXT NOT NULL, ai_configs TEXT NOT NULL DEFAULT '{}', max_round INTEGER NOT NULL DEFAULT 16, game_config TEXT NOT NULL DEFAULT '{}', is_public INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), event_seq INTEGER NOT NULL DEFAULT 0)")
+    sqlx::query("CREATE TABLE IF NOT EXISTS rooms (room_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, game_type TEXT NOT NULL, engine_state TEXT NOT NULL, actor_slots TEXT NOT NULL, ai_configs TEXT NOT NULL DEFAULT '{}', max_round INTEGER NOT NULL DEFAULT 16, game_config TEXT NOT NULL DEFAULT '{}', is_public INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), event_seq INTEGER NOT NULL DEFAULT 0, ai_insights TEXT, invite_code TEXT)")
         .execute(&pool).await.unwrap();
     sqlx::query("CREATE TABLE IF NOT EXISTS ai_configs (room_id TEXT NOT NULL, actor_id TEXT NOT NULL, api_key TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', max_tokens INTEGER NOT NULL DEFAULT 2048, prompt TEXT NOT NULL DEFAULT '', style TEXT NOT NULL DEFAULT 'default', PRIMARY KEY (room_id, actor_id))")
         .execute(&pool).await.unwrap();
@@ -70,6 +70,7 @@ async fn setup() -> (sqlx::SqlitePool, AuthService, RoomService) {
         RoomSupervisor::new(),
         Arc::new(registry),
         event_store,
+        pool.clone(),
     );
 
     (pool, auth, room_service)
@@ -170,7 +171,6 @@ async fn test_room_restore() {
 
 #[tokio::test]
 async fn test_event_persistence() {
-    use backend::event_store::EventStore;
     let (pool, auth, room_service) = setup().await;
     let token = auth.register(&unique_user("event"), "123456").await.unwrap();
     let uid = auth.verify_token(&token).await.unwrap();
@@ -192,14 +192,17 @@ async fn test_event_persistence() {
     // 给异步 effect handler 一点时间写入事件
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-    // 验证事件已落库
-    let event_store = SqliteEventStore::new(pool.clone());
-    let events = event_store.list_events(&room_id, 0, 100).await.unwrap();
-    let event_types: Vec<&str> = events.iter().map(|e| e.event_type.as_str()).collect();
+    // 直接 SQL 查询验证事件已落库
+    use sqlx::Row;
+    let rows = sqlx::query("SELECT event_type FROM game_events WHERE room_id = ? ORDER BY seq ASC")
+        .bind(&room_id)
+        .fetch_all(&pool)
+        .await.unwrap();
+    let event_types: Vec<String> = rows.iter().map(|r| r.get("event_type")).collect();
     println!("[test_event_persistence] 事件类型: {:?}", event_types);
 
-    assert!(events.iter().any(|e| e.event_type == "action"), "应有 action 事件");
-    assert!(events.iter().any(|e| e.event_type == "state_change"), "应有 state_change 事件");
+    assert!(event_types.iter().any(|t| t == "action"), "应有 action 事件");
+    assert!(event_types.iter().any(|t| t == "state_change"), "应有 state_change 事件");
     println!("[test_event_persistence] ✅ action + state_change 均已落库");
 }
 
@@ -259,7 +262,6 @@ async fn test_delete_room() {
 
 #[tokio::test]
 async fn test_event_replay_order() {
-    use backend::event_store::EventStore;
     let (pool, auth, room_service) = setup().await;
     let token = auth.register(&unique_user("replay"), "123456").await.unwrap();
     let uid = auth.verify_token(&token).await.unwrap();
@@ -289,20 +291,22 @@ async fn test_event_replay_order() {
     }).await.unwrap();
     rx2.await.unwrap().unwrap();
 
-    // 等待事件完全落库（最多 3 秒）
-    let event_store = SqliteEventStore::new(pool.clone());
-    let mut events;
+    // 直接 SQL 查询，等待事件完全落库（最多 3 秒）
+    use sqlx::Row;
     let mut attempts = 0;
-    loop {
+    let (seqs, event_types) = loop {
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-        events = event_store.list_events(&room_id, 0, 100).await.unwrap();
-        if events.len() >= 4 || attempts > 15 { break; }
+        let rows = sqlx::query("SELECT seq, event_type FROM game_events WHERE room_id = ? ORDER BY seq ASC")
+            .bind(&room_id)
+            .fetch_all(&pool)
+            .await.unwrap();
+        let s: Vec<i64> = rows.iter().map(|r| r.get("seq")).collect();
+        let t: Vec<String> = rows.iter().map(|r| r.get("event_type")).collect();
+        if s.len() >= 4 || attempts > 15 { break (s, t); }
         attempts += 1;
-    }
+    };
 
-    let seqs: Vec<i64> = events.iter().map(|e| e.seq).collect();
-    let types: Vec<&str> = events.iter().map(|e| e.event_type.as_str()).collect();
-    println!("[test_event_replay] seqs={:?} types={:?} (attempts={})", seqs, types, attempts);
+    println!("[test_event_replay] seqs={:?} types={:?} (attempts={})", seqs, event_types, attempts);
 
     assert!(seqs.len() >= 4, "应有至少 4 个事件（2 action + 2 state_change），实际 {}", seqs.len());
 
@@ -312,13 +316,16 @@ async fn test_event_replay_order() {
     }
 
     // 验证包含关键事件类型
-    let type_set: std::collections::HashSet<&str> = types.iter().copied().collect();
+    let type_set: std::collections::HashSet<&str> = event_types.iter().map(|s| s.as_str()).collect();
     assert!(type_set.contains("action"), "应有 action 事件");
     assert!(type_set.contains("state_change"), "应有 state_change 事件");
 
     // 验证 event_seq 同步
-    let current_seq = event_store.current_seq(&room_id).await.unwrap();
-    assert_eq!(current_seq, *seqs.last().unwrap(), "rooms.event_seq 应与最大事件 seq 一致");
+    let db_seq: Option<i64> = sqlx::query_scalar("SELECT event_seq FROM rooms WHERE room_id = ?")
+        .bind(&room_id)
+        .fetch_optional(&pool)
+        .await.unwrap();
+    assert_eq!(db_seq, Some(*seqs.last().unwrap()), "rooms.event_seq 应与最大事件 seq 一致");
 
     println!("[test_event_replay] ✅ 事件 seq 递增 + event_seq 同步正确");
 }

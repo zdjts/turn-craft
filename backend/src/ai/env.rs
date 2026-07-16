@@ -11,6 +11,12 @@ pub enum AiStyle {
     Conservative,
     /// 创意 — 偏好出人意料、非传统的策略
     Creative,
+    /// 狡猾 — 偏好欺骗、虚张声势、隐藏真实意图
+    Deceptive,
+    /// 理性 — 偏好逻辑严密、证据驱动、逐步推理
+    Rational,
+    /// 混乱 — 不可预测、打破常规、高颠覆性
+    Chaotic,
 }
 
 impl AiStyle {
@@ -20,6 +26,9 @@ impl AiStyle {
             AiStyle::Aggressive => "aggressive",
             AiStyle::Conservative => "conservative",
             AiStyle::Creative => "creative",
+            AiStyle::Deceptive => "deceptive",
+            AiStyle::Rational => "rational",
+            AiStyle::Chaotic => "chaotic",
         }
     }
 
@@ -28,6 +37,9 @@ impl AiStyle {
             "aggressive" => AiStyle::Aggressive,
             "conservative" => AiStyle::Conservative,
             "creative" => AiStyle::Creative,
+            "deceptive" => AiStyle::Deceptive,
+            "rational" => AiStyle::Rational,
+            "chaotic" => AiStyle::Chaotic,
             _ => AiStyle::Default,
         }
     }
@@ -39,6 +51,9 @@ impl AiStyle {
             AiStyle::Aggressive => "风格要求：采取激进策略，偏好高风险高回报的行动。不要过于保守。",
             AiStyle::Conservative => "风格要求：采取保守策略，优先保证安全，避免不必要的风险。",
             AiStyle::Creative => "风格要求：发挥创意，使用非传统策略。不要总是按常规出牌，要让对手难以预测。",
+            AiStyle::Deceptive => "风格要求：采取狡猾策略。偏好虚张声势、埋设陷阱、隐藏真实意图。在适当时机误导对手，让对手做出错误判断。不要在言行中直接暴露自己的真实想法。",
+            AiStyle::Rational => "风格要求：采取理性策略。偏好逻辑链推演、证据驱动决策、逐步推理。行动前先分析局势，给出合理理由。避免情绪化和冲动决策。",
+            AiStyle::Chaotic => "风格要求：采取混乱策略。偏好不可预测的行动、打破常规、高颠覆性。不要遵循固定模式，让对手无法预判你的下一步。大胆尝试非常规操作。",
         }
     }
 }
