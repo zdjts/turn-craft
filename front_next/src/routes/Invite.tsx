@@ -27,7 +27,7 @@ export default function InvitePage() {
           <>
             <h2>🚪 房间已关闭</h2>
             <p>{error}</p>
-            <button className="g-btn g-btn-primary" onClick={() => navigate('/')} style={{ marginTop: 16 }}>
+            <button className="g-btn g-btn-primary" onClick={() => navigate('/lobby')} style={{ marginTop: 16 }}>
               返回大厅
             </button>
           </>

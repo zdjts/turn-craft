@@ -12,6 +12,7 @@ import './styles/profile.css';
 import './styles/about.css';
 import './styles/public.css';
 import './styles/poker.css';
+import './styles/landing.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

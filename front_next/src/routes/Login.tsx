@@ -12,7 +12,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) {
-    navigate('/', { replace: true });
+    navigate('/lobby', { replace: true });
     return null;
   }
 
@@ -26,7 +26,7 @@ export default function Login() {
       } else {
         await register(username, password);
       }
-      navigate('/', { replace: true });
+      navigate('/lobby', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败');
     } finally {

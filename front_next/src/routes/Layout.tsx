@@ -30,8 +30,8 @@ export default function AppLayout() {
 
         <div className="sidebar-menu">
           <Link
-            to="/"
-            className={isActive('/') ? 'menu-item is-active' : 'menu-item'}
+            to="/lobby"
+            className={isActive('/lobby') ? 'menu-item is-active' : 'menu-item'}
           >
             <span className="menu-label">游戏大厅</span>
           </Link>

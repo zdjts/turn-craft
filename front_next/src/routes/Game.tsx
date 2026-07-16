@@ -67,7 +67,7 @@ export default function Game() {
 
   const handleLeave = () => {
     ws.disconnect();
-    navigate('/');
+    navigate('/lobby');
   };
 
   return (
@@ -193,7 +193,7 @@ export default function Game() {
             <div style={{ fontSize: '3rem', textAlign: 'center' }}>🚪</div>
             <h3>房间已关闭</h3>
             <p>该房间不存在或已结束，请返回大厅。</p>
-            <button className="pg-arena-leave" style={{ marginTop: 16 }} onClick={() => navigate('/')}>
+            <button className="pg-arena-leave" style={{ marginTop: 16 }} onClick={() => navigate('/lobby')}>
               ← 返回大厅
             </button>
           </div>
@@ -239,7 +239,7 @@ export default function Game() {
                       📖 查看复盘
                     </button>
                     {!isSpectator && (
-                      <button className="g-card-subtle" style={{ padding: '10px 16px' }} onClick={() => navigate('/')}>
+                      <button className="g-card-subtle" style={{ padding: '10px 16px' }} onClick={() => navigate('/lobby')}>
                         🔄 再来一局
                       </button>
                     )}

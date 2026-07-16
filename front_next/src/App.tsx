@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
 import AppLayout from './routes/Layout';
 import Login from './routes/Login';
+import Landing from './routes/Landing';
 import Lobby from './routes/Lobby';
 import History from './routes/History';
 import PublicRooms from './routes/Public';
@@ -25,6 +26,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/invite/:code" element={<InvitePage />} />
           <Route
@@ -34,7 +36,7 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route path="/" element={<Lobby />} />
+            <Route path="/lobby" element={<Lobby />} />
             <Route path="/history" element={<History />} />
             <Route path="/public" element={<PublicRooms />} />
             <Route path="/profile" element={<Profile />} />

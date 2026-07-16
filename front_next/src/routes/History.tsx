@@ -56,7 +56,7 @@ export default function History() {
           <div className="empty-icon">📜</div>
           <h3>暂无对局历史</h3>
           <p>您尚未创建过对局，快去大厅发起一场博弈吧！</p>
-          <button className="pg-history-go" onClick={() => navigate('/')}>前往大厅</button>
+          <button className="pg-history-go" onClick={() => navigate('/lobby')}>前往大厅</button>
         </div>
       ) : (
         <div className="pg-history-list">
