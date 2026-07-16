@@ -1,0 +1,152 @@
+/* ═══════════════════════════════════════════════════════
+   Turn Craft — AI Settings Page Styles
+   ═══════════════════════════════════════════════════════ */
+
+.pg-settings {
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.pg-settings-layout {
+  border-radius: 16px;
+  padding: 32px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pg-settings-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  border-left: 4px solid var(--accent);
+  padding-left: 12px;
+  line-height: 1;
+}
+
+.pg-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pg-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .pg-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pg-settings-prompt {
+  resize: vertical;
+  min-height: 180px;
+  max-height: 400px;
+  line-height: 1.6;
+}
+
+.pg-settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-dim);
+}
+
+.pg-settings-cancel {
+  padding: 12px 24px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.pg-settings-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.pg-settings-save {
+  padding: 12px 28px;
+  font-size: 14.5px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.pg-settings-save:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+}
+
+.pg-settings-save:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.pg-settings-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── AI Actor Switcher Tabs ────────────────────────── */
+
+.pg-settings-tabs {
+  display: flex;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-dim);
+  padding-bottom: 20px;
+  margin-bottom: 12px;
+}
+
+.pg-settings-tab {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.pg-settings-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.pg-settings-tab.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+}
+

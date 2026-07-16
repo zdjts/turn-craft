@@ -1,0 +1,159 @@
+/* ═══════════════════════════════════════════════════════
+   Turn Craft — Public Active Rooms page
+   ═══════════════════════════════════════════════════════ */
+
+.pg-public {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.pg-public-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.pg-public-card {
+  border-radius: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: var(--transition-smooth);
+}
+
+.pg-public-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.pg-public-banner {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border-dim);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.game-icon-large {
+  font-size: 28px;
+}
+
+.pg-public-banner h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.pg-public-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.room-id-badge {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.15);
+  padding: 6px 12px;
+  border-radius: 6px;
+  align-self: flex-start;
+  border: 1px solid var(--border-dim);
+}
+
+.slots-indicator-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slots-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.slots-count {
+  color: var(--accent);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.pg-public-meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border-dim);
+  padding-top: 14px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.meta-row .label {
+  color: var(--text-muted);
+}
+
+.meta-row .value {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.pg-public-footer {
+  padding: 16px 24px 24px 24px;
+}
+
+.pg-public-join {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.pg-public-join.primary {
+  background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+}
+
+.pg-public-join.primary:hover {
+  box-shadow: 0 6px 14px rgba(16, 185, 129, 0.35);
+  transform: translateY(-1px);
+}
+
+.pg-public-join.secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.pg-public-join.secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.15);
+}

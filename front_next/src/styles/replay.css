@@ -1,0 +1,328 @@
+/* ═══════════════════════════════════════════════════════
+   Turn Craft — Replay Page Styles
+   ═══════════════════════════════════════════════════════ */
+
+.pg-replay {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.pg-replay-detail {
+  border-radius: 16px;
+  padding: 32px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.pg-replay-meta-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.pg-replay-meta-header .pg-replay-meta-badge {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 8px;
+  padding: 6px 14px;
+}
+
+.pg-replay-meta-header .pg-replay-meta-item {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.pg-replay-body {
+  flex: 1;
+}
+
+/* Lincoln Replay View */
+.lincoln-replay-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pg-replay-round {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pg-replay-timeline {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid var(--border-dim);
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+/* Texas Holdem Replay View */
+.texas-replay-view {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.texas-replay-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.texas-replay-stats .pg-replay-stat {
+  padding: 20px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.stat-val {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--accent);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.stat-lbl {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* Mini Poker Cards */
+.community-cards-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.community-cards-section h4,
+.showdown-replay-section h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+}
+
+.community-cards-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+
+.empty-lbl {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.poker-card-mini {
+  width: 52px;
+  height: 72px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  font-family: "Inter", sans-serif;
+  user-select: none;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.poker-card-mini:hover {
+  transform: translateY(-4px);
+}
+
+.poker-card-mini .rank {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.poker-card-mini .suit {
+  font-size: 18px;
+  align-self: flex-end;
+  line-height: 1;
+}
+
+.poker-card-mini.card-red {
+  color: #ef4444;
+}
+
+.poker-card-mini.card-black {
+  color: #1e293b;
+}
+
+/* Showdown results */
+.showdown-replay-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.showdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-replay-showdown {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
+  font-size: 14px;
+  transition: var(--transition-smooth);
+}
+
+.pg-replay-showdown.winner {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%);
+}
+
+.showdown-winner-icon {
+  font-size: 18px;
+}
+
+.showdown-player {
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 120px;
+}
+
+.showdown-rank {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.winner-tag {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: rgba(16, 185, 129, 0.12);
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* ── Header Actions ─────────────────────────────────── */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.header-left {
+  flex: 1;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.pg-replay-back {
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85em;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: border-color 0.2s;
+}
+.pg-replay-back:hover {
+  border-color: var(--accent);
+}
+.pg-replay-share {
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85em;
+  border: 1px solid var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  transition: opacity 0.2s;
+}
+.pg-replay-share:hover {
+  opacity: 0.8;
+}
+
+/* ── Play Again ─────────────────────────────────────── */
+
+.pg-replay-actions {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  border-radius: 10px;
+  margin-top: -4px;
+}
+.pg-replay-play-again {
+  padding: 10px 28px;
+  border-radius: 10px;
+  font-size: 0.95em;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--accent);
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent);
+  transition: background 0.2s, transform 0.15s;
+}
+.pg-replay-play-again:hover {
+  background: rgba(16, 185, 129, 0.2);
+  transform: scale(1.02);
+}
+
+/* ── Result Summary ─────────────────────────────────── */
+
+.pg-replay-summary {
+  padding: 16px 20px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.summary-row {
+  padding: 4px 0;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+.summary-row span {
+  line-height: 1.6;
+}

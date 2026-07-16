@@ -1,0 +1,1055 @@
+/* ═══════════════════════════════════════════════════════
+   Turn Craft — Lobby Styles
+   ═══════════════════════════════════════════════════════ */
+
+.pg-lobby {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 0;
+}
+
+.pg-lobby-banner {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.1) 0%,
+    rgba(52, 211, 153, 0.02) 100%
+  );
+  border: 1px solid rgba(52, 211, 153, 0.15);
+  border-radius: 16px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pg-lobby-banner h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.pg-lobby-banner p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.pg-lobby-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 32px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .pg-lobby-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pg-lobby-left {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+
+
+/* ── Game Grid (Browse View) ─────────────────────────── */
+
+.pg-lobby-games {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.pg-lobby-game-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 20px;
+  border-radius: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pg-lobby-game-card:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+.pg-lobby-game-card.is-selected {
+  border-color: var(--accent);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.08) 0%,
+    rgba(16, 185, 129, 0.02) 100%
+  );
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.15);
+}
+
+.pg-lobby-game-icon {
+  font-size: 40px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+}
+
+.pg-lobby-game-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pg-lobby-game-card-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.pg-lobby-game-card-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ── Card actions — always visible ──────────── */
+
+.pg-lobby-game-card-actions {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.pg-lobby-game-card-actions-inner {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-dim);
+}
+
+.pg-lobby-quick-start {
+  padding: 10px 24px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), #059669);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pg-lobby-quick-start:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.pg-lobby-config-toggle {
+  padding: 10px 20px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pg-lobby-config-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+/* ── Config Panel (View B) ───────────────────────────── */
+
+.pg-lobby-config-panel {
+  padding: 28px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pg-lobby-config-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: color 0.15s ease;
+}
+
+.pg-lobby-config-back:hover {
+  color: var(--accent);
+}
+
+.pg-lobby-config-panel h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Config Form ────────────────────────────────────── */
+
+.pg-lobby-config {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pg-lobby-inline {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 12px !important;
+}
+
+.pg-lobby-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Checkbox Switch styling */
+.styled-checkbox {
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--border-subtle);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.styled-checkbox:checked {
+  background: var(--accent);
+}
+
+.styled-checkbox::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.styled-checkbox:checked::before {
+  transform: translateX(20px);
+}
+
+/* Lincoln / Texas specific lobby config sub-styles */
+.pg-lobby-roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.pg-lobby-role-card {
+  padding: 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pg-lobby-role-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pg-lobby-role-card.selected {
+  border-color: var(--accent);
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.pg-lobby-role-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pg-lobby-role-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.role-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.role-badge.human {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent);
+}
+
+.role-badge.ai {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.pg-lobby-role-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.pg-lobby-counts {
+  display: flex;
+  gap: 10px;
+}
+
+.pg-lobby-count-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-dim);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pg-lobby-count-btn:hover {
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.pg-lobby-count-btn.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+/* ── Seats Toggle Grid (Texas Holdem) ──────────────── */
+
+.pg-lobby-seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.pg-lobby-seat-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-dim);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 6px;
+}
+
+.pg-lobby-seat-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.pg-lobby-seat-btn.human {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.pg-lobby-seat-btn.ai {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.pg-lobby-seat-icon {
+  font-size: 24px;
+}
+
+.pg-lobby-seat-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pg-lobby-seat-status {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pg-lobby-seat-btn.human .pg-lobby-seat-status {
+  color: var(--accent);
+}
+
+.pg-lobby-seat-btn.ai .pg-lobby-seat-status {
+  color: #60a5fa;
+}
+
+/* Create button */
+.pg-lobby-create {
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.pg-lobby-create:hover {
+  box-shadow: 0 6px 20px rgba(52, 211, 153, 0.35);
+  transform: translateY(-1px);
+}
+
+.pg-lobby-create:active {
+  transform: translateY(0);
+}
+
+.pg-lobby-create.is-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.pg-lobby-create.is-loading:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Lobby Right Column: Active Public Rooms ──────────── */
+
+.pg-lobby-right {
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.pg-lobby-rooms-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pg-lobby-rooms-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pg-lobby-refresh {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+}
+
+.pg-lobby-refresh:hover {
+  color: var(--accent);
+  transform: rotate(180deg);
+}
+
+.pg-lobby-rooms {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pg-lobby-room-card {
+  padding: 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.pg-lobby-room-card:hover {
+  border-color: rgba(52, 211, 153, 0.25);
+  transform: translateX(2px);
+}
+
+.pg-lobby-room-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pg-lobby-room-game {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pg-lobby-room-slots {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(52, 211, 153, 0.1);
+  color: var(--accent);
+}
+
+.pg-lobby-room-mid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pg-lobby-room-id {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-secondary);
+}
+
+.pg-lobby-room-meta,
+.pg-lobby-room-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.pg-lobby-join {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pg-lobby-join.player {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.pg-lobby-join.player:hover {
+  background: #059669;
+}
+
+.pg-lobby-join.spectator {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.pg-lobby-join.spectator:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+
+.empty-icon {
+  font-size: 32px;
+}
+
+
+/* ── Texas Hold'em Lobby Specific Styles ──────────────── */
+
+.pg-lobby-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
+.pg-lobby-mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-secondary);
+}
+
+.pg-lobby-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(52, 211, 153, 0.4);
+  transform: translateY(-2px);
+}
+
+.pg-lobby-mode-btn.is-active {
+  background: rgba(52, 211, 153, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 4px 15px rgba(52, 211, 153, 0.15);
+}
+
+.pg-lobby-mode-icon {
+  font-size: 32px;
+  margin-bottom: 4px;
+  transition: transform 0.2s ease;
+}
+
+.pg-lobby-mode-btn:hover .pg-lobby-mode-icon {
+  transform: scale(1.1);
+}
+
+.pg-lobby-mode-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pg-lobby-mode-desc {
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.pg-lobby-texas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.pg-lobby-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pg-lobby-config-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pg-lobby-config-field input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-dim);
+  color: var(--text-primary);
+  font-family: "JetBrains Mono", monospace;
+  transition: all 0.2s ease;
+}
+
+.pg-lobby-config-field input:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Game Lobby Card Shared Styles
+   (used by DynamicLobbyCard — shared across all games)
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Role Cards (Lincoln, Werewolf) ─────────────────── */
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.role-card {
+  padding: 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.role-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.role-card.selected {
+  border-color: var(--accent);
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.role-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.role-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.role-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ── Player Count Buttons (Texas Hold'em) ───────────── */
+
+.player-count-grid {
+  display: flex;
+  gap: 10px;
+}
+
+.count-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-dim);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.count-btn:hover {
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.count-btn.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+/* ── Seats Toggle Grid (Texas Hold'em, Werewolf) ────── */
+
+.seats-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.seat-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-dim);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 6px;
+  font-family: inherit;
+}
+
+.seat-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.seat-btn.human {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.seat-btn.ai {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.seat-icon {
+  font-size: 24px;
+}
+
+.seat-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.seat-status {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.seat-btn.human .seat-status {
+  color: var(--accent);
+}
+
+.seat-btn.ai .seat-status {
+  color: #60a5fa;
+}
+
+/* ── Mode Toggle (Texas Hold'em, Werewolf) ──────────── */
+
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-secondary);
+  font-family: inherit;
+}
+
+.mode-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(52, 211, 153, 0.4);
+  transform: translateY(-2px);
+}
+
+.mode-btn.selected {
+  background: rgba(52, 211, 153, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 4px 15px rgba(52, 211, 153, 0.15);
+}
+
+.mode-icon {
+  font-size: 32px;
+  margin-bottom: 4px;
+  transition: transform 0.2s ease;
+}
+
+.mode-btn:hover .mode-icon {
+  transform: scale(1.1);
+}
+
+.mode-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mode-desc {
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ── Texas Hold'em Config Fields ────────────────────── */
+
+.texas-config {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.config-field input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-dim);
+  color: var(--text-primary);
+  font-family: "JetBrains Mono", monospace;
+  transition: all 0.2s ease;
+}
+
+.config-field input:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* ── Quick Guide (lobby game help) ───────────────────── */
+
+.pg-lobby-quick-guide {
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.12);
+}
+.pg-lobby-quick-guide-title {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.pg-lobby-quick-guide-line {
+  font-size: 0.87em;
+  color: var(--text-secondary);
+  padding: 4px 0;
+  line-height: 1.5;
+}
+
+/* ── Lobby Templates ────────────────────────────────── */
+
+.pg-lobby-template-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.pg-lobby-template-card {
+  flex: 1;
+  min-width: 180px;
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pg-lobby-template-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.pg-lobby-template-icon {
+  font-size: 1.4em;
+}
+.pg-lobby-template-name {
+  font-weight: 600;
+  font-size: 0.92em;
+  color: var(--text-primary);
+}
+.pg-lobby-template-desc {
+  font-size: 0.78em;
+  color: var(--text-muted);
+}
+
+/* ── Recommend Section ──────────────────────────────── */
+.pg-lobby-recommend {
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+.pg-lobby-recommend-title {
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--amber);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pg-lobby-recommend-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.pg-lobby-recommend-card {
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s;
+}
+.pg-lobby-recommend-card:hover {
+  border-color: var(--amber);
+  transform: translateY(-1px);
+}
+.pg-lobby-recommend-icon {
+  font-size: 1.6em;
+}
+.pg-lobby-recommend-body {
+  flex: 1;
+  min-width: 0;
+}
+.pg-lobby-recommend-name {
+  font-weight: 600;
+  font-size: 0.92em;
+  color: var(--text-primary);
+}
+.pg-lobby-recommend-desc {
+  font-size: 0.78em;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pg-lobby-recommend-tag {
+  font-size: 0.72em;
+  color: var(--amber);
+  background: var(--amber-dim);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}

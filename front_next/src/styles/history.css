@@ -1,0 +1,286 @@
+/* ═══════════════════════════════════════════════════════
+   Turn Craft — History Page Styles
+   ═══════════════════════════════════════════════════════ */
+
+.pg-history {
+  max-width: 1000px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.pg-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pg-history-card {
+  border-radius: 16px;
+  padding: 24px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 1.6fr;
+  gap: 24px;
+  align-items: center;
+  transition: var(--transition-smooth);
+}
+
+.pg-history-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 768px) {
+  .pg-history-card {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.pg-pg-history-card-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.game-badge {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pg-pg-history-card-mid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.meta-item .label {
+  color: var(--text-muted);
+}
+
+.meta-item .value {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.pg-pg-history-card-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-self: stretch;
+}
+
+/* Visibility Toggle Switch */
+.pg-history-visibility {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .pg-history-visibility {
+    justify-content: flex-start;
+  }
+}
+
+.pg-history-vis-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.pg-history-toggle {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.pg-history-toggle.is-active {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+}
+
+.pg-history-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+/* Action button row */
+.actions-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .actions-row {
+    justify-content: flex-start;
+  }
+}
+
+.g-btn-ghost {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.g-btn-ghost:hover {
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.g-btn-ghost.replay:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.g-btn-ghost.spectate:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--text-secondary);
+}
+
+.g-btn-ghost.delete {
+  color: var(--red);
+  border-color: rgba(244, 63, 94, 0.15);
+}
+
+.g-btn-ghost.delete:hover {
+  background: var(--red-dim);
+  border-color: var(--red);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.2);
+}
+
+/* ── Delete confirmation modal ──────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: anim-fade-in 0.2s ease-out;
+}
+
+.modal-confirm {
+  max-width: 420px;
+  width: 90%;
+  padding: 32px;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.modal-confirm h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+
+.modal-confirm p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 24px 0;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.modal-btn {
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  border: 1px solid var(--border-subtle);
+}
+
+.modal-btn.cancel {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.modal-btn.cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.modal-btn.confirm-delete {
+  background: var(--red-dim);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.modal-btn.confirm-delete:hover {
+  background: var(--red);
+  color: #ffffff;
+}
+
+/* ── Refresh button (large) ─────────────────────────── */
+
+.refresh-btn-large {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-btn-large:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.15);
+}
